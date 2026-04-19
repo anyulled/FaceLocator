@@ -89,6 +89,32 @@ describe("attendee repository", () => {
     });
   });
 
+  it("treats repeated completion calls as idempotent", () => {
+    const registration = inMemoryAttendeeRepository.createRegistrationIntent(
+      {
+        ...baseRequest,
+        submissionKey: "complete-twice-key",
+      },
+      mockUploadGateway,
+    );
+
+    const firstCompletion = inMemoryAttendeeRepository.completeRegistration(
+      registration.registrationId,
+      "2026-04-19T10:00:00.000Z",
+    );
+    const secondCompletion = inMemoryAttendeeRepository.completeRegistration(
+      registration.registrationId,
+      "2026-04-19T10:05:00.000Z",
+    );
+
+    expect(firstCompletion).toEqual({
+      registrationId: registration.registrationId,
+      status: "PROCESSING",
+      message: "Your selfie is being processed now.",
+    });
+    expect(secondCompletion).toEqual(firstCompletion);
+  });
+
   it("raises typed not-found errors for missing registrations", () => {
     expect(() =>
       inMemoryAttendeeRepository.getRegistrationStatus("reg_missing"),

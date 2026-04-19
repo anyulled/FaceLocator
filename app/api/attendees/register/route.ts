@@ -8,7 +8,14 @@ import { getEventBySlug } from "@/lib/events/queries";
 
 export async function POST(request: Request) {
   try {
-    const payload = validateRegistrationIntentRequest(await request.json());
+    const requestBody = await request.json().catch(() => {
+      throw createApiError(
+        400,
+        "INTERNAL_ERROR",
+        "Request body must be a JSON object.",
+      );
+    });
+    const payload = validateRegistrationIntentRequest(requestBody);
     const event = await getEventBySlug(payload.eventSlug);
 
     if (!event) {

@@ -29,4 +29,14 @@ describe("enrollment state machine", () => {
     expect(processing.value).toBe("PROCESSING");
     expect(enrolled.value).toBe("ENROLLED");
   });
+
+  it("ignores impossible transitions and allows reset from terminal states", () => {
+    const impossible = transitionEnrollmentState(enrollmentInitialState, {
+      type: "UPLOAD_STARTED",
+    });
+    const reset = transitionEnrollmentState({ value: "FAILED" }, { type: "RESET" });
+
+    expect(impossible.value).toBe("IDLE");
+    expect(reset.value).toBe("IDLE");
+  });
 });

@@ -29,6 +29,30 @@ Open [http://localhost:3000](http://localhost:3000), then visit `/events/speaker
 - `lib/attendees/repository.ts` is the current in-memory persistence seam.
 - `lib/attendees/telemetry.ts` is a no-op placeholder for future analytics wiring.
 
+## AWS POC Scope
+
+AWS infrastructure work is tracked separately in [aws_poc_ticket_pack/README.md](/Users/anyulled/IdeaProjects/FaceLocator/aws_poc_ticket_pack/README.md) and begins with an intentionally narrow POC boundary:
+
+- single AWS region
+- Terraform-managed infrastructure
+- least-privilege IAM with no root-user operational flow
+- S3 buckets for selfies and event photos
+- Lambda functions for selfie enrollment and event-photo preparation
+- Rekognition collection
+- PostgreSQL-compatible persistence boundary
+- Secrets Manager
+- CloudWatch logging
+- GDPR lifecycle and deletion controls
+
+The AWS POC explicitly excludes:
+
+- high availability and redundancy work
+- sharding or multi-region design
+- Step Functions, EventBridge, SQS, WAF, CDN, and broad CI/CD plumbing
+- platform hardening that is not directly required by a ticketed need
+
+No AWS resource should be introduced unless it maps directly to a ticket in `aws_poc_ticket_pack`.
+
 ## Commands
 
 ```bash

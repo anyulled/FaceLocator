@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { AttendeeEnrollmentForm } from "@/components/events/attendee-enrollment-form";
-import { getEventBySlug } from "@/lib/events/queries";
+import { getEventRegistrationPageData } from "@/lib/events/queries";
 
 type EventRegistrationPageProps = {
   params: Promise<{
@@ -13,7 +13,7 @@ export default async function EventRegistrationPage({
   params,
 }: EventRegistrationPageProps) {
   const { eventSlug } = await params;
-  const event = await getEventBySlug(eventSlug);
+  const event = await getEventRegistrationPageData(eventSlug);
 
   if (!event) {
     notFound();
@@ -54,7 +54,7 @@ export default async function EventRegistrationPage({
               fontSize: "0.78rem",
             }}
           >
-            Event registration
+            {event.eyebrow}
           </p>
           <h1
             style={{
@@ -83,15 +83,9 @@ export default async function EventRegistrationPage({
             </p>
             <p>
               <strong>Event date:</strong>{" "}
-              {new Intl.DateTimeFormat("en", {
-                dateStyle: "full",
-                timeStyle: "short",
-              }).format(new Date(event.scheduledAt))}
+              {event.formattedScheduledAt}
             </p>
-            <p>
-              Upload flow stays mock-backed in this scaffold so the future AWS
-              substitution remains isolated.
-            </p>
+            <p>{event.supportCopy}</p>
           </div>
         </section>
 
@@ -105,7 +99,7 @@ export default async function EventRegistrationPage({
             backdropFilter: "blur(16px)",
           }}
         >
-          <AttendeeEnrollmentForm event={event} />
+          <AttendeeEnrollmentForm {...event.formProps} />
         </section>
       </div>
     </main>

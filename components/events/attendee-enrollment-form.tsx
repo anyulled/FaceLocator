@@ -14,7 +14,6 @@ import {
 import type {
   ApiErrorField,
   ApiErrorResponse,
-  EnrollmentEventSummary,
 } from "@/lib/attendees/contracts";
 import { API_ERROR_FIELDS } from "@/lib/attendees/contracts";
 import { mapApiErrorToFieldErrors } from "@/lib/attendees/mapper";
@@ -27,18 +26,16 @@ import {
   validateRegistrationIntentRequest,
 } from "@/lib/attendees/schemas";
 import { trackEnrollmentEvent } from "@/lib/attendees/telemetry";
+import type { EnrollmentFormEventProps } from "@/lib/events/queries";
 
 type FieldErrors = Partial<Record<ApiErrorField, string>>;
-
-type AttendeeEnrollmentFormProps = {
-  event: EnrollmentEventSummary;
-};
 
 const POLL_INTERVAL_MS = 1200;
 
 export function AttendeeEnrollmentForm({
-  event,
-}: AttendeeEnrollmentFormProps) {
+  eventSlug,
+  eventTitle,
+}: EnrollmentFormEventProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
@@ -52,8 +49,8 @@ export function AttendeeEnrollmentForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
-    trackEnrollmentEvent("enrollment_form_viewed", { eventSlug: event.slug });
-  }, [event.slug]);
+    trackEnrollmentEvent("enrollment_form_viewed", { eventSlug });
+  }, [eventSlug]);
 
   const previewUrl = useMemo(() => {
     return selectedFile ? URL.createObjectURL(selectedFile) : null;
@@ -81,7 +78,7 @@ export function AttendeeEnrollmentForm({
       if (status.status === "ENROLLED") {
         setMachine({ value: "ENROLLED" });
         setStatusMessage(status.message);
-        trackEnrollmentEvent("enrollment_completed", { eventSlug: event.slug });
+        trackEnrollmentEvent("enrollment_completed", { eventSlug });
         isPolling = false;
         return;
       }
@@ -89,7 +86,7 @@ export function AttendeeEnrollmentForm({
       if (status.status === "FAILED" || status.status === "CANCELLED") {
         setMachine({ value: "FAILED" });
         setStatusMessage(status.message);
-        trackEnrollmentEvent("enrollment_failed", { eventSlug: event.slug });
+        trackEnrollmentEvent("enrollment_failed", { eventSlug });
         isPolling = false;
         return;
       }
@@ -110,7 +107,7 @@ export function AttendeeEnrollmentForm({
 
     try {
       const payload = validateRegistrationIntentRequest({
-        eventSlug: event.slug,
+        eventSlug,
         name,
         email,
         contentType: selectedFile?.type ?? "",
@@ -120,7 +117,7 @@ export function AttendeeEnrollmentForm({
         submissionKey: nextSubmissionKey,
       });
 
-      trackEnrollmentEvent("enrollment_submit_clicked", { eventSlug: event.slug });
+      trackEnrollmentEvent("enrollment_submit_clicked", { eventSlug });
 
       setMachine({ value: "CREATING_REGISTRATION" });
       setStatusMessage("Creating your registration and reserving the upload slot.");
@@ -134,7 +131,7 @@ export function AttendeeEnrollmentForm({
         ),
       );
       setStatusMessage("Registration created. Uploading your selfie now.");
-      trackEnrollmentEvent("enrollment_registration_created", { eventSlug: event.slug });
+      trackEnrollmentEvent("enrollment_registration_created", { eventSlug });
 
       if (!selectedFile) {
         throw {
@@ -149,14 +146,14 @@ export function AttendeeEnrollmentForm({
       setMachine(
         transitionEnrollmentState({ value: "READY_TO_UPLOAD" }, { type: "UPLOAD_STARTED" }),
       );
-      trackEnrollmentEvent("enrollment_upload_started", { eventSlug: event.slug });
+      trackEnrollmentEvent("enrollment_upload_started", { eventSlug });
 
       await uploadSelfie(registration.upload, selectedFile);
       setMachine(
         transitionEnrollmentState({ value: "UPLOADING" }, { type: "UPLOAD_FINISHED" }),
       );
       setStatusMessage("Upload complete. Confirming registration with the server.");
-      trackEnrollmentEvent("enrollment_upload_succeeded", { eventSlug: event.slug });
+      trackEnrollmentEvent("enrollment_upload_succeeded", { eventSlug });
 
       const status = await completeRegistration({
         registrationId: registration.registrationId,
@@ -167,7 +164,7 @@ export function AttendeeEnrollmentForm({
         transitionEnrollmentState({ value: "UPLOAD_CONFIRMED" }, { type: "STATUS_PENDING" }),
       );
       setStatusMessage(status.message);
-      trackEnrollmentEvent("enrollment_processing_seen", { eventSlug: event.slug });
+      trackEnrollmentEvent("enrollment_processing_seen", { eventSlug });
 
       await pollUntilSettled(registration.registrationId);
     } catch (error) {
@@ -179,7 +176,7 @@ export function AttendeeEnrollmentForm({
         apiError.error?.message ??
           "We hit an unexpected problem while processing your enrollment.",
       );
-      trackEnrollmentEvent("enrollment_failed", { eventSlug: event.slug });
+      trackEnrollmentEvent("enrollment_failed", { eventSlug });
     }
   }
 
@@ -235,7 +232,7 @@ export function AttendeeEnrollmentForm({
             const file = changeEvent.target.files?.[0] ?? null;
             setSelectedFile(file);
             if (file) {
-              trackEnrollmentEvent("enrollment_file_selected", { eventSlug: event.slug });
+              trackEnrollmentEvent("enrollment_file_selected", { eventSlug });
             }
           }}
           style={inputStyles}
@@ -285,8 +282,8 @@ export function AttendeeEnrollmentForm({
           style={{ marginTop: "0.2rem" }}
         />
         <span style={{ lineHeight: 1.6 }}>
-          I consent to FaceLocator using this selfie to match event photos for
-          Speaker Session 2026.
+          I consent to FaceLocator using this selfie to match event photos for{" "}
+          {eventTitle}.
         </span>
       </label>
       {fieldErrors.consentAccepted ? (

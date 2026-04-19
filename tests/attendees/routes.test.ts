@@ -221,6 +221,67 @@ describe("attendee route handlers", () => {
     });
   });
 
+  it("treats repeated completion requests as idempotent retries", async () => {
+    const registerResponse = await createRegistration(
+      new Request("http://localhost/api/attendees/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventSlug: "speaker-session-2026",
+          name: "Jane Doe",
+          email: "jane@example.com",
+          contentType: "image/jpeg",
+          fileName: "selfie.jpg",
+          fileSizeBytes: 2048,
+          consentAccepted: true,
+          submissionKey: "repeat-complete-key",
+        }),
+      }),
+    );
+    const registration = await registerResponse.json();
+
+    const firstCompletion = await completeRegistration(
+      new Request("http://localhost/api/attendees/register/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          registrationId: registration.registrationId,
+          uploadCompletedAt: "2026-04-19T10:00:00.000Z",
+        }),
+      }),
+    );
+    const secondCompletion = await completeRegistration(
+      new Request("http://localhost/api/attendees/register/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          registrationId: registration.registrationId,
+          uploadCompletedAt: "2026-04-19T10:05:00.000Z",
+        }),
+      }),
+    );
+
+    expect(firstCompletion.status).toBe(200);
+    await expect(firstCompletion.json()).resolves.toEqual({
+      registrationId: registration.registrationId,
+      status: "PROCESSING",
+      message: "Your selfie is being processed now.",
+    });
+
+    expect(secondCompletion.status).toBe(200);
+    await expect(secondCompletion.json()).resolves.toEqual({
+      registrationId: registration.registrationId,
+      status: "PROCESSING",
+      message: "Your selfie is being processed now.",
+    });
+  });
+
   it("returns the same logical registration for repeated submission keys", async () => {
     const firstResponse = await createRegistration(
       new Request("http://localhost/api/attendees/register", {

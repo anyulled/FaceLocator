@@ -138,8 +138,19 @@ export const inMemoryAttendeeRepository: AttendeeRepository = {
       throw createApiError(404, "REGISTRATION_NOT_FOUND", "Registration not found.");
     }
 
+    if (
+      record.status === "PROCESSING" ||
+      record.status === "ENROLLED"
+    ) {
+      return {
+        registrationId,
+        status: "PROCESSING",
+        message: resolveStatusMessage("PROCESSING"),
+      };
+    }
+
     record.status = "PROCESSING";
-    record.uploadCompletedAt = uploadCompletedAt;
+    record.uploadCompletedAt ??= uploadCompletedAt;
     record.lastUpdatedAt = new Date().toISOString();
 
     return {

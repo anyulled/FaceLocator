@@ -12,20 +12,23 @@ import {
   uploadSelfie,
 } from "@/lib/attendees/client";
 import type {
+  ApiErrorField,
   ApiErrorResponse,
   EnrollmentEventSummary,
 } from "@/lib/attendees/contracts";
+import { API_ERROR_FIELDS } from "@/lib/attendees/contracts";
 import { mapApiErrorToFieldErrors } from "@/lib/attendees/mapper";
 import {
   enrollmentInitialState,
   transitionEnrollmentState,
 } from "@/lib/attendees/state-machine";
-import { validateRegistrationIntentRequest } from "@/lib/attendees/schemas";
+import {
+  SELFIE_FILE_ACCEPT,
+  validateRegistrationIntentRequest,
+} from "@/lib/attendees/schemas";
 import { trackEnrollmentEvent } from "@/lib/attendees/telemetry";
 
-type FieldErrors = Partial<
-  Record<"name" | "email" | "consentAccepted" | "selfie", string>
->;
+type FieldErrors = Partial<Record<ApiErrorField, string>>;
 
 type AttendeeEnrollmentFormProps = {
   event: EnrollmentEventSummary;
@@ -138,7 +141,7 @@ export function AttendeeEnrollmentForm({
           error: {
             code: "MISSING_FILE",
             message: "Please select a selfie to upload.",
-            field: "selfie",
+            field: API_ERROR_FIELDS[3],
           },
         } satisfies ApiErrorResponse;
       }
@@ -227,7 +230,7 @@ export function AttendeeEnrollmentForm({
           id="selfie"
           name="selfie"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept={SELFIE_FILE_ACCEPT}
           onChange={(changeEvent) => {
             const file = changeEvent.target.files?.[0] ?? null;
             setSelectedFile(file);

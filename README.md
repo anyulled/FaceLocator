@@ -53,6 +53,20 @@ The AWS POC explicitly excludes:
 
 No AWS resource should be introduced unless it maps directly to a ticket in `aws_poc_ticket_pack`.
 
+## AWS POC Operator Docs
+
+The AWS stream now includes the baseline operator and application boundary documents needed to provision and inspect the POC safely:
+
+- [docs/aws-iam-bootstrap.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-iam-bootstrap.md)
+- [docs/aws-database-boundary.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-database-boundary.md)
+- [docs/aws-retention-and-delete.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-retention-and-delete.md)
+- [docs/aws-encryption.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-encryption.md)
+- [docs/aws-nextjs-boundary.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-nextjs-boundary.md)
+- [docs/aws-operator-runbook.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-operator-runbook.md)
+- [docs/aws-verification-checklist.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-verification-checklist.md)
+
+The schema bootstrap placeholder for the PostgreSQL boundary lives at [scripts/sql/bootstrap.sql](/Users/anyulled/IdeaProjects/FaceLocator/scripts/sql/bootstrap.sql).
+
 ## Commands
 
 ```bash

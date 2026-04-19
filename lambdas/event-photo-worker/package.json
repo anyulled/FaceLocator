@@ -1,0 +1,12 @@
+{
+  "name": "face-locator-event-photo-worker-lambda",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-rekognition": "^3.911.0",
+    "@aws-sdk/client-s3": "^3.911.0",
+    "@aws-sdk/client-secrets-manager": "^3.911.0",
+    "pg": "^8.16.3"
+  }
+}

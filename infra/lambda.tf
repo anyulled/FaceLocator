@@ -1,1 +1,96 @@
-# Lambda packaging and function resources are introduced incrementally in later AWS tickets.
+resource "aws_cloudwatch_log_group" "selfie_enrollment" {
+  name              = local.log_group_names.selfie_enrollment
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_cloudwatch_log_group" "event_photo_worker" {
+  name              = local.log_group_names.event_photo_worker
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
+resource "aws_lambda_function" "selfie_enrollment" {
+  function_name = local.lambda_names.selfie_enrollment
+  role          = aws_iam_role.selfie_enrollment_lambda.arn
+  runtime       = "nodejs20.x"
+  handler       = "index.handler"
+  filename      = local.lambda_package_paths.selfie_enrollment
+
+  source_code_hash = try(filebase64sha256(local.lambda_package_paths.selfie_enrollment), null)
+  timeout          = var.selfie_lambda_timeout_seconds
+  memory_size      = var.selfie_lambda_memory_size
+
+  environment {
+    variables = {
+      LOG_LEVEL                 = "info"
+      SELFIES_BUCKET_NAME       = aws_s3_bucket.selfies.bucket
+      REKOGNITION_COLLECTION_ID = aws_rekognition_collection.attendee_faces.collection_id
+      DATABASE_SECRET_NAME      = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN       = aws_secretsmanager_secret.database.arn
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.selfie_enrollment]
+}
+
+resource "aws_lambda_function" "event_photo_worker" {
+  function_name = local.lambda_names.event_photo_worker
+  role          = aws_iam_role.event_photo_worker_lambda.arn
+  runtime       = "nodejs20.x"
+  handler       = "index.handler"
+  filename      = local.lambda_package_paths.event_photo_worker
+
+  source_code_hash = try(filebase64sha256(local.lambda_package_paths.event_photo_worker), null)
+  timeout          = var.event_photo_lambda_timeout_seconds
+  memory_size      = var.event_photo_lambda_memory_size
+
+  environment {
+    variables = {
+      LOG_LEVEL                 = "info"
+      EVENT_PHOTOS_BUCKET_NAME  = aws_s3_bucket.event_photos.bucket
+      REKOGNITION_COLLECTION_ID = aws_rekognition_collection.attendee_faces.collection_id
+      DATABASE_SECRET_NAME      = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN       = aws_secretsmanager_secret.database.arn
+      SEARCH_FACES_ON_UPLOAD    = tostring(var.search_faces_on_event_photo_upload)
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.event_photo_worker]
+}
+
+resource "aws_lambda_permission" "selfies_bucket_invoke" {
+  statement_id  = "AllowExecutionFromSelfiesBucket"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.selfie_enrollment.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.selfies.arn
+}
+
+resource "aws_lambda_permission" "event_photos_bucket_invoke" {
+  statement_id  = "AllowExecutionFromEventPhotosBucket"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.event_photo_worker.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.event_photos.arn
+}
+
+resource "aws_s3_bucket_notification" "selfies" {
+  bucket = aws_s3_bucket.selfies.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.selfie_enrollment.arn
+    events              = ["s3:ObjectCreated:*"]
+  }
+
+  depends_on = [aws_lambda_permission.selfies_bucket_invoke]
+}
+
+resource "aws_s3_bucket_notification" "event_photos" {
+  bucket = aws_s3_bucket.event_photos.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.event_photo_worker.arn
+    events              = ["s3:ObjectCreated:*"]
+  }
+
+  depends_on = [aws_lambda_permission.event_photos_bucket_invoke]
+}

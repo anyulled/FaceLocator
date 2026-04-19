@@ -19,6 +19,7 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
@@ -43,3 +44,9 @@ next-env.d.ts
 
 # terraform
 **/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# lambda packaging
+lambdas/**/node_modules/

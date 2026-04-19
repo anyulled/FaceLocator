@@ -21,6 +21,7 @@ export function AttendeeEnrollmentStatus({
   return (
     <section
       aria-live="polite"
+      aria-atomic="true"
       style={{
         padding: "1rem 1.1rem",
         borderRadius: "1rem",
@@ -37,6 +38,21 @@ export function AttendeeEnrollmentStatus({
         }}
       >
         {state.replaceAll("_", " ")}
+      </p>
+      <p
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        Enrollment status update
       </p>
       <p style={{ marginTop: "0.35rem", lineHeight: 1.6 }}>{message}</p>
       {registrationId ? (

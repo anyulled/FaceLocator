@@ -37,6 +37,8 @@ export type ApiErrorCode =
   | "UNSUPPORTED_CONTENT_TYPE"
   | "FILE_TOO_LARGE"
   | "CONSENT_REQUIRED"
+  | "DUPLICATE_REGISTRATION"
+  | "RATE_LIMITED"
   | "REGISTRATION_NOT_FOUND"
   | "INTERNAL_ERROR";
 
@@ -82,6 +84,7 @@ export type ApiErrorResponse = {
     code: ApiErrorCode;
     message: string;
     field?: ApiErrorField;
+    correlationId?: string;
   };
 };
 

@@ -4,6 +4,7 @@ import type {
   EnrollmentStatus,
   RegistrationStatusResponse,
 } from "@/lib/attendees/contracts";
+import { getEnrollmentStatusCopy } from "@/lib/attendees/copy";
 
 export function mapApiErrorToFieldErrors(error: ApiErrorResponse["error"]) {
   if (!error.field) {
@@ -16,20 +17,7 @@ export function mapApiErrorToFieldErrors(error: ApiErrorResponse["error"]) {
 }
 
 export function getStatusCopy(status: EnrollmentStatus) {
-  switch (status) {
-    case "UPLOAD_PENDING":
-      return "Your registration was created. Selfie upload can start now.";
-    case "UPLOADING":
-      return "Uploading your selfie now.";
-    case "PROCESSING":
-      return "We are checking your selfie and preparing enrollment.";
-    case "ENROLLED":
-      return "Your selfie has been registered.";
-    case "FAILED":
-      return "We hit a snag while processing your registration.";
-    case "CANCELLED":
-      return "This registration is no longer active.";
-  }
+  return getEnrollmentStatusCopy(status);
 }
 
 export function getStatusHeadline(statusResponse: RegistrationStatusResponse) {

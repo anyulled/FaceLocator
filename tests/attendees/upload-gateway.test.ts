@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { mockUploadGateway } from "@/lib/attendees/upload-gateway";
 
 describe("mock upload gateway", () => {
-  it("creates deterministic upload instructions from the boundary input", () => {
-    const instructions = mockUploadGateway.createUploadInstructions({
+  it("creates deterministic upload instructions from the boundary input", async () => {
+    const instructions = await mockUploadGateway.createUploadInstructions({
       registrationId: "reg_123",
       attendeeId: "att_123",
       eventSlug: "speaker-session-2026",

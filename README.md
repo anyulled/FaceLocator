@@ -15,6 +15,16 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000), then visit `/events/speaker-session-2026/register` to exercise the scaffolded enrollment flow.
 
+For the cloud-backed presign path, export:
+
+```bash
+export FACE_LOCATOR_AWS_UPLOAD_MODE=aws
+export FACE_LOCATOR_SELFIES_BUCKET=face-locator-poc-selfies
+export FACE_LOCATOR_EVENT_PHOTOS_BUCKET=face-locator-poc-event-photos
+```
+
+If those variables are absent, the app stays on the mock upload gateway and mocked enrollment completion flow.
+
 ## Included in phase 0
 
 - Server-rendered event registration page shell
@@ -28,6 +38,8 @@ Open [http://localhost:3000](http://localhost:3000), then visit `/events/speaker
 - `lib/attendees/upload-gateway.ts` is the future presigned-upload replacement point.
 - `lib/attendees/repository.ts` is the current in-memory persistence seam.
 - `lib/attendees/telemetry.ts` is a no-op placeholder for future analytics wiring.
+- `lib/attendees/rate-limit.ts` is the placeholder throttling decision point.
+- `lib/attendees/runtime.ts` resolves the current repository and upload gateway boundaries.
 
 ## AWS POC Scope
 

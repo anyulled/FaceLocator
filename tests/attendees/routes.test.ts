@@ -119,7 +119,7 @@ describe("attendee route handlers", () => {
     expect(status).toEqual({
       registrationId: registration.registrationId,
       status: "UPLOAD_PENDING",
-      message: "Your registration is ready for selfie upload.",
+      message: "Your registration was created. Selfie upload can start now.",
     });
   });
 
@@ -173,7 +173,7 @@ describe("attendee route handlers", () => {
     expect(status).toEqual({
       registrationId: registration.registrationId,
       status: "PROCESSING",
-      message: "Your selfie is being processed now.",
+      message: "We are checking your selfie and preparing enrollment.",
     });
   });
 
@@ -247,6 +247,7 @@ describe("attendee route handlers", () => {
       error: {
         code: "INVALID_EVENT",
         message: "This event registration page is not available.",
+        correlationId: expect.any(String),
       },
     });
 
@@ -256,6 +257,7 @@ describe("attendee route handlers", () => {
         code: "INVALID_NAME",
         message: "Please enter your full name.",
         field: "name",
+        correlationId: expect.any(String),
       },
     });
 
@@ -265,6 +267,7 @@ describe("attendee route handlers", () => {
         code: "UNSUPPORTED_CONTENT_TYPE",
         message: "Only JPEG, PNG, and WEBP images are supported.",
         field: "selfie",
+        correlationId: expect.any(String),
       },
     });
 
@@ -273,6 +276,7 @@ describe("attendee route handlers", () => {
       error: {
         code: "INTERNAL_ERROR",
         message: "Request body must be a JSON object.",
+        correlationId: expect.any(String),
       },
     });
   });
@@ -305,6 +309,7 @@ describe("attendee route handlers", () => {
       error: {
         code: "REGISTRATION_NOT_FOUND",
         message: "Registration not found.",
+        correlationId: expect.any(String),
       },
     });
 
@@ -313,6 +318,7 @@ describe("attendee route handlers", () => {
       error: {
         code: "REGISTRATION_NOT_FOUND",
         message: "Registration not found.",
+        correlationId: expect.any(String),
       },
     });
   });
@@ -367,14 +373,14 @@ describe("attendee route handlers", () => {
     await expect(firstCompletion.json()).resolves.toEqual({
       registrationId: registration.registrationId,
       status: "PROCESSING",
-      message: "Your selfie is being processed now.",
+      message: "We are checking your selfie and preparing enrollment.",
     });
 
     expect(secondCompletion.status).toBe(200);
     await expect(secondCompletion.json()).resolves.toEqual({
       registrationId: registration.registrationId,
       status: "PROCESSING",
-      message: "Your selfie is being processed now.",
+      message: "We are checking your selfie and preparing enrollment.",
     });
   });
 
@@ -422,5 +428,36 @@ describe("attendee route handlers", () => {
     expect(first.registrationId).toBe(second.registrationId);
     expect(first.attendeeId).toBe(second.attendeeId);
     expect(first.upload.objectKey).toBe(second.upload.objectKey);
+  });
+
+  it("returns a placeholder throttling response when rate limiting is forced", async () => {
+    const response = await createRegistration(
+      new Request("http://localhost/api/attendees/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-facelocator-rate-limit": "always",
+        },
+        body: JSON.stringify({
+          eventSlug: "speaker-session-2026",
+          name: "Jane Doe",
+          email: "jane@example.com",
+          contentType: "image/jpeg",
+          fileName: "selfie.jpg",
+          fileSizeBytes: 2048,
+          consentAccepted: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("x-correlation-id")).toEqual(expect.any(String));
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many enrollment attempts. Please try again shortly.",
+        correlationId: expect.any(String),
+      },
+    });
   });
 });

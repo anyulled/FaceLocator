@@ -1,5 +1,3 @@
-import { NextResponse } from "next/server";
-
 import type {
   ApiErrorCode,
   ApiErrorField,
@@ -27,13 +25,17 @@ export function createApiError(
   return new AttendeeApiError(status, code, message, field);
 }
 
-export function toApiErrorResponse(error: unknown): ApiErrorResponse {
+export function toApiErrorResponse(
+  error: unknown,
+  correlationId?: string,
+): ApiErrorResponse {
   if (error instanceof AttendeeApiError) {
     return {
       error: {
         code: error.code,
         message: error.message,
         field: error.field,
+        correlationId,
       },
     };
   }
@@ -42,11 +44,13 @@ export function toApiErrorResponse(error: unknown): ApiErrorResponse {
     error: {
       code: "INTERNAL_ERROR",
       message: "Something went wrong while processing the enrollment request.",
+      correlationId,
     },
   };
 }
 
 export function errorResponse(error: unknown) {
-  const status = error instanceof AttendeeApiError ? error.status : 500;
-  return NextResponse.json(toApiErrorResponse(error), { status });
+  return Response.json(toApiErrorResponse(error), {
+    status: error instanceof AttendeeApiError ? error.status : 500,
+  });
 }

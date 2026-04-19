@@ -7,12 +7,17 @@ type EventRegistrationPageProps = {
   params: Promise<{
     eventSlug: string;
   }>;
+  searchParams: Promise<{
+    registrationId?: string;
+  }>;
 };
 
 export default async function EventRegistrationPage({
   params,
+  searchParams,
 }: EventRegistrationPageProps) {
   const { eventSlug } = await params;
+  const { registrationId } = (await searchParams) ?? {};
   const event = await getEventRegistrationPageData(eventSlug);
 
   if (!event) {
@@ -99,7 +104,7 @@ export default async function EventRegistrationPage({
             backdropFilter: "blur(16px)",
           }}
         >
-          <AttendeeEnrollmentForm {...event.formProps} />
+          <AttendeeEnrollmentForm {...event.formProps} initialRegistrationId={registrationId} />
         </section>
       </div>
     </main>

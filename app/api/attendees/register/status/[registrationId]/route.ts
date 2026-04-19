@@ -1,7 +1,11 @@
-import { NextResponse } from "next/server";
-
-import { errorResponse } from "@/lib/attendees/errors";
-import { inMemoryAttendeeRepository } from "@/lib/attendees/repository";
+import {
+  errorResponseWithCorrelationId,
+  getRequestCorrelationId,
+  jsonWithCorrelationId,
+  logRouteError,
+  logRouteInfo,
+} from "@/lib/attendees/logging";
+import { getAttendeeRepository } from "@/lib/attendees/runtime";
 
 type RegistrationStatusRouteContext = {
   params: Promise<{
@@ -13,11 +17,19 @@ export async function GET(
   _request: Request,
   context: RegistrationStatusRouteContext,
 ) {
+  const correlationId = getRequestCorrelationId(_request);
+
   try {
     const { registrationId } = await context.params;
-    const response = inMemoryAttendeeRepository.getRegistrationStatus(registrationId);
-    return NextResponse.json(response);
+    const response = getAttendeeRepository().getRegistrationStatus(registrationId);
+    logRouteInfo("registration_status_read", {
+      correlationId,
+      registrationId,
+      eventSlug: undefined,
+    });
+    return jsonWithCorrelationId(response, correlationId);
   } catch (error) {
-    return errorResponse(error);
+    logRouteError(error, { correlationId });
+    return errorResponseWithCorrelationId(error, correlationId);
   }
 }

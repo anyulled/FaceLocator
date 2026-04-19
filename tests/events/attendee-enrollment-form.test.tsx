@@ -11,6 +11,7 @@ const createRegistrationIntentMock = vi.fn();
 const uploadSelfieMock = vi.fn();
 const completeRegistrationMock = vi.fn();
 const getRegistrationStatusMock = vi.fn();
+const replaceMock = vi.fn();
 
 vi.mock("next/image", () => ({
   default: ({
@@ -25,6 +26,13 @@ vi.mock("next/image", () => ({
       <img alt={alt ?? ""} {...props} />
     );
   },
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/events/speaker-session-2026/register",
+  useRouter: () => ({
+    replace: replaceMock,
+  }),
 }));
 
 vi.mock("@/lib/attendees/client", () => ({
@@ -43,6 +51,7 @@ describe("attendee enrollment form", () => {
     uploadSelfieMock.mockReset();
     completeRegistrationMock.mockReset();
     getRegistrationStatusMock.mockReset();
+    replaceMock.mockReset();
     createObjectURLMock.mockClear();
     revokeObjectURLMock.mockClear();
 
@@ -94,6 +103,30 @@ describe("attendee enrollment form", () => {
     expect(createObjectURLMock).toHaveBeenCalledWith(file);
     expect(screen.getByAltText("Selected selfie preview").getAttribute("src")).toBe(
       "blob:preview",
+    );
+  });
+
+  it("revokes the prior preview URL when a new file replaces the old one", async () => {
+    const user = userEvent.setup();
+
+    createObjectURLMock
+      .mockReturnValueOnce("blob:first")
+      .mockReturnValueOnce("blob:second");
+
+    render(
+      <AttendeeEnrollmentForm
+        eventSlug="speaker-session-2026"
+        eventTitle="Speaker Session 2026"
+      />,
+    );
+
+    const fileInput = screen.getByLabelText(/selfie upload/i);
+    await user.upload(fileInput, new File(["one"], "first.jpg", { type: "image/jpeg" }));
+    await user.upload(fileInput, new File(["two"], "second.jpg", { type: "image/jpeg" }));
+
+    expect(revokeObjectURLMock).toHaveBeenCalledWith("blob:first");
+    expect(screen.getByAltText("Selected selfie preview").getAttribute("src")).toBe(
+      "blob:second",
     );
   });
 
@@ -194,5 +227,24 @@ describe("attendee enrollment form", () => {
     await user.click(screen.getByRole("button", { name: /register my selfie/i }));
 
     expect((await screen.findAllByText("Email address is invalid.")).length).toBeGreaterThan(0);
+  });
+
+  it("recovers the confirmation state from an initial registration id", async () => {
+    getRegistrationStatusMock.mockResolvedValue({
+      registrationId: "reg_123",
+      status: "ENROLLED",
+      message: "Your selfie has been registered.",
+    });
+
+    render(
+      <AttendeeEnrollmentForm
+        eventSlug="speaker-session-2026"
+        eventTitle="Speaker Session 2026"
+        initialRegistrationId="reg_123"
+      />,
+    );
+
+    expect(await screen.findByText("Your selfie has been registered.")).not.toBeNull();
+    expect(getRegistrationStatusMock).toHaveBeenCalledWith("reg_123");
   });
 });

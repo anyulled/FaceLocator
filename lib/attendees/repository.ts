@@ -4,6 +4,7 @@ import type {
   RegistrationIntentResponse,
   RegistrationStatusResponse,
 } from "@/lib/attendees/contracts";
+import { getEnrollmentStatusCopy } from "@/lib/attendees/copy";
 import { createApiError } from "@/lib/attendees/errors";
 import type { UploadGateway } from "@/lib/attendees/upload-gateway";
 
@@ -48,27 +49,14 @@ function makeId(prefix: "reg" | "att") {
 }
 
 function resolveStatusMessage(status: EnrollmentStatus) {
-  switch (status) {
-    case "UPLOAD_PENDING":
-      return "Your registration is ready for selfie upload.";
-    case "UPLOADING":
-      return "Your selfie upload is in progress.";
-    case "PROCESSING":
-      return "Your selfie is being processed now.";
-    case "ENROLLED":
-      return "Your selfie has been registered.";
-    case "FAILED":
-      return "We could not finish your enrollment.";
-    case "CANCELLED":
-      return "This enrollment was cancelled.";
-  }
+  return getEnrollmentStatusCopy(status);
 }
 
 export type AttendeeRepository = {
   createRegistrationIntent(
     input: RegistrationIntentRequest,
     gateway: UploadGateway,
-  ): RegistrationIntentResponse;
+  ): Promise<RegistrationIntentResponse>;
   completeRegistration(
     registrationId: string,
     uploadCompletedAt: string,
@@ -77,7 +65,7 @@ export type AttendeeRepository = {
 };
 
 export const inMemoryAttendeeRepository: AttendeeRepository = {
-  createRegistrationIntent(input, gateway) {
+  async createRegistrationIntent(input, gateway) {
     const store = getStore();
 
     if (input.submissionKey) {
@@ -94,7 +82,7 @@ export const inMemoryAttendeeRepository: AttendeeRepository = {
     store.attendeesByEventEmail.set(attendeeKey, attendeeId);
 
     const registrationId = makeId("reg");
-    const upload = gateway.createUploadInstructions({
+    const upload = await gateway.createUploadInstructions({
       registrationId,
       attendeeId,
       eventSlug: input.eventSlug,
@@ -138,10 +126,7 @@ export const inMemoryAttendeeRepository: AttendeeRepository = {
       throw createApiError(404, "REGISTRATION_NOT_FOUND", "Registration not found.");
     }
 
-    if (
-      record.status === "PROCESSING" ||
-      record.status === "ENROLLED"
-    ) {
+    if (record.status === "PROCESSING" || record.status === "ENROLLED") {
       return {
         registrationId,
         status: "PROCESSING",

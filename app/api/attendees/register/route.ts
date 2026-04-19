@@ -1,12 +1,19 @@
-import { NextResponse } from "next/server";
-
-import { createApiError, errorResponse } from "@/lib/attendees/errors";
-import { inMemoryAttendeeRepository } from "@/lib/attendees/repository";
+import { createApiError } from "@/lib/attendees/errors";
+import {
+  errorResponseWithCorrelationId,
+  getRequestCorrelationId,
+  jsonWithCorrelationId,
+  logRouteError,
+  logRouteInfo,
+} from "@/lib/attendees/logging";
+import { evaluateRegistrationRateLimit } from "@/lib/attendees/rate-limit";
+import { getAttendeeRepository, getUploadGateway } from "@/lib/attendees/runtime";
 import { validateRegistrationIntentRequest } from "@/lib/attendees/schemas";
-import { mockUploadGateway } from "@/lib/attendees/upload-gateway";
 import { getEventBySlug } from "@/lib/events/queries";
 
 export async function POST(request: Request) {
+  const correlationId = getRequestCorrelationId(request);
+
   try {
     const requestBody = await request.json().catch(() => {
       throw createApiError(
@@ -16,6 +23,16 @@ export async function POST(request: Request) {
       );
     });
     const payload = validateRegistrationIntentRequest(requestBody);
+    const rateLimitDecision = evaluateRegistrationRateLimit(request, payload);
+
+    if (!rateLimitDecision.allowed) {
+      throw createApiError(
+        429,
+        "RATE_LIMITED",
+        "Too many enrollment attempts. Please try again shortly.",
+      );
+    }
+
     const event = await getEventBySlug(payload.eventSlug);
 
     if (!event) {
@@ -26,13 +43,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = inMemoryAttendeeRepository.createRegistrationIntent(
+    logRouteInfo("registration_intent_received", {
+      correlationId,
+      eventSlug: payload.eventSlug,
+    });
+
+    const response = await getAttendeeRepository().createRegistrationIntent(
       payload,
-      mockUploadGateway,
+      getUploadGateway(),
     );
 
-    return NextResponse.json(response);
+    logRouteInfo("registration_intent_created", {
+      correlationId,
+      eventSlug: payload.eventSlug,
+      registrationId: response.registrationId,
+    });
+
+    return jsonWithCorrelationId(response, correlationId);
   } catch (error) {
-    return errorResponse(error);
+    logRouteError(error, { correlationId });
+    return errorResponseWithCorrelationId(error, correlationId);
   }
 }

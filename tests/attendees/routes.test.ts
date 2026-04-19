@@ -79,6 +79,102 @@ describe("attendee route handlers", () => {
       status: "ENROLLED",
       message: expect.any(String),
     });
+    expect(Object.keys(status).sort()).toEqual(["message", "registrationId", "status"]);
+  });
+
+  it("returns a poll-safe pending status before completion", async () => {
+    const registerResponse = await createRegistration(
+      new Request("http://localhost/api/attendees/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventSlug: "speaker-session-2026",
+          name: "Jane Doe",
+          email: "jane@example.com",
+          contentType: "image/jpeg",
+          fileName: "selfie.jpg",
+          fileSizeBytes: 2048,
+          consentAccepted: true,
+          submissionKey: "pending-status-key",
+        }),
+      }),
+    );
+    const registration = await registerResponse.json();
+
+    const statusResponse = await getRegistrationStatus(
+      new Request(
+        `http://localhost/api/attendees/register/status/${registration.registrationId}`,
+      ),
+      {
+        params: Promise.resolve({
+          registrationId: registration.registrationId,
+        }),
+      },
+    );
+    const status = await statusResponse.json();
+
+    expect(statusResponse.status).toBe(200);
+    expect(status).toEqual({
+      registrationId: registration.registrationId,
+      status: "UPLOAD_PENDING",
+      message: "Your registration is ready for selfie upload.",
+    });
+  });
+
+  it("returns a stable processing payload while the registration is still in progress", async () => {
+    const registerResponse = await createRegistration(
+      new Request("http://localhost/api/attendees/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventSlug: "speaker-session-2026",
+          name: "Jane Doe",
+          email: "jane@example.com",
+          contentType: "image/jpeg",
+          fileName: "selfie.jpg",
+          fileSizeBytes: 2048,
+          consentAccepted: true,
+          submissionKey: "processing-status-key",
+        }),
+      }),
+    );
+    const registration = await registerResponse.json();
+
+    await completeRegistration(
+      new Request("http://localhost/api/attendees/register/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          registrationId: registration.registrationId,
+          uploadCompletedAt: new Date().toISOString(),
+        }),
+      }),
+    );
+
+    const statusResponse = await getRegistrationStatus(
+      new Request(
+        `http://localhost/api/attendees/register/status/${registration.registrationId}`,
+      ),
+      {
+        params: Promise.resolve({
+          registrationId: registration.registrationId,
+        }),
+      },
+    );
+    const status = await statusResponse.json();
+
+    expect(statusResponse.status).toBe(200);
+    expect(status).toEqual({
+      registrationId: registration.registrationId,
+      status: "PROCESSING",
+      message: "Your selfie is being processed now.",
+    });
   });
 
   it("returns stable error payloads for invalid registration requests", async () => {

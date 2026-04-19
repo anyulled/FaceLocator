@@ -1,4 +1,5 @@
 import type { EnrollmentUiState } from "@/lib/attendees/contracts";
+import { getEnrollmentStateCopy } from "@/lib/attendees/copy";
 
 export type EnrollmentMachineState = {
   value: EnrollmentUiState;
@@ -14,19 +15,6 @@ export type EnrollmentMachineEvent =
   | { type: "STATUS_ENROLLED" }
   | { type: "FAIL" }
   | { type: "RESET" };
-
-const stateMessages: Record<EnrollmentUiState, string> = {
-  IDLE: "Complete the form and upload a recent selfie to begin enrollment.",
-  VALIDATING: "Checking your details before we start the registration flow.",
-  CREATING_REGISTRATION:
-    "Creating your registration and reserving the upload slot.",
-  READY_TO_UPLOAD: "Registration created. Uploading your selfie now.",
-  UPLOADING: "Uploading your selfie now.",
-  UPLOAD_CONFIRMED: "Upload complete. Confirming registration with the server.",
-  PROCESSING: "Your selfie is being processed now.",
-  ENROLLED: "Your selfie has been registered.",
-  FAILED: "We hit an unexpected problem while processing your enrollment.",
-};
 
 const transitions: Record<
   EnrollmentUiState,
@@ -73,7 +61,7 @@ export const enrollmentInitialState: EnrollmentMachineState = {
 };
 
 export function getEnrollmentStateMessage(state: EnrollmentMachineState) {
-  return stateMessages[state.value];
+  return getEnrollmentStateCopy(state.value);
 }
 
 export function transitionEnrollmentState(

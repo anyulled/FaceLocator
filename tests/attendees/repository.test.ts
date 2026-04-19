@@ -23,8 +23,8 @@ describe("attendee repository", () => {
     globalThis.__faceLocatorEnrollmentStore__ = undefined;
   });
 
-  it("reuses the same registration for repeated submission keys", () => {
-    const first = inMemoryAttendeeRepository.createRegistrationIntent(
+  it("reuses the same registration for repeated submission keys", async () => {
+    const first = await inMemoryAttendeeRepository.createRegistrationIntent(
       {
         ...baseRequest,
         submissionKey: "dup-key",
@@ -32,7 +32,7 @@ describe("attendee repository", () => {
       mockUploadGateway,
     );
 
-    const second = inMemoryAttendeeRepository.createRegistrationIntent(
+    const second = await inMemoryAttendeeRepository.createRegistrationIntent(
       {
         ...baseRequest,
         fileName: "other-name.png",
@@ -45,15 +45,15 @@ describe("attendee repository", () => {
     expect(second).toEqual(first);
   });
 
-  it("reuses attendee identity for the same event and email across registrations", () => {
-    const first = inMemoryAttendeeRepository.createRegistrationIntent(
+  it("reuses attendee identity for the same event and email across registrations", async () => {
+    const first = await inMemoryAttendeeRepository.createRegistrationIntent(
       {
         ...baseRequest,
         submissionKey: "first-key",
       },
       mockUploadGateway,
     );
-    const second = inMemoryAttendeeRepository.createRegistrationIntent(
+    const second = await inMemoryAttendeeRepository.createRegistrationIntent(
       {
         ...baseRequest,
         submissionKey: "second-key",
@@ -65,8 +65,8 @@ describe("attendee repository", () => {
     expect(second.registrationId).not.toBe(first.registrationId);
   });
 
-  it("transitions processing registrations into enrolled after the delay window", () => {
-    const registration = inMemoryAttendeeRepository.createRegistrationIntent(
+  it("transitions processing registrations into enrolled after the delay window", async () => {
+    const registration = await inMemoryAttendeeRepository.createRegistrationIntent(
       {
         ...baseRequest,
         submissionKey: "transition-key",
@@ -89,8 +89,8 @@ describe("attendee repository", () => {
     });
   });
 
-  it("treats repeated completion calls as idempotent", () => {
-    const registration = inMemoryAttendeeRepository.createRegistrationIntent(
+  it("treats repeated completion calls as idempotent", async () => {
+    const registration = await inMemoryAttendeeRepository.createRegistrationIntent(
       {
         ...baseRequest,
         submissionKey: "complete-twice-key",
@@ -110,7 +110,7 @@ describe("attendee repository", () => {
     expect(firstCompletion).toEqual({
       registrationId: registration.registrationId,
       status: "PROCESSING",
-      message: "Your selfie is being processed now.",
+      message: "We are checking your selfie and preparing enrollment.",
     });
     expect(secondCompletion).toEqual(firstCompletion);
   });

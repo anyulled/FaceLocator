@@ -35,6 +35,7 @@ describe("event registration page", () => {
       params: Promise.resolve({
         eventSlug: "speaker-session-2026",
       }),
+      searchParams: Promise.resolve({}),
     });
     const markup = renderToStaticMarkup(element);
 
@@ -45,6 +46,7 @@ describe("event registration page", () => {
       {
         eventSlug: "speaker-session-2026",
         eventTitle: "Speaker Session 2026",
+        initialRegistrationId: undefined,
       },
       undefined,
     );
@@ -60,6 +62,7 @@ describe("event registration page", () => {
         params: Promise.resolve({
           eventSlug: "missing-event",
         }),
+        searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow("NOT_FOUND");
 

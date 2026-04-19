@@ -1,27 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
 import type { CSSProperties, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AttendeeEnrollmentStatus } from "@/components/events/attendee-enrollment-status";
-import {
-  completeRegistration,
-  createRegistrationIntent,
-  getRegistrationStatus,
-  uploadSelfie,
-} from "@/lib/attendees/client";
-import type {
-  ApiErrorField,
-  ApiErrorResponse,
-} from "@/lib/attendees/contracts";
-import { API_ERROR_FIELDS } from "@/lib/attendees/contracts";
+import { completeRegistration, createRegistrationIntent, getRegistrationStatus, uploadSelfie } from "@/lib/attendees/client";
+import { ENROLLMENT_COPY } from "@/lib/attendees/copy";
+import type { ApiErrorField, ApiErrorResponse, EnrollmentUiState } from "@/lib/attendees/contracts";
 import { mapApiErrorToFieldErrors } from "@/lib/attendees/mapper";
-import {
-  getEnrollmentStateMessage,
-  enrollmentInitialState,
-  transitionEnrollmentState,
-} from "@/lib/attendees/state-machine";
+import { pollRegistrationStatus } from "@/lib/attendees/orchestrator";
+import { getEnrollmentStateMessage, enrollmentInitialState } from "@/lib/attendees/state-machine";
 import {
   SELFIE_FILE_ACCEPT,
   getRegistrationIntentValidationIssues,
@@ -32,31 +22,82 @@ import type { EnrollmentFormEventProps } from "@/lib/events/queries";
 
 type FieldErrors = Partial<Record<ApiErrorField, string>>;
 
-const POLL_INTERVAL_MS = 1200;
+type AttendeeEnrollmentFormProps = EnrollmentFormEventProps & {
+  initialRegistrationId?: string;
+};
 
 export function AttendeeEnrollmentForm({
   eventSlug,
   eventTitle,
-}: EnrollmentFormEventProps) {
+  initialRegistrationId,
+}: AttendeeEnrollmentFormProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submissionKey, setSubmissionKey] = useState<string | null>(null);
   const [machine, setMachine] = useState(enrollmentInitialState);
   const [statusMessage, setStatusMessage] = useState(
     getEnrollmentStateMessage(enrollmentInitialState),
   );
-  const [registrationId, setRegistrationId] = useState<string | undefined>();
+  const [registrationId, setRegistrationId] = useState<string | undefined>(
+    initialRegistrationId,
+  );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
     trackEnrollmentEvent("enrollment_form_viewed", { eventSlug });
   }, [eventSlug]);
 
-  const previewUrl = useMemo(() => {
-    return selectedFile ? URL.createObjectURL(selectedFile) : null;
-  }, [selectedFile]);
+  useEffect(() => {
+    if (!initialRegistrationId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void pollRegistrationStatus(getRegistrationStatus, initialRegistrationId, (status) => {
+      if (cancelled) {
+        return;
+      }
+
+      setRegistrationId(initialRegistrationId);
+
+      if (status.status === "ENROLLED") {
+        setMachine({ value: "ENROLLED" });
+        setStatusMessage(status.message);
+        return;
+      }
+
+      if (status.status === "FAILED" || status.status === "CANCELLED") {
+        setMachine({ value: "FAILED" });
+        setStatusMessage(status.message);
+        return;
+      }
+
+      if (status.status === "PROCESSING") {
+        setMachine({ value: "PROCESSING" });
+        setStatusMessage(status.message);
+        return;
+      }
+
+      setMachine({ value: "READY_TO_UPLOAD" });
+      setStatusMessage(status.message);
+    }).catch(() => {
+      if (!cancelled) {
+        setMachine({ value: "FAILED" });
+        setStatusMessage(ENROLLMENT_COPY.genericFailure);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialRegistrationId]);
 
   useEffect(() => {
     return () => {
@@ -66,59 +107,54 @@ export function AttendeeEnrollmentForm({
     };
   }, [previewUrl]);
 
-  const isWorking = useMemo(() => {
-    return !["IDLE", "FAILED", "ENROLLED"].includes(machine.value);
-  }, [machine.value]);
+  const isWorking = !["IDLE", "FAILED", "ENROLLED", "READY_TO_UPLOAD"].includes(machine.value);
 
-  function applyMachineEvent(
-    currentState: typeof machine,
-    event: Parameters<typeof transitionEnrollmentState>[1],
-  ) {
-    const nextState = transitionEnrollmentState(currentState, event);
-    setMachine(nextState);
-    setStatusMessage(getEnrollmentStateMessage(nextState));
-    return nextState;
+  function updateMachine(nextState: EnrollmentUiState, nextMessage?: string) {
+    setMachine({ value: nextState });
+    setStatusMessage(nextMessage ?? getEnrollmentStateMessage({ value: nextState }));
   }
 
-  async function pollUntilSettled(currentRegistrationId: string) {
-    let isPolling = true;
+  function persistRegistrationId(nextRegistrationId: string) {
+    setRegistrationId(nextRegistrationId);
+    router.replace(`${pathname}?registrationId=${nextRegistrationId}`, { scroll: false });
+  }
 
-    while (isPolling) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-      const status = await getRegistrationStatus(currentRegistrationId);
+  function handleSelectedFile(file: File | null) {
+    setFieldErrors((current) => ({
+      ...current,
+      selfie: undefined,
+    }));
 
-      if (status.status === "ENROLLED") {
-        const nextState = { value: "ENROLLED" } as const;
-        setMachine(nextState);
-        setStatusMessage(getEnrollmentStateMessage(nextState));
-        setStatusMessage(status.message);
-        trackEnrollmentEvent("enrollment_completed", { eventSlug });
-        isPolling = false;
-        return;
-      }
-
-      if (status.status === "FAILED" || status.status === "CANCELLED") {
-        const nextState = { value: "FAILED" } as const;
-        setMachine(nextState);
-        setStatusMessage(getEnrollmentStateMessage(nextState));
-        setStatusMessage(status.message);
-        trackEnrollmentEvent("enrollment_failed", { eventSlug });
-        isPolling = false;
-        return;
-      }
-
-      const nextState = { value: "PROCESSING" } as const;
-      setMachine(nextState);
-      setStatusMessage(getEnrollmentStateMessage(nextState));
-      setStatusMessage(status.message);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
     }
+
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setSelectedFile(null);
+      setFieldErrors((current) => ({
+        ...current,
+        selfie: "Only JPEG, PNG, and WEBP images are supported.",
+      }));
+      return;
+    }
+
+    const nextPreviewUrl = URL.createObjectURL(file);
+    setSelectedFile(file);
+    setPreviewUrl(nextPreviewUrl);
+    trackEnrollmentEvent("enrollment_file_selected", { eventSlug });
   }
 
   async function handleSubmit(formDataEvent: FormEvent<HTMLFormElement>) {
     formDataEvent.preventDefault();
 
     setFieldErrors({});
-    applyMachineEvent(enrollmentInitialState, { type: "VALIDATE" });
+    updateMachine("VALIDATING");
 
     const nextSubmissionKey = submissionKey ?? crypto.randomUUID();
     setSubmissionKey(nextSubmissionKey);
@@ -133,88 +169,83 @@ export function AttendeeEnrollmentForm({
       consentAccepted,
       submissionKey: nextSubmissionKey,
     };
-    const validationIssues = getRegistrationIntentValidationIssues(draftPayload);
 
+    const validationIssues = getRegistrationIntentValidationIssues(draftPayload);
     if (validationIssues.length > 0) {
-      const firstIssue = validationIssues[0];
-      setFieldErrors(
-        validationIssues.reduce<FieldErrors>((accumulator, issue) => {
-          if (issue.field && !accumulator[issue.field]) {
-            accumulator[issue.field] = issue.message;
-          }
-          return accumulator;
-        }, {}),
-      );
-      const failedState = { value: "FAILED" } as const;
-      setMachine(failedState);
-      setStatusMessage(getEnrollmentStateMessage(failedState));
-      setStatusMessage(firstIssue.message);
+      const nextFieldErrors = validationIssues.reduce<FieldErrors>((accumulator, issue) => {
+        if (issue.field && !accumulator[issue.field]) {
+          accumulator[issue.field] = issue.message;
+        }
+        return accumulator;
+      }, {});
+
+      setFieldErrors(nextFieldErrors);
+      updateMachine("FAILED", validationIssues[0].message);
       return;
     }
 
     try {
       const payload = validateRegistrationIntentRequest(draftPayload);
-
       trackEnrollmentEvent("enrollment_submit_clicked", { eventSlug });
 
-      const creatingState = { value: "CREATING_REGISTRATION" } as const;
-      setMachine(creatingState);
-      setStatusMessage(getEnrollmentStateMessage(creatingState));
-
+      updateMachine("CREATING_REGISTRATION");
       const registration = await createRegistrationIntent(payload);
-      setRegistrationId(registration.registrationId);
-      applyMachineEvent(
-        { value: "CREATING_REGISTRATION" },
-        { type: "REGISTRATION_CREATED" },
-      );
+      persistRegistrationId(registration.registrationId);
+      updateMachine("READY_TO_UPLOAD");
       trackEnrollmentEvent("enrollment_registration_created", { eventSlug });
 
       if (!selectedFile) {
-        throw {
-          error: {
-            code: "MISSING_FILE",
-            message: "Please select a selfie to upload.",
-            field: API_ERROR_FIELDS[3],
-          },
-        } satisfies ApiErrorResponse;
+        updateMachine("FAILED", "Please select a selfie to upload.");
+        return;
       }
 
-      applyMachineEvent(
-        { value: "READY_TO_UPLOAD" },
-        { type: "UPLOAD_STARTED" },
-      );
+      updateMachine("UPLOADING");
       trackEnrollmentEvent("enrollment_upload_started", { eventSlug });
-
       await uploadSelfie(registration.upload, selectedFile);
-      applyMachineEvent(
-        { value: "UPLOADING" },
-        { type: "UPLOAD_FINISHED" },
-      );
       trackEnrollmentEvent("enrollment_upload_succeeded", { eventSlug });
 
-      const status = await completeRegistration({
+      updateMachine("UPLOAD_CONFIRMED");
+      const completion = await completeRegistration({
         registrationId: registration.registrationId,
         uploadCompletedAt: new Date().toISOString(),
       });
 
-      applyMachineEvent(
-        { value: "UPLOAD_CONFIRMED" },
-        { type: "STATUS_PENDING" },
-      );
-      setStatusMessage(status.message);
+      updateMachine("PROCESSING", completion.message);
       trackEnrollmentEvent("enrollment_processing_seen", { eventSlug });
 
-      await pollUntilSettled(registration.registrationId);
+      const terminalStatus = await pollRegistrationStatus(
+        getRegistrationStatus,
+        registration.registrationId,
+        (status) => {
+          if (status.status === "ENROLLED") {
+            updateMachine("ENROLLED", status.message);
+            return;
+          }
+
+          if (status.status === "FAILED" || status.status === "CANCELLED") {
+            updateMachine("FAILED", status.message);
+            return;
+          }
+
+          updateMachine("PROCESSING", status.message);
+        },
+      );
+
+      if (terminalStatus.status === "ENROLLED") {
+        trackEnrollmentEvent("enrollment_completed", { eventSlug });
+      } else if (
+        terminalStatus.status === "FAILED" ||
+        terminalStatus.status === "CANCELLED"
+      ) {
+        trackEnrollmentEvent("enrollment_failed", { eventSlug });
+      }
     } catch (error) {
       const apiError = error as ApiErrorResponse;
       const mappedErrors = apiError.error ? mapApiErrorToFieldErrors(apiError.error) : {};
       setFieldErrors(mappedErrors);
-      const failedState = { value: "FAILED" } as const;
-      setMachine(failedState);
-      setStatusMessage(getEnrollmentStateMessage(failedState));
-      setStatusMessage(
-        apiError.error?.message ??
-          "We hit an unexpected problem while processing your enrollment.",
+      updateMachine(
+        "FAILED",
+        apiError.error?.message ?? ENROLLMENT_COPY.genericFailure,
       );
       trackEnrollmentEvent("enrollment_failed", { eventSlug });
     }
@@ -228,6 +259,18 @@ export function AttendeeEnrollmentForm({
         gap: "1rem",
       }}
     >
+      <p
+        style={{
+          color: "var(--accent-strong)",
+          textTransform: "uppercase",
+          letterSpacing: "0.16em",
+          fontSize: "0.78rem",
+          margin: 0,
+        }}
+      >
+        {ENROLLMENT_COPY.formEyebrow}
+      </p>
+
       <div style={{ display: "grid", gap: "0.45rem" }}>
         <label htmlFor="name" style={{ fontWeight: 600 }}>
           Full name
@@ -239,8 +282,14 @@ export function AttendeeEnrollmentForm({
           onChange={(event) => setName(event.target.value)}
           placeholder="Jane Doe"
           style={inputStyles}
+          aria-invalid={fieldErrors.name ? "true" : "false"}
+          aria-describedby={fieldErrors.name ? "name-error" : undefined}
         />
-        {fieldErrors.name ? <p style={errorStyles}>{fieldErrors.name}</p> : null}
+        {fieldErrors.name ? (
+          <p id="name-error" style={errorStyles}>
+            {fieldErrors.name}
+          </p>
+        ) : null}
       </div>
 
       <div style={{ display: "grid", gap: "0.45rem" }}>
@@ -255,8 +304,14 @@ export function AttendeeEnrollmentForm({
           onChange={(event) => setEmail(event.target.value)}
           placeholder="jane@example.com"
           style={inputStyles}
+          aria-invalid={fieldErrors.email ? "true" : "false"}
+          aria-describedby={fieldErrors.email ? "email-error" : undefined}
         />
-        {fieldErrors.email ? <p style={errorStyles}>{fieldErrors.email}</p> : null}
+        {fieldErrors.email ? (
+          <p id="email-error" style={errorStyles}>
+            {fieldErrors.email}
+          </p>
+        ) : null}
       </div>
 
       <div style={{ display: "grid", gap: "0.45rem" }}>
@@ -268,37 +323,51 @@ export function AttendeeEnrollmentForm({
           name="selfie"
           type="file"
           accept={SELFIE_FILE_ACCEPT}
+          multiple={false}
           onChange={(changeEvent) => {
-            const file = changeEvent.target.files?.[0] ?? null;
-            setSelectedFile(file);
-            if (file) {
-              trackEnrollmentEvent("enrollment_file_selected", { eventSlug });
-            }
+            handleSelectedFile(changeEvent.target.files?.[0] ?? null);
           }}
           style={inputStyles}
+          aria-invalid={fieldErrors.selfie ? "true" : "false"}
+          aria-describedby={fieldErrors.selfie ? "selfie-error" : "selfie-help"}
         />
         {previewUrl ? (
-          <Image
-            src={previewUrl}
-            alt="Selected selfie preview"
-            unoptimized
-            width={240}
-            height={240}
+          <figure
             style={{
-              width: "100%",
-              maxWidth: "15rem",
-              aspectRatio: "1 / 1",
-              objectFit: "cover",
-              borderRadius: "1rem",
-              border: "1px solid var(--border)",
+              display: "grid",
+              gap: "0.5rem",
+              margin: 0,
             }}
-          />
+          >
+            <Image
+              src={previewUrl}
+              alt="Selected selfie preview"
+              unoptimized
+              width={240}
+              height={240}
+              style={{
+                width: "100%",
+                maxWidth: "15rem",
+                aspectRatio: "1 / 1",
+                objectFit: "cover",
+                borderRadius: "1rem",
+                border: "1px solid var(--border)",
+              }}
+            />
+            <figcaption style={{ color: "var(--muted)", fontSize: "0.92rem" }}>
+              Preview of the currently selected selfie.
+            </figcaption>
+          </figure>
         ) : (
-          <p style={{ color: "var(--muted)", fontSize: "0.95rem" }}>
-            Choose a recent selfie with a clear view of your face.
+          <p id="selfie-help" style={{ color: "var(--muted)", fontSize: "0.95rem" }}>
+            {ENROLLMENT_COPY.fileHelpText}
           </p>
         )}
-        {fieldErrors.selfie ? <p style={errorStyles}>{fieldErrors.selfie}</p> : null}
+        {fieldErrors.selfie ? (
+          <p id="selfie-error" style={errorStyles}>
+            {fieldErrors.selfie}
+          </p>
+        ) : null}
       </div>
 
       <label
@@ -320,14 +389,17 @@ export function AttendeeEnrollmentForm({
           checked={consentAccepted}
           onChange={(event) => setConsentAccepted(event.target.checked)}
           style={{ marginTop: "0.2rem" }}
+          aria-invalid={fieldErrors.consentAccepted ? "true" : "false"}
+          aria-describedby={fieldErrors.consentAccepted ? "consent-error" : undefined}
         />
         <span style={{ lineHeight: 1.6 }}>
-          I consent to FaceLocator using this selfie to match event photos for{" "}
-          {eventTitle}.
+          {ENROLLMENT_COPY.consentLabel} This enrollment is for {eventTitle}.
         </span>
       </label>
       {fieldErrors.consentAccepted ? (
-        <p style={errorStyles}>{fieldErrors.consentAccepted}</p>
+        <p id="consent-error" style={errorStyles}>
+          {fieldErrors.consentAccepted}
+        </p>
       ) : null}
 
       <button
@@ -343,7 +415,7 @@ export function AttendeeEnrollmentForm({
           cursor: isWorking ? "progress" : "pointer",
         }}
       >
-        {isWorking ? "Processing enrollment..." : "Register my selfie"}
+        {isWorking ? ENROLLMENT_COPY.submitButtonBusy : ENROLLMENT_COPY.submitButtonIdle}
       </button>
 
       <AttendeeEnrollmentStatus

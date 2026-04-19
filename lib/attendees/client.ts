@@ -9,8 +9,22 @@ import type {
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   const payload = (await response.json()) as T | ApiErrorResponse;
+  const correlationId = response.headers.get("x-correlation-id") ?? undefined;
 
   if (!response.ok) {
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload
+    ) {
+      throw {
+        error: {
+          ...payload.error,
+          correlationId,
+        },
+      } satisfies ApiErrorResponse;
+    }
+
     throw payload;
   }
 
@@ -46,6 +60,7 @@ export async function uploadSelfie(upload: UploadInstructions, file: File) {
       error: {
         code: "INTERNAL_ERROR",
         message: "Selfie upload failed.",
+        correlationId: response.headers.get("x-correlation-id") ?? undefined,
       },
     } satisfies ApiErrorResponse;
   }

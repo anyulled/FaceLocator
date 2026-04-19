@@ -1,3 +1,6 @@
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
 import { buildSelfieObjectKey } from "@/lib/aws/boundary";
 import type { UploadInstructions } from "@/lib/attendees/contracts";
 
@@ -8,7 +11,7 @@ export type UploadGateway = {
     eventSlug: string;
     fileName: string;
     contentType: string;
-  }): UploadInstructions;
+  }): UploadInstructions | Promise<UploadInstructions>;
 };
 
 export const mockUploadGateway: UploadGateway = {
@@ -28,3 +31,64 @@ export const mockUploadGateway: UploadGateway = {
     };
   },
 };
+
+export function createUploadGatewayFromEnv(): UploadGateway {
+  if (process.env.FACE_LOCATOR_AWS_UPLOAD_MODE !== "aws") {
+    return mockUploadGateway;
+  }
+
+  const bucketName = process.env.FACE_LOCATOR_SELFIES_BUCKET;
+  if (!bucketName) {
+    return mockUploadGateway;
+  }
+
+  const s3Client = new S3Client({
+    region: process.env.AWS_REGION ?? "eu-west-1",
+  });
+
+  return {
+    async createUploadInstructions({
+      registrationId,
+      attendeeId,
+      eventSlug,
+      fileName,
+      contentType,
+    }) {
+      const objectKey = buildSelfieObjectKey({
+        eventId: eventSlug,
+        attendeeId,
+        fileName,
+      });
+
+      const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectKey,
+        ContentType: contentType,
+        Metadata: {
+          "attendee-id": attendeeId,
+          "consent-version": "2026-04-19",
+          "event-id": eventSlug,
+          "registration-id": registrationId,
+        },
+      });
+
+      const url = await getSignedUrl(s3Client, command, {
+        expiresIn: 10 * 60,
+      });
+
+      return {
+        method: "PUT",
+        url,
+        headers: {
+          "Content-Type": contentType,
+          "x-amz-meta-attendee-id": attendeeId,
+          "x-amz-meta-consent-version": "2026-04-19",
+          "x-amz-meta-event-id": eventSlug,
+          "x-amz-meta-registration-id": registrationId,
+        },
+        objectKey,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      };
+    },
+  };
+}

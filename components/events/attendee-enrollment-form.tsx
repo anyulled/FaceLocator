@@ -18,6 +18,7 @@ import type {
 import { API_ERROR_FIELDS } from "@/lib/attendees/contracts";
 import { mapApiErrorToFieldErrors } from "@/lib/attendees/mapper";
 import {
+  getEnrollmentStateMessage,
   enrollmentInitialState,
   transitionEnrollmentState,
 } from "@/lib/attendees/state-machine";
@@ -44,7 +45,7 @@ export function AttendeeEnrollmentForm({
   const [submissionKey, setSubmissionKey] = useState<string | null>(null);
   const [machine, setMachine] = useState(enrollmentInitialState);
   const [statusMessage, setStatusMessage] = useState(
-    "Complete the form and upload a recent selfie to begin enrollment.",
+    getEnrollmentStateMessage(enrollmentInitialState),
   );
   const [registrationId, setRegistrationId] = useState<string | undefined>();
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -69,6 +70,16 @@ export function AttendeeEnrollmentForm({
     return !["IDLE", "FAILED", "ENROLLED"].includes(machine.value);
   }, [machine.value]);
 
+  function applyMachineEvent(
+    currentState: typeof machine,
+    event: Parameters<typeof transitionEnrollmentState>[1],
+  ) {
+    const nextState = transitionEnrollmentState(currentState, event);
+    setMachine(nextState);
+    setStatusMessage(getEnrollmentStateMessage(nextState));
+    return nextState;
+  }
+
   async function pollUntilSettled(currentRegistrationId: string) {
     let isPolling = true;
 
@@ -77,7 +88,9 @@ export function AttendeeEnrollmentForm({
       const status = await getRegistrationStatus(currentRegistrationId);
 
       if (status.status === "ENROLLED") {
-        setMachine({ value: "ENROLLED" });
+        const nextState = { value: "ENROLLED" } as const;
+        setMachine(nextState);
+        setStatusMessage(getEnrollmentStateMessage(nextState));
         setStatusMessage(status.message);
         trackEnrollmentEvent("enrollment_completed", { eventSlug });
         isPolling = false;
@@ -85,14 +98,18 @@ export function AttendeeEnrollmentForm({
       }
 
       if (status.status === "FAILED" || status.status === "CANCELLED") {
-        setMachine({ value: "FAILED" });
+        const nextState = { value: "FAILED" } as const;
+        setMachine(nextState);
+        setStatusMessage(getEnrollmentStateMessage(nextState));
         setStatusMessage(status.message);
         trackEnrollmentEvent("enrollment_failed", { eventSlug });
         isPolling = false;
         return;
       }
 
-      setMachine({ value: "PROCESSING" });
+      const nextState = { value: "PROCESSING" } as const;
+      setMachine(nextState);
+      setStatusMessage(getEnrollmentStateMessage(nextState));
       setStatusMessage(status.message);
     }
   }
@@ -101,7 +118,7 @@ export function AttendeeEnrollmentForm({
     formDataEvent.preventDefault();
 
     setFieldErrors({});
-    setMachine(transitionEnrollmentState(enrollmentInitialState, { type: "VALIDATE" }));
+    applyMachineEvent(enrollmentInitialState, { type: "VALIDATE" });
 
     const nextSubmissionKey = submissionKey ?? crypto.randomUUID();
     setSubmissionKey(nextSubmissionKey);
@@ -128,7 +145,9 @@ export function AttendeeEnrollmentForm({
           return accumulator;
         }, {}),
       );
-      setMachine({ value: "FAILED" });
+      const failedState = { value: "FAILED" } as const;
+      setMachine(failedState);
+      setStatusMessage(getEnrollmentStateMessage(failedState));
       setStatusMessage(firstIssue.message);
       return;
     }
@@ -138,18 +157,16 @@ export function AttendeeEnrollmentForm({
 
       trackEnrollmentEvent("enrollment_submit_clicked", { eventSlug });
 
-      setMachine({ value: "CREATING_REGISTRATION" });
-      setStatusMessage("Creating your registration and reserving the upload slot.");
+      const creatingState = { value: "CREATING_REGISTRATION" } as const;
+      setMachine(creatingState);
+      setStatusMessage(getEnrollmentStateMessage(creatingState));
 
       const registration = await createRegistrationIntent(payload);
       setRegistrationId(registration.registrationId);
-      setMachine(
-        transitionEnrollmentState(
-          { value: "CREATING_REGISTRATION" },
-          { type: "REGISTRATION_CREATED" },
-        ),
+      applyMachineEvent(
+        { value: "CREATING_REGISTRATION" },
+        { type: "REGISTRATION_CREATED" },
       );
-      setStatusMessage("Registration created. Uploading your selfie now.");
       trackEnrollmentEvent("enrollment_registration_created", { eventSlug });
 
       if (!selectedFile) {
@@ -162,16 +179,17 @@ export function AttendeeEnrollmentForm({
         } satisfies ApiErrorResponse;
       }
 
-      setMachine(
-        transitionEnrollmentState({ value: "READY_TO_UPLOAD" }, { type: "UPLOAD_STARTED" }),
+      applyMachineEvent(
+        { value: "READY_TO_UPLOAD" },
+        { type: "UPLOAD_STARTED" },
       );
       trackEnrollmentEvent("enrollment_upload_started", { eventSlug });
 
       await uploadSelfie(registration.upload, selectedFile);
-      setMachine(
-        transitionEnrollmentState({ value: "UPLOADING" }, { type: "UPLOAD_FINISHED" }),
+      applyMachineEvent(
+        { value: "UPLOADING" },
+        { type: "UPLOAD_FINISHED" },
       );
-      setStatusMessage("Upload complete. Confirming registration with the server.");
       trackEnrollmentEvent("enrollment_upload_succeeded", { eventSlug });
 
       const status = await completeRegistration({
@@ -179,8 +197,9 @@ export function AttendeeEnrollmentForm({
         uploadCompletedAt: new Date().toISOString(),
       });
 
-      setMachine(
-        transitionEnrollmentState({ value: "UPLOAD_CONFIRMED" }, { type: "STATUS_PENDING" }),
+      applyMachineEvent(
+        { value: "UPLOAD_CONFIRMED" },
+        { type: "STATUS_PENDING" },
       );
       setStatusMessage(status.message);
       trackEnrollmentEvent("enrollment_processing_seen", { eventSlug });
@@ -190,7 +209,9 @@ export function AttendeeEnrollmentForm({
       const apiError = error as ApiErrorResponse;
       const mappedErrors = apiError.error ? mapApiErrorToFieldErrors(apiError.error) : {};
       setFieldErrors(mappedErrors);
-      setMachine({ value: "FAILED" });
+      const failedState = { value: "FAILED" } as const;
+      setMachine(failedState);
+      setStatusMessage(getEnrollmentStateMessage(failedState));
       setStatusMessage(
         apiError.error?.message ??
           "We hit an unexpected problem while processing your enrollment.",

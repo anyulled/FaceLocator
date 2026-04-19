@@ -15,6 +15,19 @@ export type EnrollmentMachineEvent =
   | { type: "FAIL" }
   | { type: "RESET" };
 
+const stateMessages: Record<EnrollmentUiState, string> = {
+  IDLE: "Complete the form and upload a recent selfie to begin enrollment.",
+  VALIDATING: "Checking your details before we start the registration flow.",
+  CREATING_REGISTRATION:
+    "Creating your registration and reserving the upload slot.",
+  READY_TO_UPLOAD: "Registration created. Uploading your selfie now.",
+  UPLOADING: "Uploading your selfie now.",
+  UPLOAD_CONFIRMED: "Upload complete. Confirming registration with the server.",
+  PROCESSING: "Your selfie is being processed now.",
+  ENROLLED: "Your selfie has been registered.",
+  FAILED: "We hit an unexpected problem while processing your enrollment.",
+};
+
 const transitions: Record<
   EnrollmentUiState,
   Partial<Record<EnrollmentMachineEvent["type"], EnrollmentUiState>>
@@ -59,17 +72,19 @@ export const enrollmentInitialState: EnrollmentMachineState = {
   value: "IDLE",
 };
 
+export function getEnrollmentStateMessage(state: EnrollmentMachineState) {
+  return stateMessages[state.value];
+}
+
 export function transitionEnrollmentState(
   current: EnrollmentMachineState,
   event: EnrollmentMachineEvent,
 ): EnrollmentMachineState {
-  if (current.value === "IDLE" && event.type === "REGISTRATION_CREATED") {
-    return { value: "READY_TO_UPLOAD" };
-  }
-
   const next = transitions[current.value][event.type];
   if (!next) {
-    return current;
+    throw new Error(
+      `Invalid enrollment transition: ${current.value} -> ${event.type}`,
+    );
   }
 
   return { value: next };

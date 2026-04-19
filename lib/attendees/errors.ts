@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 
-import type { ApiErrorCode, ApiErrorResponse } from "@/lib/attendees/contracts";
+import type {
+  ApiErrorCode,
+  ApiErrorField,
+  ApiErrorResponse,
+} from "@/lib/attendees/contracts";
 
 export class AttendeeApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: ApiErrorCode,
     message: string,
-    public readonly field?: ApiErrorResponse["error"]["field"],
+    public readonly field?: ApiErrorField,
   ) {
     super(message);
     this.name = "AttendeeApiError";
@@ -18,7 +22,7 @@ export function createApiError(
   status: number,
   code: ApiErrorCode,
   message: string,
-  field?: ApiErrorResponse["error"]["field"],
+  field?: ApiErrorField,
 ) {
   return new AttendeeApiError(status, code, message, field);
 }

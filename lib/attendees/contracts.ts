@@ -9,6 +9,15 @@ export const ENROLLMENT_STATUSES = [
 
 export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
 
+export const API_ERROR_FIELDS = [
+  "name",
+  "email",
+  "consentAccepted",
+  "selfie",
+] as const;
+
+export type ApiErrorField = (typeof API_ERROR_FIELDS)[number];
+
 export type EnrollmentUiState =
   | "IDLE"
   | "VALIDATING"
@@ -72,7 +81,7 @@ export type ApiErrorResponse = {
   error: {
     code: ApiErrorCode;
     message: string;
-    field?: "name" | "email" | "consentAccepted" | "selfie";
+    field?: ApiErrorField;
   };
 };
 

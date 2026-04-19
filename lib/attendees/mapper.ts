@@ -1,4 +1,5 @@
 import type {
+  ApiErrorField,
   ApiErrorResponse,
   EnrollmentStatus,
   RegistrationStatusResponse,
@@ -11,7 +12,7 @@ export function mapApiErrorToFieldErrors(error: ApiErrorResponse["error"]) {
 
   return {
     [error.field]: error.message,
-  };
+  } as Partial<Record<ApiErrorField, string>>;
 }
 
 export function getStatusCopy(status: EnrollmentStatus) {

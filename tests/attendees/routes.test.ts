@@ -82,7 +82,7 @@ describe("attendee route handlers", () => {
   });
 
   it("returns stable error payloads for invalid registration requests", async () => {
-    const response = await createRegistration(
+    const missingEventResponse = await createRegistration(
       new Request("http://localhost/api/attendees/register", {
         method: "POST",
         headers: {
@@ -100,11 +100,83 @@ describe("attendee route handlers", () => {
       }),
     );
 
-    expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({
+    const invalidNameResponse = await createRegistration(
+      new Request("http://localhost/api/attendees/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventSlug: "speaker-session-2026",
+          name: "J",
+          email: "jane@example.com",
+          contentType: "image/jpeg",
+          fileName: "selfie.jpg",
+          fileSizeBytes: 2048,
+          consentAccepted: true,
+        }),
+      }),
+    );
+
+    const unsupportedFileResponse = await createRegistration(
+      new Request("http://localhost/api/attendees/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventSlug: "speaker-session-2026",
+          name: "Jane Doe",
+          email: "jane@example.com",
+          contentType: "application/pdf",
+          fileName: "selfie.pdf",
+          fileSizeBytes: 2048,
+          consentAccepted: true,
+        }),
+      }),
+    );
+
+    const malformedJsonResponse = await createRegistration(
+      new Request("http://localhost/api/attendees/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: "{not-valid-json",
+      }),
+    );
+
+    expect(missingEventResponse.status).toBe(404);
+    await expect(missingEventResponse.json()).resolves.toEqual({
       error: {
         code: "INVALID_EVENT",
         message: "This event registration page is not available.",
+      },
+    });
+
+    expect(invalidNameResponse.status).toBe(400);
+    await expect(invalidNameResponse.json()).resolves.toEqual({
+      error: {
+        code: "INVALID_NAME",
+        message: "Please enter your full name.",
+        field: "name",
+      },
+    });
+
+    expect(unsupportedFileResponse.status).toBe(422);
+    await expect(unsupportedFileResponse.json()).resolves.toEqual({
+      error: {
+        code: "UNSUPPORTED_CONTENT_TYPE",
+        message: "Only JPEG, PNG, and WEBP images are supported.",
+        field: "selfie",
+      },
+    });
+
+    expect(malformedJsonResponse.status).toBe(400);
+    await expect(malformedJsonResponse.json()).resolves.toEqual({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "Request body must be a JSON object.",
       },
     });
   });

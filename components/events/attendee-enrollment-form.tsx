@@ -23,6 +23,7 @@ import {
 } from "@/lib/attendees/state-machine";
 import {
   SELFIE_FILE_ACCEPT,
+  getRegistrationIntentValidationIssues,
   validateRegistrationIntentRequest,
 } from "@/lib/attendees/schemas";
 import { trackEnrollmentEvent } from "@/lib/attendees/telemetry";
@@ -105,17 +106,35 @@ export function AttendeeEnrollmentForm({
     const nextSubmissionKey = submissionKey ?? crypto.randomUUID();
     setSubmissionKey(nextSubmissionKey);
 
+    const draftPayload = {
+      eventSlug,
+      name,
+      email,
+      contentType: selectedFile?.type ?? "",
+      fileName: selectedFile?.name ?? "",
+      fileSizeBytes: selectedFile?.size ?? 0,
+      consentAccepted,
+      submissionKey: nextSubmissionKey,
+    };
+    const validationIssues = getRegistrationIntentValidationIssues(draftPayload);
+
+    if (validationIssues.length > 0) {
+      const firstIssue = validationIssues[0];
+      setFieldErrors(
+        validationIssues.reduce<FieldErrors>((accumulator, issue) => {
+          if (issue.field && !accumulator[issue.field]) {
+            accumulator[issue.field] = issue.message;
+          }
+          return accumulator;
+        }, {}),
+      );
+      setMachine({ value: "FAILED" });
+      setStatusMessage(firstIssue.message);
+      return;
+    }
+
     try {
-      const payload = validateRegistrationIntentRequest({
-        eventSlug,
-        name,
-        email,
-        contentType: selectedFile?.type ?? "",
-        fileName: selectedFile?.name ?? "",
-        fileSizeBytes: selectedFile?.size ?? 0,
-        consentAccepted,
-        submissionKey: nextSubmissionKey,
-      });
+      const payload = validateRegistrationIntentRequest(draftPayload);
 
       trackEnrollmentEvent("enrollment_submit_clicked", { eventSlug });
 

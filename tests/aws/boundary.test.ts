@@ -54,6 +54,8 @@ describe("aws boundary helpers", () => {
       "photo-id",
       "uploaded-by",
     ]);
+    expect(NEXTJS_AWS_ENV_VARS).toContain("FACE_LOCATOR_DATABASE_SECRET_NAME");
+    expect(NEXTJS_AWS_ENV_VARS).toContain("DATABASE_SECRET_NAME");
     expect(NEXTJS_AWS_ENV_VARS).toContain("FACE_LOCATOR_SELFIES_BUCKET");
     expect(AWS_POC_CONSENT_TEXT_VERSION).toBe("2026-04-19");
     expect(AWS_POC_MINIMUM_CONSENT_TEXT).toContain("facial matching");

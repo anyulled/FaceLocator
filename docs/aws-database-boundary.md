@@ -1,10 +1,11 @@
 # AWS PostgreSQL Boundary
 
-The POC keeps database provisioning intentionally minimal. A concrete PostgreSQL instance can be introduced later, but the runtime contract is fixed now.
+The POC keeps database provisioning intentionally minimal while still provisioning a Terraform-managed PostgreSQL-compatible RDS instance. The runtime contract is fixed now.
 
 ## Credentials source
 
 - Worker Lambdas read database connection details from the Secrets Manager secret output as `database_secret_name`.
+- Terraform writes the managed RDS endpoint into that secret after the instance is created.
 - The secret JSON shape is:
 
 ```json
@@ -16,6 +17,12 @@ The POC keeps database provisioning intentionally minimal. A concrete PostgreSQL
   "password": "generated-or-supplied-at-apply-time"
 }
 ```
+
+## Network boundary
+
+- The RDS instance is provisioned in the AWS account's default VPC and default subnets for this POC.
+- `publicly_accessible` is disabled, so the endpoint is not exposed directly on the public internet.
+- `database_allowed_cidr_blocks` exists only for tightly scoped operator access if that is later needed; the default is an empty list, which keeps the security group from allowing any inbound PostgreSQL traffic.
 
 ## Required logical tables
 

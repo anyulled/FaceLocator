@@ -37,6 +37,18 @@ resource "aws_s3_bucket_lifecycle_configuration" "selfies" {
   }
 }
 
+resource "aws_s3_bucket_cors_configuration" "selfies" {
+  bucket = aws_s3_bucket.selfies.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD", "PUT"]
+    allowed_origins = ["https://face-locator-enrollment.localhost"]
+    expose_headers  = ["ETag", "x-amz-request-id"]
+    max_age_seconds = 3000
+  }
+}
+
 resource "aws_s3_bucket" "event_photos" {
   bucket = local.bucket_names.event_photos
 }
@@ -86,5 +98,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "event_photos" {
     expiration {
       days = var.temporary_artifact_retention_days
     }
+  }
+}
+
+resource "aws_s3_bucket_cors_configuration" "event_photos" {
+  bucket = aws_s3_bucket.event_photos.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD", "PUT"]
+    allowed_origins = ["https://face-locator-enrollment.localhost"]
+    expose_headers  = ["ETag", "x-amz-request-id"]
+    max_age_seconds = 3000
   }
 }

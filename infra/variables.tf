@@ -64,18 +64,6 @@ variable "event_photo_lambda_timeout_seconds" {
   default     = 30
 }
 
-variable "database_host" {
-  description = "PostgreSQL host for the POC boundary. Replace before apply when a concrete database exists."
-  type        = string
-  default     = "replace-me.example.internal"
-}
-
-variable "database_port" {
-  description = "PostgreSQL port for the POC boundary."
-  type        = number
-  default     = 5432
-}
-
 variable "database_name" {
   description = "Database name for the POC boundary."
   type        = string
@@ -93,6 +81,12 @@ variable "database_password_override" {
   type        = string
   default     = null
   sensitive   = true
+}
+
+variable "database_allowed_cidr_blocks" {
+  description = "Optional IPv4 CIDR blocks allowed to reach the PostgreSQL endpoint. Leave empty to keep the database unreachable from public networks."
+  type        = list(string)
+  default     = []
 }
 
 variable "search_faces_on_event_photo_upload" {

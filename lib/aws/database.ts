@@ -3,20 +3,31 @@ import { Pool } from "pg";
 
 let cachedPool: Pool | null = null;
 
+function getDatabaseSecretId() {
+  return (
+    process.env.FACE_LOCATOR_DATABASE_SECRET_ARN ||
+    process.env.DATABASE_SECRET_ARN ||
+    process.env.FACE_LOCATOR_DATABASE_SECRET_NAME ||
+    process.env.DATABASE_SECRET_NAME ||
+    process.env.FACE_LOCATOR_DATABASE_SECRET ||
+    "face-locator-poc-database"
+  );
+}
+
 export async function getDatabasePool(): Promise<Pool> {
   if (cachedPool) {
     return cachedPool;
   }
 
   const region = process.env.AWS_REGION || "eu-west-1";
-  const secretName = process.env.FACE_LOCATOR_DATABASE_SECRET || "face-locator-poc-database";
+  const secretId = getDatabaseSecretId();
 
   let config;
   try {
     const secretsClient = new SecretsManagerClient({ region });
     const response = await secretsClient.send(
       new GetSecretValueCommand({
-        SecretId: secretName,
+        SecretId: secretId,
       })
     );
     config = JSON.parse(response.SecretString!);

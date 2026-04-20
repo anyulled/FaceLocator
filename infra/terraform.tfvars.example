@@ -1,10 +1,9 @@
 aws_region   = "eu-west-1"
 environment  = "poc"
 project_name = "face-locator"
-database_host = "postgres.example.internal"
-database_port = 5432
 database_name = "face_locator"
 database_username = "face_locator_app"
+database_allowed_cidr_blocks = []
 selfie_retention_days = 30
 unmatched_event_photo_retention_days = 2
 temporary_artifact_retention_days = 1

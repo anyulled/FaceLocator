@@ -94,6 +94,9 @@ async function persistPhotoRecord(input) {
             now()
           from face_enrollments
           where rekognition_face_id = $3
+          on conflict (event_photo_id, attendee_id) do update
+          set face_enrollment_id = excluded.face_enrollment_id,
+              similarity = greatest(photo_face_matches.similarity, excluded.similarity)
           returning attendee_id
         `,
         [input.photoId, match.attendeeId, match.faceEnrollmentId, match.similarity],

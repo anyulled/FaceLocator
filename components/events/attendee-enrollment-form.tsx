@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useState } from "react";
 
@@ -31,7 +31,6 @@ export function AttendeeEnrollmentForm({
   eventTitle,
   initialRegistrationId,
 }: AttendeeEnrollmentFormProps) {
-  const router = useRouter();
   const pathname = usePathname();
 
   const [name, setName] = useState("");
@@ -116,7 +115,8 @@ export function AttendeeEnrollmentForm({
 
   function persistRegistrationId(nextRegistrationId: string) {
     setRegistrationId(nextRegistrationId);
-    router.replace(`${pathname}?registrationId=${nextRegistrationId}`, { scroll: false });
+    const nextUrl = `${pathname}?registrationId=${nextRegistrationId}`;
+    window.history.replaceState(window.history.state, "", nextUrl);
   }
 
   function handleSelectedFile(file: File | null) {

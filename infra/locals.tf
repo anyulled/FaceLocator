@@ -19,6 +19,7 @@ locals {
 
   rekognition_collection_id = "${local.name_prefix}-faces"
   database_secret_name      = "${local.name_prefix}-database"
+  database_password         = coalesce(var.database_password_override, random_password.database_password.result)
 
   lambda_package_paths = {
     selfie_enrollment  = "${path.module}/${var.lambda_package_dir}/selfie-enrollment.zip"

@@ -1,7 +1,10 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import { buildSelfieObjectKey } from "@/lib/aws/boundary";
+import {
+  AWS_POC_CONSENT_TEXT_VERSION,
+  buildSelfieObjectKey,
+} from "@/lib/aws/boundary";
 import type { UploadInstructions } from "@/lib/attendees/contracts";
 
 export type UploadGateway = {
@@ -66,7 +69,7 @@ export function createUploadGatewayFromEnv(): UploadGateway {
         ContentType: contentType,
         Metadata: {
           "attendee-id": attendeeId,
-          "consent-version": "2026-04-19",
+          "consent-version": AWS_POC_CONSENT_TEXT_VERSION,
           "event-id": eventSlug,
           "registration-id": registrationId,
         },

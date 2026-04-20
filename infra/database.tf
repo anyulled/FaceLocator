@@ -1,12 +1,28 @@
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default_vpc" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
 resource "aws_security_group" "db" {
   name        = "${local.name_prefix}-db-sg"
   description = "Security group for POC database"
+  vpc_id      = data.aws_vpc.default.id
 
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  dynamic "ingress" {
+    for_each = toset(var.database_allowed_cidr_blocks)
+
+    content {
+      from_port   = 5432
+      to_port     = 5432
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value]
+    }
   }
 
   egress {
@@ -15,6 +31,13 @@ resource "aws_security_group" "db" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = local.common_tags
+}
+
+resource "aws_db_subnet_group" "poc" {
+  name       = "${local.name_prefix}-db-subnets"
+  subnet_ids = data.aws_subnets.default_vpc.ids
 
   tags = local.common_tags
 }
@@ -28,9 +51,10 @@ resource "aws_db_instance" "poc" {
   storage_type           = "gp3"
   db_name                = var.database_name
   username               = var.database_username
-  password               = coalesce(var.database_password_override, random_password.database_password.result)
+  password               = local.database_password
   skip_final_snapshot    = true
-  publicly_accessible    = true
+  publicly_accessible    = false
+  db_subnet_group_name   = aws_db_subnet_group.poc.name
   vpc_security_group_ids = [aws_security_group.db.id]
 
   tags = local.common_tags

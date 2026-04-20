@@ -74,11 +74,11 @@ describe("attendee repository", () => {
       mockUploadGateway,
     );
 
-    const completion = inMemoryAttendeeRepository.completeRegistration(
+    const completion = await inMemoryAttendeeRepository.completeRegistration(
       registration.registrationId,
       new Date(Date.now() - 2000).toISOString(),
     );
-    const status = inMemoryAttendeeRepository.getRegistrationStatus(
+    const status = await inMemoryAttendeeRepository.getRegistrationStatus(
       registration.registrationId,
     );
 
@@ -98,11 +98,11 @@ describe("attendee repository", () => {
       mockUploadGateway,
     );
 
-    const firstCompletion = inMemoryAttendeeRepository.completeRegistration(
+    const firstCompletion = await inMemoryAttendeeRepository.completeRegistration(
       registration.registrationId,
       "2026-04-19T10:00:00.000Z",
     );
-    const secondCompletion = inMemoryAttendeeRepository.completeRegistration(
+    const secondCompletion = await inMemoryAttendeeRepository.completeRegistration(
       registration.registrationId,
       "2026-04-19T10:05:00.000Z",
     );
@@ -115,13 +115,13 @@ describe("attendee repository", () => {
     expect(secondCompletion).toEqual(firstCompletion);
   });
 
-  it("raises typed not-found errors for missing registrations", () => {
-    expect(() =>
+  it("raises typed not-found errors for missing registrations", async () => {
+    await expect(
       inMemoryAttendeeRepository.getRegistrationStatus("reg_missing"),
-    ).toThrowError(AttendeeApiError);
+    ).rejects.toThrowError(AttendeeApiError);
 
     try {
-      inMemoryAttendeeRepository.completeRegistration(
+      await inMemoryAttendeeRepository.completeRegistration(
         "reg_missing",
         new Date().toISOString(),
       );

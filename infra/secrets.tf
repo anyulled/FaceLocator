@@ -16,6 +16,6 @@ resource "aws_secretsmanager_secret_version" "database" {
     port     = aws_db_instance.poc.port
     dbname   = var.database_name
     username = var.database_username
-    password = coalesce(var.database_password_override, random_password.database_password.result)
+    password = local.database_password
   })
 }

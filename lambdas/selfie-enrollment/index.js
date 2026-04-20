@@ -52,29 +52,19 @@ async function withDatabase(callback) {
 
 async function persistEnrollment(result) {
   return withDatabase(async (client) => {
-    await client.query(
+    const updated = await client.query(
       `
-        insert into face_enrollments (
-          id,
-          event_id,
-          attendee_id,
-          registration_id,
-          selfie_object_key,
-          rekognition_face_id,
-          external_image_id,
-          status,
-          enrolled_at
-        ) values (
-          gen_random_uuid()::text,
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          'enrolled',
-          now()
-        )
+        update face_enrollments
+        set event_id = $1,
+            attendee_id = $2,
+            selfie_object_key = $4,
+            rekognition_face_id = $5,
+            external_image_id = $6,
+            status = 'enrolled',
+            enrolled_at = now(),
+            deleted_at = null
+        where registration_id = $3
+        returning id
       `,
       [
         result.eventId,
@@ -85,6 +75,51 @@ async function persistEnrollment(result) {
         result.externalImageId,
       ],
     );
+
+    if (updated.rowCount === 0) {
+      await client.query(
+        `
+          insert into face_enrollments (
+            id,
+            event_id,
+            attendee_id,
+            registration_id,
+            selfie_object_key,
+            rekognition_face_id,
+            external_image_id,
+            status,
+            enrolled_at
+          ) values (
+            gen_random_uuid()::text,
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            'enrolled',
+            now()
+          )
+          on conflict (registration_id) do update
+          set event_id = excluded.event_id,
+              attendee_id = excluded.attendee_id,
+              selfie_object_key = excluded.selfie_object_key,
+              rekognition_face_id = excluded.rekognition_face_id,
+              external_image_id = excluded.external_image_id,
+              status = excluded.status,
+              enrolled_at = excluded.enrolled_at,
+              deleted_at = null
+        `,
+        [
+          result.eventId,
+          result.attendeeId,
+          result.registrationId,
+          result.key,
+          result.faceId,
+          result.externalImageId,
+        ],
+      );
+    }
 
     await client.query(
       `

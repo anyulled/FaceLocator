@@ -43,6 +43,7 @@ create table if not exists face_enrollments (
   event_id text not null references events(id) on delete cascade,
   attendee_id text not null references attendees(id) on delete cascade,
   registration_id text,
+  submission_key text,
   selfie_object_key text not null,
   rekognition_face_id text,
   external_image_id text,
@@ -78,8 +79,59 @@ create index if not exists idx_consents_event_attendee
 create index if not exists idx_face_enrollments_event_attendee
   on face_enrollments (event_id, attendee_id);
 
+alter table if exists face_enrollments
+  add column if not exists submission_key text;
+
+delete from face_enrollments
+where id in (
+  select id
+  from (
+    select id,
+           row_number() over (
+             partition by registration_id
+             order by
+               case status
+                 when 'enrolled' then 3
+                 when 'processing' then 2
+                 when 'pending' then 1
+                 else 0
+               end desc,
+               created_at desc
+           ) as row_number
+    from face_enrollments
+    where registration_id is not null
+      and deleted_at is null
+  ) ranked
+  where ranked.row_number > 1
+);
+
+delete from photo_face_matches
+where id in (
+  select id
+  from (
+    select id,
+           row_number() over (
+             partition by event_photo_id, attendee_id
+             order by similarity desc, created_at desc
+           ) as row_number
+    from photo_face_matches
+  ) ranked
+  where ranked.row_number > 1
+);
+
+create unique index if not exists idx_face_enrollments_registration_id_unique
+  on face_enrollments (registration_id)
+  where registration_id is not null and deleted_at is null;
+
+create unique index if not exists idx_face_enrollments_submission_key_unique
+  on face_enrollments (submission_key)
+  where submission_key is not null and deleted_at is null;
+
 create index if not exists idx_event_photos_event
   on event_photos (event_id);
 
 create index if not exists idx_photo_face_matches_photo
   on photo_face_matches (event_photo_id);
+
+create unique index if not exists idx_photo_face_matches_photo_attendee_unique
+  on photo_face_matches (event_photo_id, attendee_id);

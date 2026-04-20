@@ -34,6 +34,18 @@ Observable outcome:
 3. Confirm the selfie worker role does not include event-photo bucket access.
 4. Confirm the event-photo worker role does not include selfie bucket access.
 5. Confirm the Next.js presign policy is scoped to the documented upload prefixes only.
+6. Confirm the GitHub Actions OIDC trust is limited to `anyulled/FaceLocator` pull requests and the `main` branch.
+7. Confirm the Amplify runtime role is trusted by `amplify.amazonaws.com` only.
 
 Observable outcome:
 - Lifecycle and least-privilege decisions are visible and auditable without secret values being exposed.
+
+## Production deployment verification
+
+1. Confirm the Amplify app exists and the production branch is `main`.
+2. Confirm the latest Amplify branch job matches the merged commit SHA.
+3. Confirm the hosted registration page loads from the Amplify production URL.
+4. Confirm the GitHub smoke workflow can assume the OIDC role without using static AWS keys.
+
+Observable outcome:
+- The hosted app is reachable, the deployed commit is identifiable, and the deploy-time and runtime IAM boundaries remain separate.

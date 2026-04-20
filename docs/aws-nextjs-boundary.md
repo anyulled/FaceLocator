@@ -30,6 +30,15 @@ This document fixes the assumptions the Next.js backend must honor when real AWS
 - `FACE_LOCATOR_SELFIE_KEY_PREFIX`
 - `FACE_LOCATOR_EVENT_PHOTO_PENDING_PREFIX`
 - `FACE_LOCATOR_AWS_UPLOAD_MODE`
+- `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME` when the app runs against the PostgreSQL repository
+
+## Hosted runtime identities
+
+- GitHub Actions assumes a dedicated OIDC role for CI, live E2E, and post-merge hosted smoke verification.
+- AWS Amplify assumes a separate runtime role trusted by `amplify.amazonaws.com`.
+- The hosted Next.js runtime must not reuse the Lambda execution roles.
+
+The production deployment flow and recommended trust policies are documented in [docs/aws-amplify-deployment.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-amplify-deployment.md).
 
 ## Identity encoding
 

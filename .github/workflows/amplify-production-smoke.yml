@@ -1,0 +1,133 @@
+name: Amplify Production Smoke
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: amplify-production-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-1' }}
+  AMPLIFY_APP_ID: ${{ vars.AMPLIFY_APP_ID }}
+  AMPLIFY_PRODUCTION_BRANCH: ${{ vars.AMPLIFY_PRODUCTION_BRANCH || 'main' }}
+
+jobs:
+  production-smoke:
+    name: production-smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: github-actions-amplify-smoke
+
+      - name: Validate Amplify workflow configuration
+        run: |
+          test -n "${AMPLIFY_APP_ID}"
+          test -n "${AMPLIFY_PRODUCTION_BRANCH}"
+
+      - name: Wait for latest Amplify job on production branch
+        env:
+          EXPECTED_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          import time
+
+          app_id = os.environ["AMPLIFY_APP_ID"]
+          branch = os.environ["AMPLIFY_PRODUCTION_BRANCH"]
+          expected_sha = os.environ["EXPECTED_COMMIT_SHA"]
+          deadline = time.time() + 60 * 30
+          latest_job = None
+
+          def aws_json(*args):
+            result = subprocess.run(
+              ["aws", *args, "--output", "json"],
+              check=True,
+              capture_output=True,
+              text=True,
+            )
+            return json.loads(result.stdout)
+
+          while time.time() < deadline:
+            payload = aws_json("amplify", "list-jobs", "--app-id", app_id, "--branch-name", branch, "--max-items", "10")
+            summaries = payload.get("jobSummaries", [])
+            matching = [job for job in summaries if job.get("commitId") == expected_sha]
+            latest_job = matching[0] if matching else (summaries[0] if summaries else None)
+
+            if latest_job:
+              status = latest_job.get("status")
+              job_id = latest_job["jobId"]
+              print(f"Observed Amplify job {job_id} with status {status}", flush=True)
+              if status == "SUCCEED":
+                break
+              if status in {"FAILED", "CANCELLED"}:
+                raise SystemExit(f"Amplify job {job_id} finished with status {status}")
+
+            time.sleep(20)
+          else:
+            raise SystemExit("Timed out waiting for Amplify production build")
+
+          print(f"AMPLIFY_JOB_ID={latest_job['jobId']}", file=open(os.environ["GITHUB_ENV"], "a"))
+          PY
+
+      - name: Resolve production branch URL
+        run: |
+          branch_json="$(aws amplify get-branch --app-id "${AMPLIFY_APP_ID}" --branch-name "${AMPLIFY_PRODUCTION_BRANCH}")"
+          branch_url="$(printf '%s' "${branch_json}" | python -c 'import json,sys; payload=json.load(sys.stdin); print(payload["branch"]["webUrl"])')"
+          test -n "${branch_url}"
+          echo "PLAYWRIGHT_BASE_URL=${branch_url}" >> "${GITHUB_ENV}"
+          echo "Production URL: ${branch_url}"
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run hosted production smoke suite
+        run: pnpm test:e2e tests/e2e/production-smoke.spec.ts --project=chromium
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amplify-production-playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amplify-production-test-results
+          path: test-results/
+          if-no-files-found: ignore

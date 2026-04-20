@@ -5,6 +5,9 @@ import path from 'path';
 // Read from .env.local
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'https://face-locator-enrollment.localhost';
+const shouldStartLocalServer = !process.env.PLAYWRIGHT_BASE_URL;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
@@ -14,7 +17,7 @@ export default defineConfig({
   timeout: 120000,
   reporter: 'html',
   use: {
-    baseURL: 'https://face-locator-enrollment.localhost',
+    baseURL,
     trace: 'on-first-retry',
     ignoreHTTPSErrors: true,
   },
@@ -26,12 +29,14 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'pnpm run dev',
-    url: 'https://face-locator-enrollment.localhost',
-    reuseExistingServer: !process.env.CI,
-    ignoreHTTPSErrors: true,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: shouldStartLocalServer
+    ? {
+        command: 'pnpm run dev',
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        ignoreHTTPSErrors: true,
+        stdout: 'pipe',
+        stderr: 'pipe',
+      }
+    : undefined,
 });

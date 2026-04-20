@@ -26,6 +26,19 @@
 - Packaging installs runtime dependencies locally in each Lambda directory and writes zip artifacts to `build/lambdas/`.
 - Re-run packaging whenever Lambda source changes before applying Terraform.
 
+## Production hosting flow
+
+1. Merge a reviewed pull request into `main`.
+2. Let GitHub Actions complete the required checks and post-merge smoke workflow.
+3. Let AWS Amplify auto-build the connected `main` branch for production hosting.
+4. Inspect the Amplify branch job and hosted production URL if verification fails.
+
+Operational notes:
+
+- GitHub Actions assumes the dedicated OIDC role for CI and hosted smoke verification.
+- Amplify Hosting uses its own runtime role for the deployed Next.js server workload.
+- Terraform apply remains an operator action and is separate from the hosted deployment path.
+
 ## Logs and inspection
 
 - Selfie worker log group: `/aws/lambda/<project>-<env>-selfie-enrollment`

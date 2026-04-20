@@ -1,8 +1,8 @@
 # FaceLocator Enrollment Scaffold
 
-This repository now hosts the phase `00` scaffold for the attendee enrollment slice described in [nextjs-enrollment-ticket-pack/design/README.md](/Users/anyulled/IdeaProjects/FaceLocator/nextjs-enrollment-ticket-pack/design/README.md).
+This repository now hosts the phase `00` scaffold for the attendee enrollment slice described in [specs/nextjs-enrollment-ticket-pack/design/README.md](/Users/anyulled/IdeaProjects/FaceLocator/specs/nextjs-enrollment-ticket-pack/design/README.md).
 
-The runtime app lives at the repository root and the design pack remains in `nextjs-enrollment-ticket-pack/design` as product and implementation guidance.
+The runtime app lives at the repository root and the design pack remains in `specs/nextjs-enrollment-ticket-pack/design` as product and implementation guidance.
 
 ## Local development
 
@@ -43,7 +43,7 @@ If those variables are absent, the app stays on the mock upload gateway and mock
 
 ## AWS POC Scope
 
-AWS infrastructure work is tracked separately in [aws_poc_ticket_pack/README.md](/Users/anyulled/IdeaProjects/FaceLocator/aws_poc_ticket_pack/README.md) and begins with an intentionally narrow POC boundary:
+AWS infrastructure work is tracked separately in [specs/aws_poc_ticket_pack/README.md](/Users/anyulled/IdeaProjects/FaceLocator/specs/aws_poc_ticket_pack/README.md) and begins with an intentionally narrow POC boundary:
 
 - single AWS region
 - Terraform-managed infrastructure
@@ -63,7 +63,7 @@ The AWS POC explicitly excludes:
 - Step Functions, EventBridge, SQS, WAF, CDN, and broad CI/CD plumbing
 - platform hardening that is not directly required by a ticketed need
 
-No AWS resource should be introduced unless it maps directly to a ticket in `aws_poc_ticket_pack`.
+No AWS resource should be introduced unless it maps directly to a ticket in `specs/aws_poc_ticket_pack`.
 
 ## AWS POC Operator Docs
 
@@ -74,6 +74,7 @@ The AWS stream now includes the baseline operator and application boundary docum
 - [docs/aws-retention-and-delete.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-retention-and-delete.md)
 - [docs/aws-encryption.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-encryption.md)
 - [docs/aws-nextjs-boundary.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-nextjs-boundary.md)
+- [docs/aws-amplify-deployment.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-amplify-deployment.md)
 - [docs/aws-operator-runbook.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-operator-runbook.md)
 - [docs/aws-verification-checklist.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-verification-checklist.md)
 

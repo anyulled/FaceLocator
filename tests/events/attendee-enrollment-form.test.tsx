@@ -247,4 +247,20 @@ describe("attendee enrollment form", () => {
     expect(await screen.findByText("Your selfie has been registered.")).not.toBeNull();
     expect(getRegistrationStatusMock).toHaveBeenCalledWith("reg_123");
   });
+
+  it("renders a collapsible GDPR details section near consent", () => {
+    render(
+      <AttendeeEnrollmentForm
+        eventSlug="speaker-session-2026"
+        eventTitle="DevBcn 2026"
+      />,
+    );
+
+    expect(
+      screen.getByText("GDPR and data retention details"),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(/selfies are retained for up to 30 days/i),
+    ).not.toBeNull();
+  });
 });

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 
 import { AttendeeEnrollmentForm } from "@/components/events/attendee-enrollment-form";
 import { getEventRegistrationPageData } from "@/lib/events/queries";
@@ -61,6 +62,19 @@ export default async function EventRegistrationPage({
           >
             {event.eyebrow}
           </p>
+          <Image
+            src="/devbcn-logo.svg"
+            alt="DevBcn event logo"
+            width={320}
+            height={130}
+            priority
+            style={{
+              marginTop: "0.75rem",
+              width: "100%",
+              maxWidth: "21rem",
+              height: "auto",
+            }}
+          />
           <h1
             style={{
               marginTop: "1rem",

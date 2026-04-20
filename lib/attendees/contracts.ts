@@ -93,5 +93,6 @@ export type EnrollmentEventSummary = {
   title: string;
   venue: string;
   scheduledAt: string;
+  endsAt?: string;
   description: string;
 };

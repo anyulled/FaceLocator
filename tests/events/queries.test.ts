@@ -9,7 +9,8 @@ describe("event queries", () => {
   it("returns event metadata for a known slug", async () => {
     await expect(getEventBySlug("speaker-session-2026")).resolves.toMatchObject({
       slug: "speaker-session-2026",
-      title: "Speaker Session 2026",
+      title: "DevBcn 2026",
+      venue: "World Trade Center, Barcelona",
     });
   });
 
@@ -19,10 +20,10 @@ describe("event queries", () => {
     ).resolves.toMatchObject({
       eyebrow: "Event registration",
       supportCopy: expect.stringContaining("mock-backed"),
-      formattedScheduledAt: expect.any(String),
+      formattedScheduledAt: "June 16-17, 2026",
       formProps: {
         eventSlug: "speaker-session-2026",
-        eventTitle: "Speaker Session 2026",
+        eventTitle: "DevBcn 2026",
       },
     });
   });

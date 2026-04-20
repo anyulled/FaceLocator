@@ -401,6 +401,29 @@ export function AttendeeEnrollmentForm({
           {fieldErrors.consentAccepted}
         </p>
       ) : null}
+      <details
+        style={{
+          border: "1px solid var(--border)",
+          borderRadius: "1rem",
+          padding: "0.9rem 1rem",
+          background: "rgba(255, 255, 255, 0.7)",
+        }}
+      >
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+          GDPR and data retention details
+        </summary>
+        <div style={{ marginTop: "0.75rem", display: "grid", gap: "0.65rem", color: "var(--muted)" }}>
+          <p style={{ margin: 0 }}>
+            We process your selfie only for facial matching against event photos taken at {eventTitle}.
+          </p>
+          <p style={{ margin: 0 }}>
+            Selfies are retained for up to 30 days in this enrollment flow, then deleted according to retention policy.
+          </p>
+          <p style={{ margin: 0 }}>
+            You can request deletion or consent withdrawal at any time, and your registration data will no longer be used for future matching.
+          </p>
+        </div>
+      </details>
 
       <button
         type="submit"

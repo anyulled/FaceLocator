@@ -1,0 +1,24 @@
+<svg width="640" height="260" viewBox="0 0 640 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="devbcnBlue" x1="0" y1="0" x2="640" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18B8F1"/>
+      <stop offset="1" stop-color="#0C6DB7"/>
+    </linearGradient>
+  </defs>
+
+  <polygon points="52,20 24,20 2,72 2,188 24,240 52,240 28,130" fill="url(#devbcnBlue)"/>
+  <polygon points="588,20 616,20 638,72 638,188 616,240 588,240 612,130" fill="url(#devbcnBlue)"/>
+
+  <text
+    x="95"
+    y="112"
+    fill="url(#devbcnBlue)"
+    font-size="86"
+    font-family="Arial, Helvetica, sans-serif"
+    font-weight="700"
+    letter-spacing="0.5"
+  >DevBcn</text>
+
+  <path d="M98 194H180C188 194 188 170 196 170C204 170 204 194 212 194C220 194 220 152 232 152C244 152 244 194 252 194C260 194 260 146 270 146C280 146 280 206 290 206C300 206 300 130 312 130C324 130 324 206 336 206C348 206 348 146 358 146C368 146 368 194 376 194C384 194 384 152 396 152C408 152 408 194 416 194H526"
+    stroke="url(#devbcnBlue)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

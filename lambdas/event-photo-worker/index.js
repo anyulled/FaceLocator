@@ -75,7 +75,7 @@ async function persistPhotoRecord(input) {
     );
 
     for (const match of input.matches) {
-      await client.query(
+      const matchRes = await client.query(
         `
           insert into photo_face_matches (
             id,
@@ -85,17 +85,36 @@ async function persistPhotoRecord(input) {
             similarity,
             created_at
           )
-          values (
+          select 
             gen_random_uuid()::text,
             $1,
             $2,
-            $3,
+            id,
             $4,
             now()
-          )
+          from face_enrollments
+          where rekognition_face_id = $3
+          returning attendee_id
         `,
         [input.photoId, match.attendeeId, match.faceEnrollmentId, match.similarity],
       );
+
+      if (matchRes.rows.length > 0) {
+        const attendeeRes = await client.query(
+          "select email, name from attendees where id = $1",
+          [match.attendeeId]
+        );
+        if (attendeeRes.rows.length > 0) {
+          const { email, name } = attendeeRes.rows[0];
+          console.info(JSON.stringify({
+            outcome: "notification_sent",
+            type: "mock_email",
+            to: email,
+            recipientName: name,
+            photoKey: input.objectKey
+          }));
+        }
+      }
     }
   });
 }

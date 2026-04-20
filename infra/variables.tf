@@ -106,3 +106,8 @@ variable "lambda_package_dir" {
   type        = string
   default     = "../build/lambdas"
 }
+variable "aws_profile" {
+  description = "AWS profile to use for the POC deployment."
+  type        = string
+  default     = "default"
+}

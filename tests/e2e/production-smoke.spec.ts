@@ -10,6 +10,6 @@ test.describe("Production smoke", () => {
     await expect(page.getByRole("heading", { name: /speaker session 2026/i })).toBeVisible();
     await expect(page.getByLabel(/full name/i)).toBeVisible();
     await expect(page.getByLabel(/email address/i)).toBeVisible();
-    await expect(page.getByLabel(/upload a selfie/i)).toBeVisible();
+    await expect(page.getByLabel(/selfie upload/i)).toBeVisible();
   });
 });

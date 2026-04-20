@@ -28,9 +28,19 @@ output "event_photo_worker_lambda_name" {
   value       = aws_lambda_function.event_photo_worker.function_name
 }
 
+output "matched_photo_notifier_lambda_name" {
+  description = "Matched photo notifier Lambda function name."
+  value       = aws_lambda_function.matched_photo_notifier.function_name
+}
+
 output "nextjs_presign_policy_arn" {
   description = "Policy ARN to attach to the Next.js backend runtime principal for presigned uploads."
   value       = aws_iam_policy.nextjs_presign.arn
+}
+
+output "match_link_signing_secret_name" {
+  description = "Secrets Manager secret name holding the matched photo link signing secret."
+  value       = aws_secretsmanager_secret.match_link_signing.name
 }
 
 output "database_bootstrap_sql_path" {

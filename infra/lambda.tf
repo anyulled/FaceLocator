@@ -8,6 +8,11 @@ resource "aws_cloudwatch_log_group" "event_photo_worker" {
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
+resource "aws_cloudwatch_log_group" "matched_photo_notifier" {
+  name              = local.log_group_names.matched_notifier
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
 resource "aws_lambda_function" "selfie_enrollment" {
   function_name = local.lambda_names.selfie_enrollment
   role          = aws_iam_role.selfie_enrollment_lambda.arn
@@ -57,6 +62,31 @@ resource "aws_lambda_function" "event_photo_worker" {
   depends_on = [aws_cloudwatch_log_group.event_photo_worker]
 }
 
+resource "aws_lambda_function" "matched_photo_notifier" {
+  function_name = local.lambda_names.matched_notifier
+  role          = aws_iam_role.matched_photo_notifier_lambda.arn
+  runtime       = "nodejs20.x"
+  handler       = "index.handler"
+  filename      = local.lambda_package_paths.matched_notifier
+
+  source_code_hash = try(filebase64sha256(local.lambda_package_paths.matched_notifier), null)
+  timeout          = var.matched_photo_notifier_lambda_timeout_seconds
+  memory_size      = var.matched_photo_notifier_lambda_memory_size
+
+  environment {
+    variables = {
+      LOG_LEVEL                     = "info"
+      DATABASE_SECRET_NAME          = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN           = aws_secretsmanager_secret.database.arn
+      MATCH_LINK_SIGNING_SECRET_ARN = aws_secretsmanager_secret.match_link_signing.arn
+      MATCH_LINK_TTL_DAYS           = tostring(var.match_link_ttl_days)
+      SES_FROM_EMAIL                = var.ses_from_email
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.matched_photo_notifier]
+}
+
 resource "aws_lambda_permission" "selfies_bucket_invoke" {
   statement_id  = "AllowExecutionFromSelfiesBucket"
   action        = "lambda:InvokeFunction"
@@ -93,4 +123,19 @@ resource "aws_s3_bucket_notification" "event_photos" {
   }
 
   depends_on = [aws_lambda_permission.event_photos_bucket_invoke]
+}
+
+resource "aws_scheduler_schedule" "matched_photo_notifier" {
+  name                = "${local.lambda_names.matched_notifier}-schedule"
+  schedule_expression = var.matched_photo_notifier_schedule_expression
+  state               = "ENABLED"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.matched_photo_notifier.arn
+    role_arn = aws_iam_role.matched_photo_notifier_scheduler.arn
+  }
 }

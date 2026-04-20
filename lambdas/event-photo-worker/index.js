@@ -3,7 +3,7 @@
 
 const { GetSecretValueCommand, SecretsManagerClient } = require("@aws-sdk/client-secrets-manager");
 const { SearchFacesByImageCommand, RekognitionClient } = require("@aws-sdk/client-rekognition");
-const { HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { CopyObjectCommand, HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
 const { Client } = require("pg");
 
 const { getRequiredEnv, parseEventPhotoRecord } = require("./lib");
@@ -114,7 +114,7 @@ async function persistPhotoRecord(input) {
             type: "mock_email",
             to: email,
             recipientName: name,
-            photoKey: input.objectKey
+            photoKey: input.key
           }));
         }
       }
@@ -153,6 +153,12 @@ async function searchFaces(parsed) {
   });
 }
 
+function buildMatchedPhotoObjectKey(parsed, photoId) {
+  const extensionMatch = parsed.fileName.match(/\.([^.]+)$/);
+  const extension = extensionMatch ? extensionMatch[1] : "jpg";
+  return `events/matched/${parsed.eventId}/photos/${photoId}.${extension}`;
+}
+
 async function handleRecord(record) {
   const parsed = parseEventPhotoRecord(record);
   if (!parsed) {
@@ -170,9 +176,25 @@ async function handleRecord(record) {
   const photoId = head.Metadata?.["photo-id"] || parsed.fileName.replace(/\.[^.]+$/, "");
   const matches = await searchFaces(parsed);
   const status = matches.length > 0 ? "matches_found" : "ready_for_matching";
+  let finalObjectKey = parsed.key;
+
+  if (matches.length > 0) {
+    finalObjectKey = buildMatchedPhotoObjectKey(parsed, photoId);
+    if (finalObjectKey !== parsed.key) {
+      await s3Client.send(
+        new CopyObjectCommand({
+          Bucket: parsed.bucket,
+          Key: finalObjectKey,
+          CopySource: `${parsed.bucket}/${parsed.key}`,
+          MetadataDirective: "COPY",
+        }),
+      );
+    }
+  }
 
   await persistPhotoRecord({
     ...parsed,
+    key: finalObjectKey,
     photoId,
     status,
     matches,

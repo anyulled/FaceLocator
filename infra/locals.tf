@@ -15,20 +15,25 @@ locals {
   lambda_names = {
     selfie_enrollment  = "${local.name_prefix}-selfie-enrollment"
     event_photo_worker = "${local.name_prefix}-event-photo-worker"
+    matched_notifier   = "${local.name_prefix}-matched-photo-notifier"
   }
 
-  rekognition_collection_id = "${local.name_prefix}-faces"
-  database_secret_name      = "${local.name_prefix}-database"
-  database_password         = coalesce(var.database_password_override, random_password.database_password.result)
+  rekognition_collection_id       = "${local.name_prefix}-faces"
+  database_secret_name            = "${local.name_prefix}-database"
+  database_password               = coalesce(var.database_password_override, random_password.database_password.result)
+  match_link_signing_secret_name  = "${local.name_prefix}-match-link-signing-secret"
+  match_link_signing_secret_value = coalesce(var.match_link_signing_secret_override, random_password.match_link_signing_secret.result)
 
   lambda_package_paths = {
     selfie_enrollment  = "${path.module}/${var.lambda_package_dir}/selfie-enrollment.zip"
     event_photo_worker = "${path.module}/${var.lambda_package_dir}/event-photo-worker.zip"
+    matched_notifier   = "${path.module}/${var.lambda_package_dir}/matched-photo-notifier.zip"
   }
 
   log_group_names = {
     selfie_enrollment  = "/aws/lambda/${local.lambda_names.selfie_enrollment}"
     event_photo_worker = "/aws/lambda/${local.lambda_names.event_photo_worker}"
+    matched_notifier   = "/aws/lambda/${local.lambda_names.matched_notifier}"
   }
 
   s3_encryption_algorithm     = "AES256"
@@ -61,6 +66,7 @@ locals {
       "face_enrollments",
       "event_photos",
       "photo_face_matches",
+      "matched_photo_notifications",
     ]
   }
 }

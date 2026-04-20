@@ -9,6 +9,17 @@ data "aws_iam_policy_document" "lambda_assume_role" {
   }
 }
 
+data "aws_iam_policy_document" "scheduler_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+  }
+}
+
 data "aws_iam_policy_document" "nextjs_presign" {
   statement {
     sid = "AllowSelfieUploads"
@@ -112,6 +123,7 @@ data "aws_iam_policy_document" "event_photo_worker_lambda" {
     actions = [
       "s3:GetObject",
       "s3:GetObjectTagging",
+      "s3:PutObject",
     ]
     resources = ["${aws_s3_bucket.event_photos.arn}/events/*"]
   }
@@ -133,4 +145,72 @@ resource "aws_iam_role_policy" "event_photo_worker_lambda" {
   name   = "${local.lambda_names.event_photo_worker}-policy"
   role   = aws_iam_role.event_photo_worker_lambda.id
   policy = data.aws_iam_policy_document.event_photo_worker_lambda.json
+}
+
+resource "aws_iam_role" "matched_photo_notifier_lambda" {
+  name               = "${local.lambda_names.matched_notifier}-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+data "aws_iam_policy_document" "matched_photo_notifier_lambda" {
+  statement {
+    sid       = "AllowCreateLogGroup"
+    actions   = ["logs:CreateLogGroup"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowWriteNotifierLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.matched_photo_notifier.arn}:*"]
+  }
+
+  statement {
+    sid       = "AllowReadDatabaseSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.database.arn]
+  }
+
+  statement {
+    sid       = "AllowReadSigningSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.match_link_signing.arn]
+  }
+
+  statement {
+    sid = "AllowSesSendEmail"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "matched_photo_notifier_lambda" {
+  name   = "${local.lambda_names.matched_notifier}-policy"
+  role   = aws_iam_role.matched_photo_notifier_lambda.id
+  policy = data.aws_iam_policy_document.matched_photo_notifier_lambda.json
+}
+
+resource "aws_iam_role" "matched_photo_notifier_scheduler" {
+  name               = "${local.lambda_names.matched_notifier}-scheduler-role"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume_role.json
+}
+
+data "aws_iam_policy_document" "matched_photo_notifier_scheduler" {
+  statement {
+    sid       = "AllowInvokeNotifierLambda"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.matched_photo_notifier.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "matched_photo_notifier_scheduler" {
+  name   = "${local.lambda_names.matched_notifier}-scheduler-policy"
+  role   = aws_iam_role.matched_photo_notifier_scheduler.id
+  policy = data.aws_iam_policy_document.matched_photo_notifier_scheduler.json
 }

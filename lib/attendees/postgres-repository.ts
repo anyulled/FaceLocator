@@ -19,6 +19,10 @@ function resolveStatusMessage(status: EnrollmentStatus) {
   return getEnrollmentStatusCopy(status);
 }
 
+function getPublicBaseUrlForEvent() {
+  return process.env.FACE_LOCATOR_PUBLIC_BASE_URL ?? "https://localhost:3000";
+}
+
 function mapDatabaseStatus(status: string | null | undefined): EnrollmentStatus {
   switch (status) {
     case "enrolled":
@@ -116,11 +120,12 @@ export const postgresAttendeeRepository: AttendeeRepository = {
 
       await client.query(
         `
-          INSERT INTO events (id, slug, title)
-          VALUES ($1, $1, $1)
-          ON CONFLICT (id) DO NOTHING
+          INSERT INTO events (id, slug, title, public_base_url)
+          VALUES ($1, $1, $1, $2)
+          ON CONFLICT (id) DO UPDATE
+          SET public_base_url = EXCLUDED.public_base_url
         `,
-        [input.eventSlug],
+        [input.eventSlug, getPublicBaseUrlForEvent()],
       );
 
       let attendeeId: string;

@@ -34,6 +34,12 @@ variable "temporary_artifact_retention_days" {
   default     = 1
 }
 
+variable "matched_event_photo_retention_days" {
+  description = "Retention period for matched event photos that remain accessible in gallery links."
+  type        = number
+  default     = 30
+}
+
 variable "cloudwatch_log_retention_days" {
   description = "CloudWatch log retention for worker Lambdas."
   type        = number
@@ -62,6 +68,43 @@ variable "event_photo_lambda_timeout_seconds" {
   description = "Timeout in seconds for the event photo worker Lambda."
   type        = number
   default     = 30
+}
+
+variable "matched_photo_notifier_lambda_memory_size" {
+  description = "Memory size in MB for the matched photo notifier Lambda."
+  type        = number
+  default     = 256
+}
+
+variable "matched_photo_notifier_lambda_timeout_seconds" {
+  description = "Timeout in seconds for the matched photo notifier Lambda."
+  type        = number
+  default     = 60
+}
+
+variable "matched_photo_notifier_schedule_expression" {
+  description = "EventBridge Scheduler expression used to trigger matched photo email notifications."
+  type        = string
+  default     = "rate(12 hours)"
+}
+
+variable "match_link_ttl_days" {
+  description = "Signed token TTL in days for gallery and unsubscribe links."
+  type        = number
+  default     = 30
+}
+
+variable "ses_from_email" {
+  description = "Verified SES sender email used for matched photo notification emails."
+  type        = string
+  default     = "noreply@example.com"
+}
+
+variable "match_link_signing_secret_override" {
+  description = "Optional override for the signing secret used for notification links. Leave null to generate one."
+  type        = string
+  default     = null
+  sensitive   = true
 }
 
 variable "database_name" {

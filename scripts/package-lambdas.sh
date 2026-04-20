@@ -24,5 +24,6 @@ package_lambda() {
 
 package_lambda "${ROOT_DIR}/lambdas/selfie-enrollment"
 package_lambda "${ROOT_DIR}/lambdas/event-photo-worker"
+package_lambda "${ROOT_DIR}/lambdas/matched-photo-notifier"
 
 echo "Lambda packages written to ${BUILD_DIR}"

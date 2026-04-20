@@ -1,0 +1,11 @@
+{
+  "name": "face-locator-matched-photo-notifier-lambda",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.911.0",
+    "@aws-sdk/client-secrets-manager": "^3.911.0",
+    "pg": "^8.16.3"
+  }
+}

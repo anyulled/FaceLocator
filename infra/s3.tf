@@ -99,6 +99,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "event_photos" {
       days = var.temporary_artifact_retention_days
     }
   }
+
+  rule {
+    id     = "expire-matched-event-photos"
+    status = "Enabled"
+
+    filter {
+      prefix = "events/matched/"
+    }
+
+    expiration {
+      days = var.matched_event_photo_retention_days
+    }
+  }
 }
 
 resource "aws_s3_bucket_cors_configuration" "event_photos" {

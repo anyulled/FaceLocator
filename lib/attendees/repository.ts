@@ -60,8 +60,8 @@ export type AttendeeRepository = {
   completeRegistration(
     registrationId: string,
     uploadCompletedAt: string,
-  ): RegistrationStatusResponse;
-  getRegistrationStatus(registrationId: string): RegistrationStatusResponse;
+  ): Promise<RegistrationStatusResponse>;
+  getRegistrationStatus(registrationId: string): Promise<RegistrationStatusResponse>;
 };
 
 export const inMemoryAttendeeRepository: AttendeeRepository = {
@@ -118,7 +118,7 @@ export const inMemoryAttendeeRepository: AttendeeRepository = {
     return response;
   },
 
-  completeRegistration(registrationId, uploadCompletedAt) {
+  async completeRegistration(registrationId, uploadCompletedAt) {
     const store = getStore();
     const record = store.registrations.get(registrationId);
 
@@ -145,7 +145,7 @@ export const inMemoryAttendeeRepository: AttendeeRepository = {
     };
   },
 
-  getRegistrationStatus(registrationId) {
+  async getRegistrationStatus(registrationId) {
     const store = getStore();
     const record = store.registrations.get(registrationId);
 

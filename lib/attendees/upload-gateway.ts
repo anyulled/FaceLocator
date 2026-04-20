@@ -74,6 +74,13 @@ export function createUploadGatewayFromEnv(): UploadGateway {
 
       const url = await getSignedUrl(s3Client, command, {
         expiresIn: 10 * 60,
+        signableHeaders: new Set([
+          "content-type",
+          "x-amz-meta-attendee-id",
+          "x-amz-meta-consent-version",
+          "x-amz-meta-event-id",
+          "x-amz-meta-registration-id",
+        ]),
       });
 
       return {
@@ -81,10 +88,6 @@ export function createUploadGatewayFromEnv(): UploadGateway {
         url,
         headers: {
           "Content-Type": contentType,
-          "x-amz-meta-attendee-id": attendeeId,
-          "x-amz-meta-consent-version": "2026-04-19",
-          "x-amz-meta-event-id": eventSlug,
-          "x-amz-meta-registration-id": registrationId,
         },
         objectKey,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),

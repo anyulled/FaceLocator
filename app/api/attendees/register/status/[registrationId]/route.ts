@@ -21,7 +21,7 @@ export async function GET(
 
   try {
     const { registrationId } = await context.params;
-    const response = getAttendeeRepository().getRegistrationStatus(registrationId);
+    const response = await getAttendeeRepository().getRegistrationStatus(registrationId);
     logRouteInfo("registration_status_read", {
       correlationId,
       registrationId,

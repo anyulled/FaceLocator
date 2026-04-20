@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       throw new Error("INVALID_JSON");
     });
     const payload = validateRegistrationCompleteRequest(requestBody);
-    const response = getAttendeeRepository().completeRegistration(
+    const response = await getAttendeeRepository().completeRegistration(
       payload.registrationId,
       payload.uploadCompletedAt,
     );

@@ -104,8 +104,8 @@ jobs:
 
       - name: Resolve production branch URL
         run: |
-          branch_json="$(aws amplify get-branch --app-id "${AMPLIFY_APP_ID}" --branch-name "${AMPLIFY_PRODUCTION_BRANCH}")"
-          branch_url="$(printf '%s' "${branch_json}" | python -c 'import json,sys; payload=json.load(sys.stdin); print(payload["branch"]["webUrl"])')"
+          app_json="$(aws amplify get-app --app-id "${AMPLIFY_APP_ID}")"
+          branch_url="$(printf '%s' "${app_json}" | python -c 'import json,sys,os; payload=json.load(sys.stdin); branch=os.environ["AMPLIFY_PRODUCTION_BRANCH"]; domain=payload["app"]["defaultDomain"]; print(f"https://{branch}.{domain}")')"
           test -n "${branch_url}"
           echo "PLAYWRIGHT_BASE_URL=${branch_url}" >> "${GITHUB_ENV}"
           echo "Production URL: ${branch_url}"

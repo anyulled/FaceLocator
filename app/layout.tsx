@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FaceLocator Enrollment",
-  description: "Scaffolded attendee enrollment flow for event photography.",
+  title: "FaceLocator | Instant Event Photo Discovery",
+  description: "Help attendees find event photos in seconds with private, face-based matching.",
 };
 
 export default function RootLayout({

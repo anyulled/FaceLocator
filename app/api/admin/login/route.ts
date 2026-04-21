@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { buildCognitoAuthorizeUrl, isCognitoHostedUiConfigured } from "@/lib/admin/auth";
+import { buildCognitoAuthorizeUrl } from "@/lib/admin/auth";
 
 async function getAuthorizationEndpointFromIssuer() {
   const issuer = process.env.COGNITO_ISSUER?.trim();
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const normalizedRedirectPath = redirectPath.startsWith("/") ? redirectPath : "/admin/events";
   let loginUrl = buildCognitoAuthorizeUrl(normalizedRedirectPath);
 
-  if (!loginUrl && isCognitoHostedUiConfigured()) {
+  if (!loginUrl) {
     const authorizationEndpoint = await getAuthorizationEndpointFromIssuer();
     if (authorizationEndpoint) {
       const clientId = process.env.COGNITO_APP_CLIENT_ID?.trim();

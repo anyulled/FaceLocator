@@ -1,5 +1,7 @@
 # FaceLocator
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/anyulled/facelocator)
+
 FaceLocator is a Next.js-based event photography enrollment and delivery scaffold. Attendees register a selfie for an event, the app issues an upload instruction, and the backend moves the registration through a small, explicit state machine until the attendee is enrolled and ready for matching.
 
 The repo is intentionally split into two layers:

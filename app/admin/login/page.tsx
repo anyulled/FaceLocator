@@ -1,4 +1,4 @@
-import { AdminLoginForm } from "@/components/admin/events/admin-login-form";
+import { redirect } from "next/navigation";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -6,20 +6,9 @@ export default async function AdminLoginPage({
   searchParams: Promise<{ redirect?: string }>;
 }) {
   const params = await searchParams;
-  const redirectTo = params.redirect && params.redirect.startsWith("/")
+  const redirectPath = params.redirect && params.redirect.startsWith("/")
     ? params.redirect
     : "/admin/events";
 
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: "1.5rem",
-      }}
-    >
-      <AdminLoginForm redirectTo={redirectTo} />
-    </main>
-  );
+  redirect(`/api/admin/login?redirect=${encodeURIComponent(redirectPath)}`);
 }

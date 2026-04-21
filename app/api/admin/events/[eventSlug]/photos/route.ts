@@ -9,7 +9,7 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ eventSlug: string }> },
 ) {
-  if (!isAuthorizedAdminRequest(request)) {
+  if (!(await isAuthorizedAdminRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

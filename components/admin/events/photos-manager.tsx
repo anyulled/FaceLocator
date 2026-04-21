@@ -1,8 +1,10 @@
 "use client";
 
+import React from "react";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { isUnauthorizedAdminStatus, redirectToAdminAuth } from "@/lib/admin/client";
 import type { AdminEventPhoto } from "@/lib/admin/events/contracts";
 
 type Props = {
@@ -51,6 +53,11 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
       method: "DELETE",
     });
 
+    if (isUnauthorizedAdminStatus(response.status)) {
+      redirectToAdminAuth();
+      return;
+    }
+
     const payload = await response.json().catch(() => null);
     if (!response.ok || payload?.status === "failed") {
       setStatusMessage(payload?.message || "Failed to delete photo");
@@ -83,14 +90,22 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
 
     setIsBatchDeleting(true);
     setStatusMessage(null);
+    const idempotencyKey = crypto.randomUUID();
 
     const response = await fetch(`/api/admin/events/${eventSlug}/photos/delete`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        "idempotency-key": idempotencyKey,
       },
       body: JSON.stringify({ photoIds: selectedIds }),
     });
+
+    if (isUnauthorizedAdminStatus(response.status)) {
+      setIsBatchDeleting(false);
+      redirectToAdminAuth();
+      return;
+    }
 
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload) {

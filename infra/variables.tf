@@ -132,6 +132,32 @@ variable "database_allowed_cidr_blocks" {
   default     = []
 }
 
+variable "database_network_migration_phase" {
+  description = "Controls staged RDS networking migration. Use legacy -> prepare_private_subnets -> cutover_private_endpoint -> cutover_private_subnet_group/private."
+  type        = string
+  default     = "legacy"
+
+  validation {
+    condition = contains([
+      "legacy",
+      "prepare_private_subnets",
+      "cutover_private_endpoint",
+      "cutover_private_subnet_group",
+      "private",
+    ], lower(var.database_network_migration_phase))
+    error_message = "database_network_migration_phase must be one of: legacy, prepare_private_subnets, cutover_private_endpoint, cutover_private_subnet_group, private."
+  }
+}
+
+variable "database_private_subnets" {
+  description = "Private subnets for RDS migration in the default VPC, one per AZ. Example: [{ availability_zone = \"eu-west-1a\", cidr_block = \"172.31.200.0/24\" }]."
+  type = list(object({
+    availability_zone = string
+    cidr_block        = string
+  }))
+  default = []
+}
+
 variable "search_faces_on_event_photo_upload" {
   description = "Whether the event photo worker should call Rekognition search immediately."
   type        = bool
@@ -143,6 +169,50 @@ variable "lambda_package_dir" {
   type        = string
   default     = "../build/lambdas"
 }
+
+variable "enable_cognito_admin_auth" {
+  description = "Whether to provision Cognito resources for admin authentication."
+  type        = bool
+  default     = true
+}
+
+variable "cognito_domain_prefix" {
+  description = "Optional Cognito hosted UI domain prefix override. Must be globally unique in the AWS region."
+  type        = string
+  default     = null
+}
+
+variable "cognito_callback_urls" {
+  description = "Allowed callback URLs for the Cognito app client."
+  type        = list(string)
+  default     = ["http://localhost:3000/admin"]
+}
+
+variable "cognito_logout_urls" {
+  description = "Allowed sign-out URLs for the Cognito app client."
+  type        = list(string)
+  default     = ["http://localhost:3000/"]
+}
+
+variable "cognito_admin_group_name" {
+  description = "Cognito group name required for admin access."
+  type        = string
+  default     = "admin"
+}
+
+variable "cognito_bootstrap_admin_email" {
+  description = "Optional initial admin user email to create and attach to the admin group."
+  type        = string
+  default     = null
+}
+
+variable "cognito_bootstrap_admin_temp_password" {
+  description = "Optional temporary password for the bootstrap admin user. Leave null to auto-generate."
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
 variable "aws_profile" {
   description = "AWS profile to use for the POC deployment."
   type        = string

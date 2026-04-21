@@ -97,6 +97,11 @@ resource "aws_iam_role_policy" "selfie_enrollment_lambda" {
   policy = data.aws_iam_policy_document.selfie_enrollment_lambda.json
 }
 
+resource "aws_iam_role_policy_attachment" "selfie_enrollment_vpc_access" {
+  role       = aws_iam_role.selfie_enrollment_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_iam_role" "event_photo_worker_lambda" {
   name               = "${local.lambda_names.event_photo_worker}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
@@ -147,6 +152,11 @@ resource "aws_iam_role_policy" "event_photo_worker_lambda" {
   policy = data.aws_iam_policy_document.event_photo_worker_lambda.json
 }
 
+resource "aws_iam_role_policy_attachment" "event_photo_worker_vpc_access" {
+  role       = aws_iam_role.event_photo_worker_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_iam_role" "matched_photo_notifier_lambda" {
   name               = "${local.lambda_names.matched_notifier}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
@@ -194,6 +204,11 @@ resource "aws_iam_role_policy" "matched_photo_notifier_lambda" {
   name   = "${local.lambda_names.matched_notifier}-policy"
   role   = aws_iam_role.matched_photo_notifier_lambda.id
   policy = data.aws_iam_policy_document.matched_photo_notifier_lambda.json
+}
+
+resource "aws_iam_role_policy_attachment" "matched_photo_notifier_vpc_access" {
+  role       = aws_iam_role.matched_photo_notifier_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 resource "aws_iam_role" "matched_photo_notifier_scheduler" {

@@ -86,6 +86,30 @@ create table if not exists matched_photo_notifications (
   created_at timestamptz not null default now()
 );
 
+create table if not exists admin_photo_delete_audit (
+  id text primary key,
+  request_id text not null,
+  actor_sub text not null,
+  event_slug text not null,
+  photo_id text not null,
+  event_photo_id text,
+  result text not null,
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists admin_batch_delete_idempotency (
+  id text primary key,
+  event_slug text not null,
+  idempotency_key text not null,
+  request_hash text not null,
+  actor_sub text not null,
+  response_payload jsonb not null,
+  status_code integer not null default 200,
+  created_at timestamptz not null default now(),
+  unique (event_slug, idempotency_key)
+);
+
 create index if not exists idx_consents_event_attendee
   on consents (event_id, attendee_id);
 
@@ -97,6 +121,15 @@ alter table if exists face_enrollments
 
 alter table if exists events
   add column if not exists public_base_url text;
+
+alter table if exists events
+  add column if not exists venue text;
+
+alter table if exists events
+  add column if not exists description text;
+
+alter table if exists events
+  add column if not exists ends_at timestamptz;
 
 update events
 set public_base_url = 'https://localhost:3000'
@@ -170,3 +203,15 @@ create unique index if not exists idx_matched_photo_notifications_event_attendee
 
 create index if not exists idx_matched_photo_notifications_event
   on matched_photo_notifications (event_id);
+
+create index if not exists idx_events_slug
+  on events (slug);
+
+create index if not exists idx_admin_photo_delete_audit_created_at
+  on admin_photo_delete_audit (created_at desc);
+
+create index if not exists idx_admin_photo_delete_audit_event_slug
+  on admin_photo_delete_audit (event_slug);
+
+create index if not exists idx_admin_batch_delete_idempotency_created_at
+  on admin_batch_delete_idempotency (created_at desc);

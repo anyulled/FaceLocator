@@ -4,6 +4,8 @@ project_name = "face-locator"
 database_name = "face_locator"
 database_username = "face_locator_app"
 database_allowed_cidr_blocks = []
+database_network_migration_phase = "legacy"
+database_private_subnets = []
 selfie_retention_days = 30
 unmatched_event_photo_retention_days = 2
 matched_event_photo_retention_days = 30
@@ -13,3 +15,14 @@ search_faces_on_event_photo_upload = false
 matched_photo_notifier_schedule_expression = "rate(12 hours)"
 match_link_ttl_days = 30
 ses_from_email = "noreply@example.com"
+
+enable_cognito_admin_auth = true
+# Must be globally unique in AWS region. Override per tenant/environment.
+cognito_domain_prefix = "face-locator-poc-admin"
+# Include your local and deployed admin entrypoints.
+cognito_callback_urls = ["http://localhost:3000/admin"]
+cognito_logout_urls = ["http://localhost:3000/"]
+cognito_admin_group_name = "admin"
+# Optional bootstrap admin user.
+# cognito_bootstrap_admin_email = "admin@example.com"
+# cognito_bootstrap_admin_temp_password = "TempPassword123!"

@@ -1,3 +1,5 @@
+import { createHash, randomUUID } from "node:crypto";
+
 import { DeleteObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -6,13 +8,20 @@ import type {
   AdminEventPhoto,
   AdminEventPhotosPage,
   AdminEventSummary,
+  BatchDeleteSummary,
   CreateEventInput,
   PhotoDeleteResult,
 } from "@/lib/admin/events/contracts";
 
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
 
-let schemaReady: Promise<void> | null = null;
+type DeleteAuditResult = PhotoDeleteResult["status"];
+
+type BatchReplayRow = {
+  requestHash: string;
+  responsePayload: BatchDeleteSummary;
+  statusCode: number;
+};
 
 function getEventPhotosBucketName() {
   const bucket = process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET;
@@ -25,30 +34,6 @@ function getEventPhotosBucketName() {
 
 function getS3Client() {
   return new S3Client({ region: process.env.AWS_REGION || "eu-west-1" });
-}
-
-async function ensureAdminEventSchema() {
-  if (schemaReady) {
-    await schemaReady;
-    return;
-  }
-
-  schemaReady = (async () => {
-    const pool = await getDatabasePool();
-
-    await pool.query(`
-      ALTER TABLE events
-      ADD COLUMN IF NOT EXISTS venue text,
-      ADD COLUMN IF NOT EXISTS description text,
-      ADD COLUMN IF NOT EXISTS ends_at timestamptz
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_events_slug ON events (slug)
-    `);
-  })();
-
-  await schemaReady;
 }
 
 type EventRow = {
@@ -66,8 +51,6 @@ export async function listAdminEvents(input: { page: number; pageSize: number })
   events: AdminEventSummary[];
   totalCount: number;
 }> {
-  await ensureAdminEventSchema();
-
   const pool = await getDatabasePool();
   const offset = (input.page - 1) * input.pageSize;
 
@@ -112,8 +95,6 @@ export async function listAdminEvents(input: { page: number; pageSize: number })
 }
 
 export async function createAdminEvent(input: CreateEventInput): Promise<AdminEventSummary> {
-  await ensureAdminEventSchema();
-
   const pool = await getDatabasePool();
   const normalizedSlug = input.slug.trim().toLowerCase();
 
@@ -185,8 +166,6 @@ type PhotoRow = {
 };
 
 export async function getAdminEventHeader(eventSlug: string) {
-  await ensureAdminEventSchema();
-
   const pool = await getDatabasePool();
   const result = await pool.query<EventHeaderRow>(
     `
@@ -243,8 +222,6 @@ export async function listAdminEventPhotos(input: {
   page: number;
   pageSize: number;
 }): Promise<AdminEventPhotosPage> {
-  await ensureAdminEventSchema();
-
   const pool = await getDatabasePool();
   const event = await getAdminEventHeader(input.eventSlug);
   if (!event) {
@@ -322,14 +299,52 @@ async function deleteObjectFromS3(objectKey: string) {
   );
 }
 
+async function insertDeleteAudit(input: {
+  actorSub: string;
+  eventSlug: string;
+  photoId: string;
+  result: DeleteAuditResult;
+  requestId: string;
+  errorMessage?: string;
+  eventPhotoId?: string;
+}) {
+  const pool = await getDatabasePool();
+  await pool.query(
+    `
+      INSERT INTO admin_photo_delete_audit (
+        id,
+        request_id,
+        actor_sub,
+        event_slug,
+        photo_id,
+        event_photo_id,
+        result,
+        error_message
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `,
+    [
+      randomUUID(),
+      input.requestId,
+      input.actorSub,
+      input.eventSlug,
+      input.photoId,
+      input.eventPhotoId ?? null,
+      input.result,
+      input.errorMessage ?? null,
+    ],
+  );
+}
+
 export async function deleteAdminEventPhoto(input: {
   eventSlug: string;
   photoId: string;
+  actorSub: string;
+  requestId?: string;
 }): Promise<PhotoDeleteResult> {
-  await ensureAdminEventSchema();
-
   const pool = await getDatabasePool();
   const client = await pool.connect();
+  const requestId = input.requestId ?? randomUUID();
 
   try {
     await client.query("BEGIN");
@@ -349,16 +364,49 @@ export async function deleteAdminEventPhoto(input: {
 
     const row = rowRes.rows[0];
     if (!row) {
-      await client.query("ROLLBACK");
+      await client.query("COMMIT");
+      await insertDeleteAudit({
+        actorSub: input.actorSub,
+        eventSlug: input.eventSlug,
+        photoId: input.photoId,
+        result: "not_found",
+        requestId,
+      });
       return { photoId: input.photoId, status: "not_found" };
     }
 
-    await deleteObjectFromS3(row.objectKey);
+    try {
+      await deleteObjectFromS3(row.objectKey);
+    } catch (error) {
+      await client.query("COMMIT");
+      const message = error instanceof Error ? error.message : "S3 delete failed";
+      await insertDeleteAudit({
+        actorSub: input.actorSub,
+        eventSlug: input.eventSlug,
+        photoId: input.photoId,
+        result: "failed",
+        requestId,
+        errorMessage: message,
+      });
+      return {
+        photoId: input.photoId,
+        status: "failed",
+        message,
+      };
+    }
 
     await client.query(`DELETE FROM photo_face_matches WHERE event_photo_id = $1`, [input.photoId]);
     await client.query(`DELETE FROM event_photos WHERE id = $1`, [input.photoId]);
-
     await client.query("COMMIT");
+
+    await insertDeleteAudit({
+      actorSub: input.actorSub,
+      eventSlug: input.eventSlug,
+      photoId: input.photoId,
+      result: "deleted",
+      requestId,
+      eventPhotoId: input.photoId,
+    });
 
     return {
       photoId: input.photoId,
@@ -367,29 +415,152 @@ export async function deleteAdminEventPhoto(input: {
   } catch (error) {
     await client.query("ROLLBACK");
 
+    const message = error instanceof Error ? error.message : "Delete failed";
+    await insertDeleteAudit({
+      actorSub: input.actorSub,
+      eventSlug: input.eventSlug,
+      photoId: input.photoId,
+      result: "failed",
+      requestId,
+      errorMessage: message,
+    });
+
     return {
       photoId: input.photoId,
       status: "failed",
-      message: error instanceof Error ? error.message : "Delete failed",
+      message,
     };
   } finally {
     client.release();
   }
 }
 
+function hashBatchDeleteRequest(eventSlug: string, photoIds: string[]) {
+  const canonicalPayload = JSON.stringify({
+    eventSlug,
+    photoIds: [...photoIds].sort(),
+  });
+
+  return createHash("sha256").update(canonicalPayload).digest("hex");
+}
+
+async function getIdempotencyReplay(eventSlug: string, idempotencyKey: string) {
+  const pool = await getDatabasePool();
+  const result = await pool.query<BatchReplayRow>(
+    `
+      SELECT
+        request_hash AS "requestHash",
+        response_payload AS "responsePayload",
+        status_code AS "statusCode"
+      FROM admin_batch_delete_idempotency
+      WHERE event_slug = $1
+        AND idempotency_key = $2
+      LIMIT 1
+    `,
+    [eventSlug, idempotencyKey],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function storeIdempotencyReplay(input: {
+  eventSlug: string;
+  idempotencyKey: string;
+  requestHash: string;
+  actorSub: string;
+  responsePayload: BatchDeleteSummary;
+  statusCode: number;
+}) {
+  const pool = await getDatabasePool();
+  await pool.query(
+    `
+      INSERT INTO admin_batch_delete_idempotency (
+        id,
+        event_slug,
+        idempotency_key,
+        request_hash,
+        actor_sub,
+        response_payload,
+        status_code
+      )
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+    `,
+    [
+      randomUUID(),
+      input.eventSlug,
+      input.idempotencyKey,
+      input.requestHash,
+      input.actorSub,
+      JSON.stringify(input.responsePayload),
+      input.statusCode,
+    ],
+  );
+}
+
 export async function deleteAdminEventPhotosBatch(input: {
   eventSlug: string;
   photoIds: string[];
-}) {
+  actorSub: string;
+  idempotencyKey: string;
+}): Promise<BatchDeleteSummary> {
+  const requestHash = hashBatchDeleteRequest(input.eventSlug, input.photoIds);
+  const existingReplay = await getIdempotencyReplay(input.eventSlug, input.idempotencyKey);
+
+  if (existingReplay) {
+    if (existingReplay.requestHash !== requestHash) {
+      throw new Error("IDEMPOTENCY_KEY_REUSE_WITH_DIFFERENT_PAYLOAD");
+    }
+
+    return existingReplay.responsePayload;
+  }
+
+  const requestId = `${input.idempotencyKey}:${randomUUID()}`;
   const results: PhotoDeleteResult[] = [];
 
   for (const photoId of input.photoIds) {
     const result = await deleteAdminEventPhoto({
       eventSlug: input.eventSlug,
       photoId,
+      actorSub: input.actorSub,
+      requestId,
     });
     results.push(result);
   }
 
-  return results;
+  const summary: BatchDeleteSummary = {
+    results,
+    deleted: results.filter((item) => item.status === "deleted").length,
+    notFound: results.filter((item) => item.status === "not_found").length,
+    failed: results.filter((item) => item.status === "failed").length,
+  };
+
+  try {
+    await storeIdempotencyReplay({
+      eventSlug: input.eventSlug,
+      idempotencyKey: input.idempotencyKey,
+      requestHash,
+      actorSub: input.actorSub,
+      responsePayload: summary,
+      statusCode: 200,
+    });
+  } catch (error) {
+    const isDuplicateKeyError =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "23505";
+
+    if (!isDuplicateKeyError) {
+      throw error;
+    }
+
+    const replay = await getIdempotencyReplay(input.eventSlug, input.idempotencyKey);
+    if (!replay || replay.requestHash !== requestHash) {
+      throw new Error("IDEMPOTENCY_KEY_REUSE_WITH_DIFFERENT_PAYLOAD");
+    }
+
+    return replay.responsePayload;
+  }
+
+  return summary;
 }

@@ -20,8 +20,12 @@ The POC keeps database provisioning intentionally minimal while still provisioni
 
 ## Network boundary
 
-- The RDS instance is provisioned in the AWS account's default VPC and default subnets for this POC.
-- `publicly_accessible` is disabled, so the endpoint is not exposed directly on the public internet.
+- The RDS instance is provisioned in the AWS account's default VPC.
+- Network migration is controlled by `database_network_migration_phase`:
+  - `legacy` keeps `default` DB subnet group and public endpoint for compatibility.
+  - `prepare_private_subnets` creates explicit private subnets and custom DB subnet group, then places worker Lambdas in those private subnets using VPC endpoints for AWS API egress.
+  - `cutover_private_endpoint` disables public DB access and is the secure steady-state for this POC.
+  - `cutover_private_subnet_group` is best-effort and can be blocked by AWS `InvalidVPCNetworkStateFault` for legacy instances originally created in the `default` DB subnet group.
 - `database_allowed_cidr_blocks` exists only for tightly scoped operator access if that is later needed; the default is an empty list, which keeps the security group from allowing any inbound PostgreSQL traffic.
 
 ## Required logical tables

@@ -57,3 +57,33 @@ output "event_photo_pending_key_pattern" {
   description = "Canonical S3 key pattern for pending event photos."
   value       = local.event_photo_pending_pattern
 }
+
+output "database_network_migration_phase" {
+  description = "Current staged migration phase for RDS networking."
+  value       = local.database_network_migration_phase
+}
+
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID used for admin authentication."
+  value       = try(aws_cognito_user_pool.admin[0].id, null)
+}
+
+output "cognito_user_pool_client_id" {
+  description = "Cognito User Pool App Client ID for admin web login."
+  value       = try(aws_cognito_user_pool_client.admin_web[0].id, null)
+}
+
+output "cognito_user_pool_issuer" {
+  description = "Cognito issuer URL to set as COGNITO_ISSUER for admin JWT verification."
+  value       = try("https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.admin[0].id}", null)
+}
+
+output "cognito_hosted_ui_domain" {
+  description = "Cognito hosted UI domain for admin sign-in."
+  value       = try("${aws_cognito_user_pool_domain.admin[0].domain}.auth.${var.aws_region}.amazoncognito.com", null)
+}
+
+output "cognito_admin_group_name" {
+  description = "Cognito group name required for admin route access."
+  value       = var.cognito_admin_group_name
+}

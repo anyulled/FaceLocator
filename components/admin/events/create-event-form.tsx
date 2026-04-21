@@ -1,8 +1,11 @@
 "use client";
 
+import React from "react";
 import { useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+
+import { isUnauthorizedAdminStatus, redirectToAdminAuth } from "@/lib/admin/client";
 
 type FormState = {
   title: string;
@@ -61,6 +64,11 @@ export function CreateEventForm() {
         endsAt: new Date(state.endsAt).toISOString(),
       }),
     });
+
+    if (isUnauthorizedAdminStatus(response.status)) {
+      redirectToAdminAuth();
+      return;
+    }
 
     if (!response.ok) {
       const payload = await response.json().catch(() => ({ error: "Failed to create event" }));

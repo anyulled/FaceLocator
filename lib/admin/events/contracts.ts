@@ -63,6 +63,13 @@ export type PhotoDeleteResult = {
   message?: string;
 };
 
+export type BatchDeleteSummary = {
+  results: PhotoDeleteResult[];
+  deleted: number;
+  notFound: number;
+  failed: number;
+};
+
 function isSafeSlug(value: string) {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(value);
 }
@@ -154,7 +161,7 @@ export function parseBatchDeleteInput(payload: unknown): ValidationResult<BatchD
     return { success: false, error: "photoIds must be an array" };
   }
 
-  const photoIds = rawIds.map((item) => String(item).trim()).filter(Boolean);
+  const photoIds = Array.from(new Set(rawIds.map((item) => String(item).trim()).filter(Boolean)));
 
   if (photoIds.length === 0) {
     return { success: false, error: "Select at least one photo" };

@@ -34,7 +34,18 @@ resource "aws_lambda_function" "selfie_enrollment" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.selfie_enrollment]
+  dynamic "vpc_config" {
+    for_each = local.use_lambda_vpc ? [1] : []
+    content {
+      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+      security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    }
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.selfie_enrollment,
+    aws_iam_role_policy_attachment.selfie_enrollment_vpc_access,
+  ]
 }
 
 resource "aws_lambda_function" "event_photo_worker" {
@@ -59,7 +70,18 @@ resource "aws_lambda_function" "event_photo_worker" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.event_photo_worker]
+  dynamic "vpc_config" {
+    for_each = local.use_lambda_vpc ? [1] : []
+    content {
+      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+      security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    }
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.event_photo_worker,
+    aws_iam_role_policy_attachment.event_photo_worker_vpc_access,
+  ]
 }
 
 resource "aws_lambda_function" "matched_photo_notifier" {
@@ -84,7 +106,18 @@ resource "aws_lambda_function" "matched_photo_notifier" {
     }
   }
 
-  depends_on = [aws_cloudwatch_log_group.matched_photo_notifier]
+  dynamic "vpc_config" {
+    for_each = local.use_lambda_vpc ? [1] : []
+    content {
+      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+      security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    }
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.matched_photo_notifier,
+    aws_iam_role_policy_attachment.matched_photo_notifier_vpc_access,
+  ]
 }
 
 resource "aws_lambda_permission" "selfies_bucket_invoke" {

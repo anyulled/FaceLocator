@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 
 import { listAdminEvents } from "@/lib/admin/events/repository";
-import { LogoutButton } from "@/components/admin/events/logout-button";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
 
@@ -45,7 +44,18 @@ export default async function AdminEventsPage({
             >
               Create event
             </Link>
-            <LogoutButton />
+            <Link
+              href="/api/admin/logout"
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: "999px",
+                padding: "0.6rem 1rem",
+                background: "var(--surface-strong)",
+                fontWeight: 700,
+              }}
+            >
+              Logout
+            </Link>
           </div>
         </header>
 

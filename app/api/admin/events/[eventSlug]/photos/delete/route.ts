@@ -3,14 +3,20 @@ import type { NextRequest } from "next/server";
 
 import { parseBatchDeleteInput } from "@/lib/admin/events/contracts";
 import { deleteAdminEventPhotosBatch } from "@/lib/admin/events/repository";
-import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
+import { resolveAdminIdentity } from "@/lib/admin/auth";
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ eventSlug: string }> },
 ) {
-  if (!isAuthorizedAdminRequest(request)) {
+  const actor = await resolveAdminIdentity(request);
+  if (!actor) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const idempotencyKey = request.headers.get("idempotency-key")?.trim();
+  if (!idempotencyKey) {
+    return NextResponse.json({ error: "Idempotency-Key header is required" }, { status: 400 });
   }
 
   const payload = await request.json().catch(() => null);
@@ -20,15 +26,23 @@ export async function POST(
   }
 
   const { eventSlug } = await context.params;
-  const results = await deleteAdminEventPhotosBatch({
-    eventSlug,
-    photoIds: parsed.data.photoIds,
-  });
+  try {
+    const summary = await deleteAdminEventPhotosBatch({
+      eventSlug,
+      photoIds: parsed.data.photoIds,
+      actorSub: actor.sub,
+      idempotencyKey,
+    });
 
-  return NextResponse.json({
-    results,
-    deleted: results.filter((item) => item.status === "deleted").length,
-    notFound: results.filter((item) => item.status === "not_found").length,
-    failed: results.filter((item) => item.status === "failed").length,
-  });
+    return NextResponse.json(summary);
+  } catch (error) {
+    if (error instanceof Error && error.message === "IDEMPOTENCY_KEY_REUSE_WITH_DIFFERENT_PAYLOAD") {
+      return NextResponse.json(
+        { error: "Idempotency-Key cannot be reused with a different payload" },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ error: "Batch delete failed" }, { status: 500 });
+  }
 }

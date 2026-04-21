@@ -15,7 +15,12 @@ function getDatabaseSecretId() {
 }
 
 export async function getDatabasePool(): Promise<Pool> {
-  if (cachedPool) {
+  const isTestRuntime =
+    process.env.NODE_ENV === "test" ||
+    Boolean(process.env.PLAYWRIGHT_TEST_BASE_URL) ||
+    process.env.TEST_WORKER_INDEX !== undefined;
+
+  if (cachedPool && !isTestRuntime) {
     return cachedPool;
   }
 
@@ -36,7 +41,7 @@ export async function getDatabasePool(): Promise<Pool> {
     throw new Error("Database configuration unavailable");
   }
 
-  cachedPool = new Pool({
+  const pool = new Pool({
     host: config.host,
     port: config.port,
     database: config.dbname,
@@ -46,5 +51,9 @@ export async function getDatabasePool(): Promise<Pool> {
     max: 10,
   });
 
-  return cachedPool;
+  if (!isTestRuntime) {
+    cachedPool = pool;
+  }
+
+  return pool;
 }

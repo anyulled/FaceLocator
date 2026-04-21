@@ -35,6 +35,29 @@ Set these on the Amplify app or production branch:
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
 
+### Per-tenant Cognito admin variables (runbook)
+
+For each tenant/environment, set these exact variables in Amplify so `/admin/*` and `/api/admin/*` can validate Cognito JWTs:
+
+- `COGNITO_USER_POOL_ID=<tenant_user_pool_id>`
+- `COGNITO_APP_CLIENT_ID=<tenant_app_client_id>`
+- `COGNITO_ISSUER=https://cognito-idp.<aws-region>.amazonaws.com/<tenant_user_pool_id>`
+
+Recommended source of truth:
+
+- Run `terraform -chdir=infra output` and copy:
+  - `cognito_user_pool_id`
+  - `cognito_user_pool_client_id`
+  - `cognito_user_pool_issuer`
+
+Example (eu-west-1):
+
+```bash
+COGNITO_USER_POOL_ID=eu-west-1_AbCdEf123
+COGNITO_APP_CLIENT_ID=4h1exampleclientid9abc
+COGNITO_ISSUER=https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_AbCdEf123
+```
+
 ## GitHub Actions OIDC role
 
 `AWS_ROLE_TO_ASSUME` must point to the GitHub Actions OIDC role, not the Amplify runtime role.

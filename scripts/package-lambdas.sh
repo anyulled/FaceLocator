@@ -22,8 +22,21 @@ package_lambda() {
   popd >/dev/null
 }
 
+package_lambda_if_present() {
+  local lambda_dir="$1"
+
+  if [ -d "${lambda_dir}" ]; then
+    package_lambda "${lambda_dir}"
+  else
+    echo "Skipping missing lambda directory ${lambda_dir}"
+  fi
+}
+
 package_lambda "${ROOT_DIR}/lambdas/selfie-enrollment"
 package_lambda "${ROOT_DIR}/lambdas/event-photo-worker"
 package_lambda "${ROOT_DIR}/lambdas/matched-photo-notifier"
+package_lambda_if_present "${ROOT_DIR}/lambdas/admin-read"
+package_lambda_if_present "${ROOT_DIR}/lambdas/admin-write-events"
+package_lambda_if_present "${ROOT_DIR}/lambdas/admin-write-photos"
 
 echo "Lambda packages written to ${BUILD_DIR}"

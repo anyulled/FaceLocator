@@ -33,6 +33,21 @@ output "matched_photo_notifier_lambda_name" {
   value       = aws_lambda_function.matched_photo_notifier.function_name
 }
 
+output "admin_read_lambda_name" {
+  description = "Admin read Lambda function name."
+  value       = try(aws_lambda_function.admin_read[0].function_name, null)
+}
+
+output "admin_write_events_lambda_name" {
+  description = "Admin event write Lambda function name."
+  value       = try(aws_lambda_function.admin_write_events[0].function_name, null)
+}
+
+output "admin_write_photos_lambda_name" {
+  description = "Admin photo delete Lambda function name."
+  value       = try(aws_lambda_function.admin_write_photos[0].function_name, null)
+}
+
 output "nextjs_presign_policy_arn" {
   description = "Policy ARN to attach to the Next.js backend runtime principal for presigned uploads."
   value       = aws_iam_policy.nextjs_presign.arn

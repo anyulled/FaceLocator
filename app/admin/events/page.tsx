@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { headers } from "next/headers";
 
-import { listAdminEvents } from "@/lib/admin/events/repository";
+import { loadAdminEventsPage } from "@/lib/admin/events/http";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
@@ -18,14 +18,14 @@ export default async function AdminEventsPage({
 
   await requireAdminPageAccess("/admin/events");
 
-  let events: Awaited<ReturnType<typeof listAdminEvents>>["events"] = [];
+  let events: Awaited<ReturnType<typeof loadAdminEventsPage>>["events"] = [];
   let totalCount = 0;
   let loadError = false;
   const headerStore = await headers();
   const requestId = headerStore.get("x-amz-cf-id") ?? headerStore.get("x-amzn-requestid") ?? undefined;
 
   try {
-    const result = await listAdminEvents({ page, pageSize });
+    const result = await loadAdminEventsPage({ page, pageSize });
     events = result.events;
     totalCount = result.totalCount;
   } catch (error) {

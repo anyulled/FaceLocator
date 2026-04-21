@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectPath = decodeAdminAuthState(request.nextUrl.searchParams.get("state")) || "/admin/events";
-  const redirectUrl = new URL(redirectPath, request.url);
+  const redirectUrl = new URL(redirectPath, resolveRequestOrigin(request));
   const authMaxAge = Math.max(60, Number(payload.expires_in || 3600));
 
   const nextResponse = NextResponse.redirect(redirectUrl);

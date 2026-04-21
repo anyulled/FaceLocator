@@ -88,48 +88,6 @@ variable "matched_photo_notifier_schedule_expression" {
   default     = "rate(12 hours)"
 }
 
-variable "enable_admin_backend_lambdas" {
-  description = "Whether to provision admin read/write Lambda backends for the Next.js admin facade."
-  type        = bool
-  default     = false
-}
-
-variable "admin_read_lambda_memory_size" {
-  description = "Memory size in MB for the admin read Lambda."
-  type        = number
-  default     = 256
-}
-
-variable "admin_read_lambda_timeout_seconds" {
-  description = "Timeout in seconds for the admin read Lambda."
-  type        = number
-  default     = 30
-}
-
-variable "admin_write_events_lambda_memory_size" {
-  description = "Memory size in MB for the admin event write Lambda."
-  type        = number
-  default     = 256
-}
-
-variable "admin_write_events_lambda_timeout_seconds" {
-  description = "Timeout in seconds for the admin event write Lambda."
-  type        = number
-  default     = 30
-}
-
-variable "admin_write_photos_lambda_memory_size" {
-  description = "Memory size in MB for the admin photo delete Lambda."
-  type        = number
-  default     = 256
-}
-
-variable "admin_write_photos_lambda_timeout_seconds" {
-  description = "Timeout in seconds for the admin photo delete Lambda."
-  type        = number
-  default     = 30
-}
-
 variable "match_link_ttl_days" {
   description = "Signed token TTL in days for gallery and unsubscribe links."
   type        = number

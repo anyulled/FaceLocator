@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { parseCreateEventInput, parsePaginationQuery } from "@/lib/admin/events/contracts";
-import { createAdminEvent, listAdminEvents } from "@/lib/admin/events/backend";
+import { createAdminEvent, listAdminEvents } from "@/lib/admin/events/repository";
 import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
 
 function unauthorized() {

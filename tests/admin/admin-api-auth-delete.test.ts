@@ -9,9 +9,10 @@ import {
   createAdminEvent,
   deleteAdminEventPhoto,
   deleteAdminEventPhotosBatch,
-  getAdminEventPhotosPage,
+  getAdminEventHeader,
   listAdminEvents,
-} from "@/lib/admin/events/backend";
+  listAdminEventPhotos,
+} from "@/lib/admin/events/repository";
 import { isAuthorizedAdminRequest, resolveAdminIdentity } from "@/lib/admin/auth";
 
 vi.mock("@/lib/admin/auth", () => ({
@@ -19,9 +20,10 @@ vi.mock("@/lib/admin/auth", () => ({
   resolveAdminIdentity: vi.fn(),
 }));
 
-vi.mock("@/lib/admin/events/backend", () => ({
+vi.mock("@/lib/admin/events/repository", () => ({
   listAdminEvents: vi.fn(),
-  getAdminEventPhotosPage: vi.fn(),
+  getAdminEventHeader: vi.fn(),
+  listAdminEventPhotos: vi.fn(),
   createAdminEvent: vi.fn(),
   deleteAdminEventPhoto: vi.fn(),
   deleteAdminEventPhotosBatch: vi.fn(),
@@ -30,7 +32,8 @@ vi.mock("@/lib/admin/events/backend", () => ({
 const mockedIsAuthorizedAdminRequest = vi.mocked(isAuthorizedAdminRequest);
 const mockedResolveAdminIdentity = vi.mocked(resolveAdminIdentity);
 const mockedListAdminEvents = vi.mocked(listAdminEvents);
-const mockedGetAdminEventPhotosPage = vi.mocked(getAdminEventPhotosPage);
+const mockedGetAdminEventHeader = vi.mocked(getAdminEventHeader);
+const mockedListAdminEventPhotos = vi.mocked(listAdminEventPhotos);
 const mockedCreateAdminEvent = vi.mocked(createAdminEvent);
 const mockedDeleteAdminEventPhoto = vi.mocked(deleteAdminEventPhoto);
 const mockedDeleteAdminEventPhotosBatch = vi.mocked(deleteAdminEventPhotosBatch);
@@ -132,16 +135,16 @@ describe("admin api auth and delete behavior", () => {
 
   it("returns event photo listings when authorized", async () => {
     mockedIsAuthorizedAdminRequest.mockResolvedValue(true);
-    mockedGetAdminEventPhotosPage.mockResolvedValue({
-      event: {
-        id: "event-1",
-        slug: "demo",
-        title: "Demo",
-        venue: "Venue",
-        description: "Desc",
-        startsAt: "2026-01-01T10:00:00.000Z",
-        endsAt: "2026-01-01T12:00:00.000Z",
-      },
+    mockedGetAdminEventHeader.mockResolvedValue({
+      id: "event-1",
+      slug: "demo",
+      title: "Demo",
+      venue: "Venue",
+      description: "Desc",
+      startsAt: "2026-01-01T10:00:00.000Z",
+      endsAt: "2026-01-01T12:00:00.000Z",
+    });
+    mockedListAdminEventPhotos.mockResolvedValue({
       photos: [],
       page: 1,
       pageSize: 30,
@@ -175,8 +178,8 @@ describe("admin api auth and delete behavior", () => {
 
   it("returns 404 for missing events in the photos route", async () => {
     mockedIsAuthorizedAdminRequest.mockResolvedValue(true);
-    mockedGetAdminEventPhotosPage.mockResolvedValue({
-      event: null,
+    mockedGetAdminEventHeader.mockResolvedValue(null);
+    mockedListAdminEventPhotos.mockResolvedValue({
       photos: [],
       page: 1,
       pageSize: 30,

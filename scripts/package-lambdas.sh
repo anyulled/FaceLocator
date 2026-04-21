@@ -35,8 +35,5 @@ package_lambda_if_present() {
 package_lambda "${ROOT_DIR}/lambdas/selfie-enrollment"
 package_lambda "${ROOT_DIR}/lambdas/event-photo-worker"
 package_lambda "${ROOT_DIR}/lambdas/matched-photo-notifier"
-package_lambda_if_present "${ROOT_DIR}/lambdas/admin-read"
-package_lambda_if_present "${ROOT_DIR}/lambdas/admin-write-events"
-package_lambda_if_present "${ROOT_DIR}/lambdas/admin-write-photos"
 
 echo "Lambda packages written to ${BUILD_DIR}"

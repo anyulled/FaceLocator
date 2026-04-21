@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { buildCognitoLogoutUrl } from "@/lib/admin/auth";
+import {
+  buildCognitoLogoutUrl,
+  getCognitoClientId,
+  getCognitoIssuer,
+  getCognitoLogoutRedirectUri,
+} from "@/lib/admin/auth";
 
 async function getEndSessionEndpointFromIssuer() {
-  const issuer = process.env.COGNITO_ISSUER?.trim();
+  const issuer = getCognitoIssuer();
   if (!issuer) {
     return null;
   }
@@ -38,8 +43,8 @@ export async function GET() {
   let logoutUrl = buildCognitoLogoutUrl();
   if (!logoutUrl) {
     const endSessionEndpoint = await getEndSessionEndpointFromIssuer();
-    const clientId = process.env.COGNITO_APP_CLIENT_ID?.trim();
-    const logoutUri = `${process.env.FACE_LOCATOR_PUBLIC_BASE_URL || "http://localhost:3000"}/`;
+    const clientId = getCognitoClientId();
+    const logoutUri = getCognitoLogoutRedirectUri();
     if (endSessionEndpoint && clientId) {
       const url = new URL(endSessionEndpoint);
       url.searchParams.set("client_id", clientId);

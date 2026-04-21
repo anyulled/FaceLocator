@@ -34,13 +34,24 @@ const ADMIN_GROUP = "admin";
 let jwksCache: { fetchedAt: number; keys: (JsonWebKey & { kid?: string })[] } | null = null;
 const DEFAULT_PUBLIC_BASE_URL = "http://localhost:3000";
 
-function getCognitoIssuer() {
-  const explicitIssuer = process.env.COGNITO_ISSUER?.trim();
+function readEnv(...keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+export function getCognitoIssuer() {
+  const explicitIssuer = readEnv("COGNITO_ISSUER", "NEXT_PUBLIC_COGNITO_ISSUER");
   if (explicitIssuer) {
     return explicitIssuer;
   }
 
-  const userPoolId = process.env.COGNITO_USER_POOL_ID?.trim();
+  const userPoolId = readEnv("COGNITO_USER_POOL_ID", "NEXT_PUBLIC_COGNITO_USER_POOL_ID");
   if (!userPoolId) {
     return "";
   }
@@ -54,15 +65,18 @@ function getCognitoIssuer() {
 }
 
 export function getCognitoClientId() {
-  return process.env.COGNITO_APP_CLIENT_ID?.trim() ?? "";
+  return readEnv("COGNITO_APP_CLIENT_ID", "NEXT_PUBLIC_COGNITO_APP_CLIENT_ID");
 }
 
 function getPublicBaseUrl() {
-  return process.env.FACE_LOCATOR_PUBLIC_BASE_URL?.trim() || DEFAULT_PUBLIC_BASE_URL;
+  return (
+    readEnv("FACE_LOCATOR_PUBLIC_BASE_URL", "NEXT_PUBLIC_FACE_LOCATOR_PUBLIC_BASE_URL") ||
+    DEFAULT_PUBLIC_BASE_URL
+  );
 }
 
 export function getCognitoHostedDomain() {
-  const explicitDomain = process.env.COGNITO_DOMAIN?.trim();
+  const explicitDomain = readEnv("COGNITO_DOMAIN", "NEXT_PUBLIC_COGNITO_DOMAIN");
   if (explicitDomain) {
     return explicitDomain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
   }
@@ -78,8 +92,9 @@ export function getCognitoHostedDomain() {
     return "";
   }
 
-  return `${process.env.COGNITO_DOMAIN_PREFIX || ""}`.trim()
-    ? `${process.env.COGNITO_DOMAIN_PREFIX!.trim()}.auth.${region}.amazoncognito.com`
+  const domainPrefix = readEnv("COGNITO_DOMAIN_PREFIX", "NEXT_PUBLIC_COGNITO_DOMAIN_PREFIX");
+  return domainPrefix
+    ? `${domainPrefix}.auth.${region}.amazoncognito.com`
     : "";
 }
 

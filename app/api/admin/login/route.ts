@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { buildCognitoAuthorizeUrl } from "@/lib/admin/auth";
+import {
+  buildCognitoAuthorizeUrl,
+  encodeAdminAuthState,
+  getCognitoClientId,
+  getCognitoIssuer,
+  getCognitoLoginRedirectUri,
+} from "@/lib/admin/auth";
 
 async function getAuthorizationEndpointFromIssuer() {
-  const issuer = process.env.COGNITO_ISSUER?.trim();
+  const issuer = getCognitoIssuer();
   if (!issuer) {
     return null;
   }
@@ -29,8 +35,8 @@ export async function GET(request: NextRequest) {
   if (!loginUrl) {
     const authorizationEndpoint = await getAuthorizationEndpointFromIssuer();
     if (authorizationEndpoint) {
-      const clientId = process.env.COGNITO_APP_CLIENT_ID?.trim();
-      const redirectUri = `${process.env.FACE_LOCATOR_PUBLIC_BASE_URL || "http://localhost:3000"}/api/admin/callback`;
+      const clientId = getCognitoClientId();
+      const redirectUri = getCognitoLoginRedirectUri();
       if (clientId) {
         const url = new URL(authorizationEndpoint);
         url.searchParams.set("client_id", clientId);
@@ -39,9 +45,7 @@ export async function GET(request: NextRequest) {
         url.searchParams.set("redirect_uri", redirectUri);
         url.searchParams.set(
           "state",
-          Buffer.from(JSON.stringify({ redirectPath: normalizedRedirectPath }), "utf8").toString(
-            "base64url",
-          ),
+          encodeAdminAuthState(normalizedRedirectPath),
         );
         loginUrl = url.toString();
       }

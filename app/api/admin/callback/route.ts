@@ -4,11 +4,12 @@ import type { NextRequest } from "next/server";
 import {
   decodeAdminAuthState,
   getCognitoClientId,
+  getCognitoIssuer,
   getCognitoLoginRedirectUri,
 } from "@/lib/admin/auth";
 
 async function getTokenEndpointFromIssuer() {
-  const issuer = process.env.COGNITO_ISSUER?.trim();
+  const issuer = getCognitoIssuer();
   if (!issuer) {
     return null;
   }

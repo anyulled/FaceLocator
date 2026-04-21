@@ -4,9 +4,26 @@ import type { NextRequest } from "next/server";
 import {
   decodeAdminAuthState,
   getCognitoClientId,
-  getCognitoHostedDomain,
   getCognitoLoginRedirectUri,
 } from "@/lib/admin/auth";
+
+async function getTokenEndpointFromIssuer() {
+  const issuer = process.env.COGNITO_ISSUER?.trim();
+  if (!issuer) {
+    return null;
+  }
+
+  const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as { token_endpoint?: string };
+  return payload.token_endpoint ?? null;
+}
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -14,15 +31,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing authorization code" }, { status: 400 });
   }
 
-  const domain = getCognitoHostedDomain();
   const clientId = getCognitoClientId();
   const redirectUri = getCognitoLoginRedirectUri();
+  const tokenEndpoint = await getTokenEndpointFromIssuer();
 
-  if (!domain || !clientId || !redirectUri) {
+  if (!tokenEndpoint || !clientId || !redirectUri) {
     return NextResponse.json({ error: "Cognito OAuth configuration is incomplete" }, { status: 503 });
   }
 
-  const tokenEndpoint = `https://${domain}/oauth2/token`;
   const response = await fetch(tokenEndpoint, {
     method: "POST",
     headers: {

@@ -55,12 +55,12 @@ describe("matched gallery page", () => {
     });
 
     const { default: MatchedGalleryPage } = await import(
-      "@/app/events/[eventId]/faces/[faceId]/page"
+      "@/app/events/[eventSlug]/faces/[faceId]/page"
     );
 
     const element = await MatchedGalleryPage({
       params: Promise.resolve({
-        eventId: "speaker-session-2026",
+        eventSlug: "speaker-session-2026",
         faceId: "face_abc",
       }),
       searchParams: Promise.resolve({
@@ -79,13 +79,13 @@ describe("matched gallery page", () => {
     verifySignedNotificationTokenMock.mockReturnValue(null);
 
     const { default: MatchedGalleryPage } = await import(
-      "@/app/events/[eventId]/faces/[faceId]/page"
+      "@/app/events/[eventSlug]/faces/[faceId]/page"
     );
 
     await expect(
       MatchedGalleryPage({
         params: Promise.resolve({
-          eventId: "speaker-session-2026",
+          eventSlug: "speaker-session-2026",
           faceId: "face_abc",
         }),
         searchParams: Promise.resolve({

@@ -1,3 +1,4 @@
+import React from "react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
@@ -6,7 +7,7 @@ import { verifySignedNotificationToken } from "@/lib/notifications/token";
 
 type MatchedGalleryPageProps = {
   params: Promise<{
-    eventId: string;
+    eventSlug: string;
     faceId: string;
   }>;
   searchParams: Promise<{
@@ -18,7 +19,7 @@ export default async function MatchedGalleryPage({
   params,
   searchParams,
 }: MatchedGalleryPageProps) {
-  const { eventId, faceId } = await params;
+  const { eventSlug, faceId } = await params;
   const { token } = await searchParams;
 
   if (!token) {
@@ -26,12 +27,12 @@ export default async function MatchedGalleryPage({
   }
 
   const payload = verifySignedNotificationToken(token, "gallery");
-  if (!payload || payload.eventId !== eventId || payload.faceId !== faceId) {
+  if (!payload || payload.eventId !== eventSlug || payload.faceId !== faceId) {
     notFound();
   }
 
   const galleryData = await getMatchedGalleryData({
-    eventId,
+    eventId: eventSlug,
     attendeeId: payload.sub,
     faceId,
   });

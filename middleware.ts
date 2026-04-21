@@ -29,6 +29,20 @@ function hasAuthTokenHint(request: NextRequest) {
   return /^Bearer\s+.+/i.test(authorizationHeader);
 }
 
+function resolveRequestOrigin(request: NextRequest) {
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProto === "http" || forwardedProto === "https"
+    ? forwardedProto
+    : "https";
+
+  if (forwardedHost) {
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return request.nextUrl.origin;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
@@ -58,7 +72,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAdminPath(pathname)) {
-    const loginUrl = new URL(ADMIN_LOGIN_PATH, request.url);
+    const loginUrl = new URL(ADMIN_LOGIN_PATH, resolveRequestOrigin(request));
     loginUrl.searchParams.set("redirect", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
   }

@@ -7,6 +7,20 @@ import {
   getCognitoLogoutRedirectUri,
 } from "@/lib/admin/auth";
 
+function resolveRequestOrigin(request: Request) {
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProto === "http" || forwardedProto === "https"
+    ? forwardedProto
+    : "https";
+
+  if (forwardedHost) {
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return new URL(request.url).origin;
+}
+
 async function getEndSessionEndpointFromIssuer() {
   const issuer = getCognitoIssuer();
   if (!issuer) {
@@ -40,12 +54,12 @@ function clearAuthCookies(response: NextResponse) {
 }
 
 export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  let logoutUrl = buildCognitoLogoutUrl(requestUrl.origin);
+  const requestOrigin = resolveRequestOrigin(request);
+  let logoutUrl = buildCognitoLogoutUrl(requestOrigin);
   if (!logoutUrl) {
     const endSessionEndpoint = await getEndSessionEndpointFromIssuer();
     const clientId = getCognitoClientId();
-    const logoutUri = getCognitoLogoutRedirectUri(requestUrl.origin);
+    const logoutUri = getCognitoLogoutRedirectUri(requestOrigin);
     if (endSessionEndpoint && clientId) {
       const url = new URL(endSessionEndpoint);
       url.searchParams.set("client_id", clientId);

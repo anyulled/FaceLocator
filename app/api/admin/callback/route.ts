@@ -8,6 +8,20 @@ import {
   getCognitoLoginRedirectUri,
 } from "@/lib/admin/auth";
 
+function resolveRequestOrigin(request: NextRequest) {
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProto === "http" || forwardedProto === "https"
+    ? forwardedProto
+    : "https";
+
+  if (forwardedHost) {
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return request.nextUrl.origin;
+}
+
 async function getTokenEndpointFromIssuer() {
   const issuer = getCognitoIssuer();
   if (!issuer) {
@@ -33,7 +47,7 @@ export async function GET(request: NextRequest) {
   }
 
   const clientId = getCognitoClientId();
-  const redirectUri = getCognitoLoginRedirectUri(request.nextUrl.origin);
+  const redirectUri = getCognitoLoginRedirectUri(resolveRequestOrigin(request));
   const tokenEndpoint = await getTokenEndpointFromIssuer();
 
   if (!tokenEndpoint || !clientId || !redirectUri) {

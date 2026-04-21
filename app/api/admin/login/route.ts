@@ -9,6 +9,20 @@ import {
   getCognitoLoginRedirectUri,
 } from "@/lib/admin/auth";
 
+function resolveRequestOrigin(request: NextRequest) {
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProto === "http" || forwardedProto === "https"
+    ? forwardedProto
+    : "https";
+
+  if (forwardedHost) {
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return request.nextUrl.origin;
+}
+
 async function getAuthorizationEndpointFromIssuer() {
   const issuer = getCognitoIssuer();
   if (!issuer) {
@@ -30,13 +44,14 @@ async function getAuthorizationEndpointFromIssuer() {
 export async function GET(request: NextRequest) {
   const redirectPath = request.nextUrl.searchParams.get("redirect") || "/admin/events";
   const normalizedRedirectPath = redirectPath.startsWith("/") ? redirectPath : "/admin/events";
-  let loginUrl = buildCognitoAuthorizeUrl(normalizedRedirectPath, request.nextUrl.origin);
+  const requestOrigin = resolveRequestOrigin(request);
+  let loginUrl = buildCognitoAuthorizeUrl(normalizedRedirectPath, requestOrigin);
 
   if (!loginUrl) {
     const authorizationEndpoint = await getAuthorizationEndpointFromIssuer();
     if (authorizationEndpoint) {
       const clientId = getCognitoClientId();
-      const redirectUri = getCognitoLoginRedirectUri(request.nextUrl.origin);
+      const redirectUri = getCognitoLoginRedirectUri(requestOrigin);
       if (clientId) {
         const url = new URL(authorizationEndpoint);
         url.searchParams.set("client_id", clientId);

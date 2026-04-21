@@ -30,13 +30,13 @@ async function getAuthorizationEndpointFromIssuer() {
 export async function GET(request: NextRequest) {
   const redirectPath = request.nextUrl.searchParams.get("redirect") || "/admin/events";
   const normalizedRedirectPath = redirectPath.startsWith("/") ? redirectPath : "/admin/events";
-  let loginUrl = buildCognitoAuthorizeUrl(normalizedRedirectPath);
+  let loginUrl = buildCognitoAuthorizeUrl(normalizedRedirectPath, request.nextUrl.origin);
 
   if (!loginUrl) {
     const authorizationEndpoint = await getAuthorizationEndpointFromIssuer();
     if (authorizationEndpoint) {
       const clientId = getCognitoClientId();
-      const redirectUri = getCognitoLoginRedirectUri();
+      const redirectUri = getCognitoLoginRedirectUri(request.nextUrl.origin);
       if (clientId) {
         const url = new URL(authorizationEndpoint);
         url.searchParams.set("client_id", clientId);

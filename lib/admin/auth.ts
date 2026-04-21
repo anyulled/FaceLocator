@@ -34,6 +34,10 @@ const ADMIN_GROUP = "admin";
 let jwksCache: { fetchedAt: number; keys: (JsonWebKey & { kid?: string })[] } | null = null;
 const DEFAULT_PUBLIC_BASE_URL = "http://localhost:3000";
 
+function normalizeBaseUrl(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
 function readEnv(...keys: string[]) {
   for (const key of keys) {
     const value = process.env[key]?.trim();
@@ -68,10 +72,14 @@ export function getCognitoClientId() {
   return readEnv("COGNITO_APP_CLIENT_ID", "NEXT_PUBLIC_COGNITO_APP_CLIENT_ID");
 }
 
-function getPublicBaseUrl() {
-  return (
+function getPublicBaseUrl(origin?: string) {
+  if (origin?.trim()) {
+    return normalizeBaseUrl(origin.trim());
+  }
+
+  return normalizeBaseUrl(
     readEnv("FACE_LOCATOR_PUBLIC_BASE_URL", "NEXT_PUBLIC_FACE_LOCATOR_PUBLIC_BASE_URL") ||
-    DEFAULT_PUBLIC_BASE_URL
+      DEFAULT_PUBLIC_BASE_URL,
   );
 }
 
@@ -98,12 +106,12 @@ export function getCognitoHostedDomain() {
     : "";
 }
 
-export function getCognitoLoginRedirectUri() {
-  return `${getPublicBaseUrl()}/api/admin/callback`;
+export function getCognitoLoginRedirectUri(origin?: string) {
+  return `${getPublicBaseUrl(origin)}/api/admin/callback`;
 }
 
-export function getCognitoLogoutRedirectUri() {
-  return `${getPublicBaseUrl()}/`;
+export function getCognitoLogoutRedirectUri(origin?: string) {
+  return `${getPublicBaseUrl(origin)}/`;
 }
 
 function bytesToBase64Url(bytes: Uint8Array) {
@@ -150,10 +158,10 @@ export function decodeAdminAuthState(state: string | null | undefined) {
   }
 }
 
-export function buildCognitoAuthorizeUrl(redirectPath: string) {
+export function buildCognitoAuthorizeUrl(redirectPath: string, origin?: string) {
   const domain = getCognitoHostedDomain();
   const clientId = getCognitoClientId();
-  const redirectUri = getCognitoLoginRedirectUri();
+  const redirectUri = getCognitoLoginRedirectUri(origin);
 
   if (!domain || !clientId || !redirectUri) {
     return "";
@@ -169,10 +177,10 @@ export function buildCognitoAuthorizeUrl(redirectPath: string) {
   return url.toString();
 }
 
-export function buildCognitoLogoutUrl() {
+export function buildCognitoLogoutUrl(origin?: string) {
   const domain = getCognitoHostedDomain();
   const clientId = getCognitoClientId();
-  const logoutUri = getCognitoLogoutRedirectUri();
+  const logoutUri = getCognitoLogoutRedirectUri(origin);
 
   if (!domain || !clientId || !logoutUri) {
     return "";

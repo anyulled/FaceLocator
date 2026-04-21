@@ -39,12 +39,13 @@ function clearAuthCookies(response: NextResponse) {
   response.cookies.set({ name: "refreshToken", value: "", ...cookieBase });
 }
 
-export async function GET() {
-  let logoutUrl = buildCognitoLogoutUrl();
+export async function GET(request: Request) {
+  const requestUrl = new URL(request.url);
+  let logoutUrl = buildCognitoLogoutUrl(requestUrl.origin);
   if (!logoutUrl) {
     const endSessionEndpoint = await getEndSessionEndpointFromIssuer();
     const clientId = getCognitoClientId();
-    const logoutUri = getCognitoLogoutRedirectUri();
+    const logoutUri = getCognitoLogoutRedirectUri(requestUrl.origin);
     if (endSessionEndpoint && clientId) {
       const url = new URL(endSessionEndpoint);
       url.searchParams.set("client_id", clientId);
@@ -60,6 +61,6 @@ export async function GET() {
   return response;
 }
 
-export async function POST() {
-  return GET();
+export async function POST(request: Request) {
+  return GET(request);
 }

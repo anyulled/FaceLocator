@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   const clientId = getCognitoClientId();
-  const redirectUri = getCognitoLoginRedirectUri();
+  const redirectUri = getCognitoLoginRedirectUri(request.nextUrl.origin);
   const tokenEndpoint = await getTokenEndpointFromIssuer();
 
   if (!tokenEndpoint || !clientId || !redirectUri) {

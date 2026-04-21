@@ -7,6 +7,12 @@ export type AdminIdentity = {
   username: string | null;
 };
 
+type AdminAuthContext = {
+  source: "request" | "page" | "api";
+  requestPath?: string;
+  requestId?: string;
+};
+
 type JwtHeader = {
   alg?: string;
   kid?: string;
@@ -261,6 +267,34 @@ function normalizeGroups(groups: JwtPayload["cognito:groups"]) {
   return [];
 }
 
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    message: String(error),
+  };
+}
+
+function logAdminAuthError(message: string, context: AdminAuthContext, error: unknown) {
+  console.error(
+    JSON.stringify({
+      scope: "admin-auth",
+      level: "error",
+      message,
+      source: context.source,
+      requestPath: context.requestPath ?? null,
+      requestId: context.requestId ?? null,
+      error: serializeError(error),
+    }),
+  );
+}
+
 async function loadJwks(issuer: string): Promise<(JsonWebKey & { kid?: string })[]> {
   const now = Date.now();
   if (jwksCache && now - jwksCache.fetchedAt < JWKS_TTL_MS) {
@@ -302,94 +336,139 @@ async function verifySignature(token: string, key: JsonWebKey) {
   return crypto.subtle.verify("RSASSA-PKCS1-v1_5", cryptoKey, signature, signingInputBytes);
 }
 
-export async function resolveAdminIdentity(request: NextRequest): Promise<AdminIdentity | null> {
-  const issuer = getCognitoIssuer();
-  if (!issuer) {
-    return null;
-  }
-
-  const token = extractJwtFromRequest(request);
-  if (!token) {
-    return null;
-  }
-
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  const header = parseJwtPart<JwtHeader>(parts[0]);
-  const payload = parseJwtPart<JwtPayload>(parts[1]);
-
-  if (!header || !payload) {
-    return null;
-  }
-
-  if (header.alg !== "RS256" || !header.kid) {
-    return null;
-  }
-
-  if (payload.iss !== issuer) {
-    return null;
-  }
-
-  const nowInSeconds = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp !== "number" || payload.exp <= nowInSeconds) {
-    return null;
-  }
-
-  if (typeof payload.nbf === "number" && payload.nbf > nowInSeconds) {
-    return null;
-  }
-
-  if (payload.token_use !== "id" && payload.token_use !== "access") {
-    return null;
-  }
-
-  const clientId = getCognitoClientId();
-  if (clientId) {
-    if (payload.token_use === "id") {
-      if (Array.isArray(payload.aud)) {
-        if (!payload.aud.includes(clientId)) {
-          return null;
-        }
-      } else if (payload.aud !== clientId) {
-        return null;
-      }
-    } else if (payload.client_id !== clientId) {
+export async function resolveAdminIdentityFromToken(
+  token: string | null,
+  context: AdminAuthContext,
+): Promise<AdminIdentity | null> {
+  try {
+    const issuer = getCognitoIssuer();
+    if (!issuer) {
       return null;
     }
-  }
 
-  const jwks = await loadJwks(issuer);
-  const key = jwks.find((candidate) => candidate.kid === header.kid);
-  if (!key) {
+    if (!token) {
+      return null;
+    }
+
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    const header = parseJwtPart<JwtHeader>(parts[0]);
+    const payload = parseJwtPart<JwtPayload>(parts[1]);
+
+    if (!header || !payload) {
+      return null;
+    }
+
+    if (header.alg !== "RS256" || !header.kid) {
+      return null;
+    }
+
+    if (payload.iss !== issuer) {
+      return null;
+    }
+
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp !== "number" || payload.exp <= nowInSeconds) {
+      return null;
+    }
+
+    if (typeof payload.nbf === "number" && payload.nbf > nowInSeconds) {
+      return null;
+    }
+
+    if (payload.token_use !== "id" && payload.token_use !== "access") {
+      return null;
+    }
+
+    const clientId = getCognitoClientId();
+    if (clientId) {
+      if (payload.token_use === "id") {
+        if (Array.isArray(payload.aud)) {
+          if (!payload.aud.includes(clientId)) {
+            return null;
+          }
+        } else if (payload.aud !== clientId) {
+          return null;
+        }
+      } else if (payload.client_id !== clientId) {
+        return null;
+      }
+    }
+
+    const jwks = await loadJwks(issuer);
+    const key = jwks.find((candidate) => candidate.kid === header.kid);
+    if (!key) {
+      return null;
+    }
+
+    const signatureValid = await verifySignature(token, key);
+    if (!signatureValid) {
+      return null;
+    }
+
+    const groups = normalizeGroups(payload["cognito:groups"]);
+    if (!groups.includes(ADMIN_GROUP)) {
+      return null;
+    }
+
+    if (!payload.sub) {
+      return null;
+    }
+
+    return {
+      sub: payload.sub,
+      tokenUse: payload.token_use,
+      groups,
+      username: payload.username ?? null,
+    };
+  } catch (error) {
+    logAdminAuthError("Failed to resolve admin identity from token", context, error);
     return null;
   }
+}
 
-  const signatureValid = await verifySignature(token, key);
-  if (!signatureValid) {
+export async function resolveAdminIdentity(request: NextRequest): Promise<AdminIdentity | null> {
+  const token = extractJwtFromRequest(request);
+  const requestId =
+    request.headers.get("x-amz-cf-id") ??
+    request.headers.get("x-amzn-requestid") ??
+    request.headers.get("x-correlation-id") ??
+    undefined;
+
+  try {
+    return await resolveAdminIdentityFromToken(token, {
+      source: "request",
+      requestPath: request.nextUrl.pathname,
+      requestId,
+    });
+  } catch (error) {
+    logAdminAuthError("Failed to resolve admin identity from request", {
+      source: "request",
+      requestPath: request.nextUrl.pathname,
+      requestId,
+    }, error);
     return null;
   }
-
-  const groups = normalizeGroups(payload["cognito:groups"]);
-  if (!groups.includes(ADMIN_GROUP)) {
-    return null;
-  }
-
-  if (!payload.sub) {
-    return null;
-  }
-
-  return {
-    sub: payload.sub,
-    tokenUse: payload.token_use,
-    groups,
-    username: payload.username ?? null,
-  };
 }
 
 export async function isAuthorizedAdminRequest(request: NextRequest) {
-  const identity = await resolveAdminIdentity(request);
-  return Boolean(identity);
+  try {
+    const identity = await resolveAdminIdentity(request);
+    return Boolean(identity);
+  } catch (error) {
+    const requestId =
+      request.headers.get("x-amz-cf-id") ??
+      request.headers.get("x-amzn-requestid") ??
+      request.headers.get("x-correlation-id") ??
+      undefined;
+    logAdminAuthError("Unhandled error in admin authorization", {
+      source: "api",
+      requestPath: request.nextUrl.pathname,
+      requestId,
+    }, error);
+    return false;
+  }
 }

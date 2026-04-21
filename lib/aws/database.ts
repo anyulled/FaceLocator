@@ -49,6 +49,22 @@ export async function getDatabasePool(): Promise<Pool> {
     password: config.password,
     ssl: { rejectUnauthorized: false },
     max: 10,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 7000,
+    query_timeout: 7000,
+  });
+
+  pool.on("error", (error) => {
+    console.error(
+      JSON.stringify({
+        scope: "database-pool",
+        level: "error",
+        message: "Unexpected PostgreSQL pool error",
+        error: error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { message: String(error) },
+      }),
+    );
   });
 
   if (!isTestRuntime) {

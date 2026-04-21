@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { isAuthorizedAdminRequest, isCognitoAdminAuthConfigured } from "@/lib/admin/auth";
+import { isCognitoAdminAuthConfigured } from "@/lib/admin/auth";
 
 const ADMIN_LOGIN_PATH = "/admin/login";
 const ADMIN_LOGIN_API_PATH = "/api/admin/login";
@@ -14,6 +14,19 @@ function isAdminPath(pathname: string) {
 
 function isAdminApiPath(pathname: string) {
   return pathname.startsWith("/api/admin/");
+}
+
+function hasAuthTokenHint(request: NextRequest) {
+  if (request.cookies.get("idToken")?.value || request.cookies.get("accessToken")?.value) {
+    return true;
+  }
+
+  const authorizationHeader = request.headers.get("authorization");
+  if (!authorizationHeader) {
+    return false;
+  }
+
+  return /^Bearer\s+.+/i.test(authorizationHeader);
 }
 
 export async function middleware(request: NextRequest) {
@@ -40,8 +53,7 @@ export async function middleware(request: NextRequest) {
     return new NextResponse(body.error, { status: 503 });
   }
 
-  const authorized = await isAuthorizedAdminRequest(request);
-  if (authorized) {
+  if (hasAuthTokenHint(request)) {
     return NextResponse.next();
   }
 

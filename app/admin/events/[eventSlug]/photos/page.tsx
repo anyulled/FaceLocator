@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { PhotosManager } from "@/components/admin/events/photos-manager";
 import { getAdminEventHeader, listAdminEventPhotos } from "@/lib/admin/events/repository";
+import { requireAdminPageAccess } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
 
@@ -17,11 +19,75 @@ export default async function AdminEventPhotosPage({
   const query = await searchParams;
   const page = Math.max(1, Number(query.page || "1") || 1);
   const pageSize = Math.min(100, Math.max(1, Number(query.pageSize || "30") || 30));
+  const routePath = `/admin/events/${eventSlug}/photos`;
+  await requireAdminPageAccess(routePath);
 
-  const [event, photosPage] = await Promise.all([
-    getAdminEventHeader(eventSlug),
-    listAdminEventPhotos({ eventSlug, page, pageSize }),
-  ]);
+  const headerStore = await headers();
+  const requestId = headerStore.get("x-amz-cf-id") ?? headerStore.get("x-amzn-requestid") ?? undefined;
+
+  let event: Awaited<ReturnType<typeof getAdminEventHeader>> = null;
+  let photosPage: Awaited<ReturnType<typeof listAdminEventPhotos>> = {
+    photos: [],
+    page,
+    pageSize,
+    totalCount: 0,
+  };
+  let loadError = false;
+
+  try {
+    const result = await Promise.all([
+      getAdminEventHeader(eventSlug),
+      listAdminEventPhotos({ eventSlug, page, pageSize }),
+    ]);
+    [event, photosPage] = result;
+  } catch (error) {
+    loadError = true;
+    console.error(
+      JSON.stringify({
+        scope: "admin-event-photos-page",
+        level: "error",
+        message: "Failed to load admin event photos page",
+        requestPath: routePath,
+        requestId: requestId ?? null,
+        page,
+        pageSize,
+        eventSlug,
+        error: error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { message: String(error) },
+      }),
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main style={{ minHeight: "100vh", padding: "1.4rem" }}>
+        <div style={{ maxWidth: "76rem", margin: "0 auto", display: "grid", gap: "1rem" }}>
+          <header style={{ display: "grid", gap: "0.5rem" }}>
+            <Link href="/admin/events" style={{ color: "var(--accent-strong)", fontWeight: 700 }}>
+              ← Back to events
+            </Link>
+            <h1 style={{ fontSize: "2rem" }}>Event photos</h1>
+          </header>
+          <section
+            style={{
+              border: "1px solid #f3b3ad",
+              borderRadius: "1rem",
+              background: "#fff4f2",
+              color: "#7a1f15",
+              padding: "1rem",
+            }}
+          >
+            <p style={{ fontWeight: 700 }}>Unable to load photos right now.</p>
+            <p style={{ marginTop: "0.4rem" }}>
+              Please retry in a few seconds. If this persists, check server logs with request id{" "}
+              <code>{requestId ?? "n/a"}</code>.
+            </p>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   if (!event) {
     notFound();

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { headers } from "next/headers";
 
 import { listAdminEvents } from "@/lib/admin/events/repository";
+import { requireAdminPageAccess } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
 
@@ -14,7 +16,35 @@ export default async function AdminEventsPage({
   const page = Math.max(1, Number(params.page || "1") || 1);
   const pageSize = Math.min(100, Math.max(1, Number(params.pageSize || "20") || 20));
 
-  const { events, totalCount } = await listAdminEvents({ page, pageSize });
+  await requireAdminPageAccess("/admin/events");
+
+  let events: Awaited<ReturnType<typeof listAdminEvents>>["events"] = [];
+  let totalCount = 0;
+  let loadError = false;
+  const headerStore = await headers();
+  const requestId = headerStore.get("x-amz-cf-id") ?? headerStore.get("x-amzn-requestid") ?? undefined;
+
+  try {
+    const result = await listAdminEvents({ page, pageSize });
+    events = result.events;
+    totalCount = result.totalCount;
+  } catch (error) {
+    loadError = true;
+    console.error(
+      JSON.stringify({
+        scope: "admin-events-page",
+        level: "error",
+        message: "Failed to load admin events listing",
+        requestPath: "/admin/events",
+        requestId: requestId ?? null,
+        page,
+        pageSize,
+        error: error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { message: String(error) },
+      }),
+    );
+  }
 
   const hasPrevious = page > 1;
   const hasNext = page * pageSize < totalCount;
@@ -59,56 +89,74 @@ export default async function AdminEventsPage({
           </div>
         </header>
 
-        <section
-          style={{
-            border: "1px solid var(--border)",
-            borderRadius: "1rem",
-            background: "var(--surface-strong)",
-            overflow: "hidden",
-          }}
-        >
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ textAlign: "left", background: "rgba(0,0,0,0.04)" }}>
-                <th style={thStyle}>Event</th>
-                <th style={thStyle}>Slug</th>
-                <th style={thStyle}>Venue</th>
-                <th style={thStyle}>Starts</th>
-                <th style={thStyle}>Ends</th>
-                <th style={thStyle}>Photos</th>
-                <th style={thStyle}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: "1rem", color: "var(--muted)" }}>
-                    No events found.
-                  </td>
+        {loadError ? (
+          <section
+            style={{
+              border: "1px solid #f3b3ad",
+              borderRadius: "1rem",
+              background: "#fff4f2",
+              color: "#7a1f15",
+              padding: "1rem",
+            }}
+          >
+            <p style={{ fontWeight: 700 }}>Unable to load events right now.</p>
+            <p style={{ marginTop: "0.4rem" }}>
+              Please retry in a few seconds. If this persists, check server logs with request id{" "}
+              <code>{requestId ?? "n/a"}</code>.
+            </p>
+          </section>
+        ) : (
+          <section
+            style={{
+              border: "1px solid var(--border)",
+              borderRadius: "1rem",
+              background: "var(--surface-strong)",
+              overflow: "hidden",
+            }}
+          >
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ textAlign: "left", background: "rgba(0,0,0,0.04)" }}>
+                  <th style={thStyle}>Event</th>
+                  <th style={thStyle}>Slug</th>
+                  <th style={thStyle}>Venue</th>
+                  <th style={thStyle}>Starts</th>
+                  <th style={thStyle}>Ends</th>
+                  <th style={thStyle}>Photos</th>
+                  <th style={thStyle}>Action</th>
                 </tr>
-              ) : (
-                events.map((event) => (
-                  <tr key={event.id} style={{ borderTop: "1px solid var(--border)" }}>
-                    <td style={tdStyle}>{event.title}</td>
-                    <td style={tdStyle}>{event.slug}</td>
-                    <td style={tdStyle}>{event.venue}</td>
-                    <td style={tdStyle}>{formatIso(event.startsAt)}</td>
-                    <td style={tdStyle}>{formatIso(event.endsAt)}</td>
-                    <td style={tdStyle}>{event.photoCount}</td>
-                    <td style={tdStyle}>
-                      <Link
-                        href={`/admin/events/${event.slug}/photos`}
-                        style={{ color: "var(--accent-strong)", fontWeight: 700 }}
-                      >
-                        Open photos
-                      </Link>
+              </thead>
+              <tbody>
+                {events.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: "1rem", color: "var(--muted)" }}>
+                      No events found.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </section>
+                ) : (
+                  events.map((event) => (
+                    <tr key={event.id} style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={tdStyle}>{event.title}</td>
+                      <td style={tdStyle}>{event.slug}</td>
+                      <td style={tdStyle}>{event.venue}</td>
+                      <td style={tdStyle}>{formatIso(event.startsAt)}</td>
+                      <td style={tdStyle}>{formatIso(event.endsAt)}</td>
+                      <td style={tdStyle}>{event.photoCount}</td>
+                      <td style={tdStyle}>
+                        <Link
+                          href={`/admin/events/${event.slug}/photos`}
+                          style={{ color: "var(--accent-strong)", fontWeight: 700 }}
+                        >
+                          Open photos
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        )}
 
         <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <p style={{ color: "var(--muted)" }}>

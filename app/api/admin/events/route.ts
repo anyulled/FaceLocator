@@ -9,6 +9,15 @@ function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
+function getRequestId(request: NextRequest) {
+  return (
+    request.headers.get("x-amz-cf-id") ??
+    request.headers.get("x-amzn-requestid") ??
+    request.headers.get("x-correlation-id") ??
+    null
+  );
+}
+
 export async function GET(request: NextRequest) {
   if (!(await isAuthorizedAdminRequest(request))) {
     return unauthorized();
@@ -23,8 +32,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid pagination" }, { status: 400 });
   }
 
-  const result = await listAdminEvents(parsed.data);
-  return NextResponse.json(result);
+  try {
+    const result = await listAdminEvents(parsed.data);
+    return NextResponse.json(result);
+  } catch (error) {
+    const requestId = getRequestId(request);
+    console.error(
+      JSON.stringify({
+        scope: "admin-events-api",
+        level: "error",
+        message: "Failed to list admin events",
+        requestPath: request.nextUrl.pathname,
+        requestId,
+        page: parsed.data.page,
+        pageSize: parsed.data.pageSize,
+        error: error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { message: String(error) },
+      }),
+    );
+    return NextResponse.json(
+      { error: "Failed to list events", requestId },
+      { status: 503 },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -42,6 +73,7 @@ export async function POST(request: NextRequest) {
     const event = await createAdminEvent(parsed.data);
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
+    const requestId = getRequestId(request);
     const isDuplicate =
       typeof error === "object" &&
       error !== null &&
@@ -52,6 +84,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "An event with this slug already exists" }, { status: 409 });
     }
 
-    return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
+    console.error(
+      JSON.stringify({
+        scope: "admin-events-api",
+        level: "error",
+        message: "Failed to create admin event",
+        requestPath: request.nextUrl.pathname,
+        requestId,
+        error: error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { message: String(error) },
+      }),
+    );
+    return NextResponse.json({ error: "Failed to create event", requestId }, { status: 500 });
   }
 }

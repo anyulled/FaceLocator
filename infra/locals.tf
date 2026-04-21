@@ -16,6 +16,9 @@ locals {
     selfie_enrollment  = "${local.name_prefix}-selfie-enrollment"
     event_photo_worker = "${local.name_prefix}-event-photo-worker"
     matched_notifier   = "${local.name_prefix}-matched-photo-notifier"
+    admin_read         = "${local.name_prefix}-admin-read"
+    admin_write_events = "${local.name_prefix}-admin-write-events"
+    admin_write_photos = "${local.name_prefix}-admin-write-photos"
   }
 
   rekognition_collection_id       = "${local.name_prefix}-faces"
@@ -28,12 +31,18 @@ locals {
     selfie_enrollment  = "${path.module}/${var.lambda_package_dir}/selfie-enrollment.zip"
     event_photo_worker = "${path.module}/${var.lambda_package_dir}/event-photo-worker.zip"
     matched_notifier   = "${path.module}/${var.lambda_package_dir}/matched-photo-notifier.zip"
+    admin_read         = "${path.module}/${var.lambda_package_dir}/admin-read.zip"
+    admin_write_events = "${path.module}/${var.lambda_package_dir}/admin-write-events.zip"
+    admin_write_photos = "${path.module}/${var.lambda_package_dir}/admin-write-photos.zip"
   }
 
   log_group_names = {
     selfie_enrollment  = "/aws/lambda/${local.lambda_names.selfie_enrollment}"
     event_photo_worker = "/aws/lambda/${local.lambda_names.event_photo_worker}"
     matched_notifier   = "/aws/lambda/${local.lambda_names.matched_notifier}"
+    admin_read         = "/aws/lambda/${local.lambda_names.admin_read}"
+    admin_write_events = "/aws/lambda/${local.lambda_names.admin_write_events}"
+    admin_write_photos = "/aws/lambda/${local.lambda_names.admin_write_photos}"
   }
 
   s3_encryption_algorithm     = "AES256"

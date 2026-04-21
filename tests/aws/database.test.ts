@@ -21,6 +21,10 @@ vi.mock("pg", () => ({
     constructor(config: unknown) {
       poolMock(config);
     }
+
+    on() {
+      return undefined;
+    }
   },
 }));
 

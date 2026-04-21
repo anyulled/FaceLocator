@@ -211,6 +211,164 @@ resource "aws_iam_role_policy_attachment" "matched_photo_notifier_vpc_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
+resource "aws_iam_role" "admin_read_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  name               = "${local.lambda_names.admin_read}-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+data "aws_iam_policy_document" "admin_read_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  statement {
+    sid       = "AllowCreateLogGroup"
+    actions   = ["logs:CreateLogGroup"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowWriteAdminReadLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.admin_read[0].arn}:*"]
+  }
+
+  statement {
+    sid       = "AllowReadDatabaseSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.database.arn]
+  }
+
+  statement {
+    sid = "AllowReadEventPhotos"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectTagging",
+    ]
+    resources = ["${aws_s3_bucket.event_photos.arn}/events/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "admin_read_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  name   = "${local.lambda_names.admin_read}-policy"
+  role   = aws_iam_role.admin_read_lambda[0].id
+  policy = data.aws_iam_policy_document.admin_read_lambda[0].json
+}
+
+resource "aws_iam_role_policy_attachment" "admin_read_vpc_access" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  role       = aws_iam_role.admin_read_lambda[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role" "admin_write_events_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  name               = "${local.lambda_names.admin_write_events}-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+data "aws_iam_policy_document" "admin_write_events_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  statement {
+    sid       = "AllowCreateLogGroup"
+    actions   = ["logs:CreateLogGroup"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowWriteAdminWriteEventsLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.admin_write_events[0].arn}:*"]
+  }
+
+  statement {
+    sid       = "AllowReadDatabaseSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.database.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "admin_write_events_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  name   = "${local.lambda_names.admin_write_events}-policy"
+  role   = aws_iam_role.admin_write_events_lambda[0].id
+  policy = data.aws_iam_policy_document.admin_write_events_lambda[0].json
+}
+
+resource "aws_iam_role_policy_attachment" "admin_write_events_vpc_access" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  role       = aws_iam_role.admin_write_events_lambda[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role" "admin_write_photos_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  name               = "${local.lambda_names.admin_write_photos}-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+data "aws_iam_policy_document" "admin_write_photos_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  statement {
+    sid       = "AllowCreateLogGroup"
+    actions   = ["logs:CreateLogGroup"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowWriteAdminWritePhotosLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.admin_write_photos[0].arn}:*"]
+  }
+
+  statement {
+    sid       = "AllowReadDatabaseSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.database.arn]
+  }
+
+  statement {
+    sid = "AllowDeleteEventPhotos"
+    actions = [
+      "s3:DeleteObject",
+    ]
+    resources = ["${aws_s3_bucket.event_photos.arn}/events/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "admin_write_photos_lambda" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  name   = "${local.lambda_names.admin_write_photos}-policy"
+  role   = aws_iam_role.admin_write_photos_lambda[0].id
+  policy = data.aws_iam_policy_document.admin_write_photos_lambda[0].json
+}
+
+resource "aws_iam_role_policy_attachment" "admin_write_photos_vpc_access" {
+  count = var.enable_admin_backend_lambdas ? 1 : 0
+
+  role       = aws_iam_role.admin_write_photos_lambda[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_iam_role" "matched_photo_notifier_scheduler" {
   name               = "${local.lambda_names.matched_notifier}-scheduler-role"
   assume_role_policy = data.aws_iam_policy_document.scheduler_assume_role.json

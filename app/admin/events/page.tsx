@@ -1,0 +1,153 @@
+import Link from "next/link";
+import type { CSSProperties } from "react";
+
+import { listAdminEvents } from "@/lib/admin/events/repository";
+import { LogoutButton } from "@/components/admin/events/logout-button";
+
+type SearchParams = Promise<{ page?: string; pageSize?: string }>;
+
+export default async function AdminEventsPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page || "1") || 1);
+  const pageSize = Math.min(100, Math.max(1, Number(params.pageSize || "20") || 20));
+
+  const { events, totalCount } = await listAdminEvents({ page, pageSize });
+
+  const hasPrevious = page > 1;
+  const hasNext = page * pageSize < totalCount;
+
+  return (
+    <main style={{ minHeight: "100vh", padding: "1.4rem" }}>
+      <div style={{ maxWidth: "76rem", margin: "0 auto", display: "grid", gap: "1rem" }}>
+        <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" }}>
+          <div>
+            <h1 style={{ fontSize: "2rem" }}>Admin events</h1>
+            <p style={{ color: "var(--muted)", marginTop: "0.35rem" }}>
+              Manage events and event photos.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}>
+            <Link
+              href="/admin/events/new"
+              style={{
+                border: "none",
+                borderRadius: "999px",
+                padding: "0.6rem 1rem",
+                background: "var(--accent)",
+                color: "white",
+                fontWeight: 700,
+              }}
+            >
+              Create event
+            </Link>
+            <LogoutButton />
+          </div>
+        </header>
+
+        <section
+          style={{
+            border: "1px solid var(--border)",
+            borderRadius: "1rem",
+            background: "var(--surface-strong)",
+            overflow: "hidden",
+          }}
+        >
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", background: "rgba(0,0,0,0.04)" }}>
+                <th style={thStyle}>Event</th>
+                <th style={thStyle}>Slug</th>
+                <th style={thStyle}>Venue</th>
+                <th style={thStyle}>Starts</th>
+                <th style={thStyle}>Ends</th>
+                <th style={thStyle}>Photos</th>
+                <th style={thStyle}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: "1rem", color: "var(--muted)" }}>
+                    No events found.
+                  </td>
+                </tr>
+              ) : (
+                events.map((event) => (
+                  <tr key={event.id} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td style={tdStyle}>{event.title}</td>
+                    <td style={tdStyle}>{event.slug}</td>
+                    <td style={tdStyle}>{event.venue}</td>
+                    <td style={tdStyle}>{formatIso(event.startsAt)}</td>
+                    <td style={tdStyle}>{formatIso(event.endsAt)}</td>
+                    <td style={tdStyle}>{event.photoCount}</td>
+                    <td style={tdStyle}>
+                      <Link
+                        href={`/admin/events/${event.slug}/photos`}
+                        style={{ color: "var(--accent-strong)", fontWeight: 700 }}
+                      >
+                        Open photos
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <p style={{ color: "var(--muted)" }}>
+            Page {page} · Total events {totalCount}
+          </p>
+
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <Link
+              aria-disabled={!hasPrevious}
+              href={hasPrevious ? `/admin/events?page=${page - 1}&pageSize=${pageSize}` : "#"}
+              style={{
+                opacity: hasPrevious ? 1 : 0.5,
+                pointerEvents: hasPrevious ? "auto" : "none",
+              }}
+            >
+              Previous
+            </Link>
+            <Link
+              aria-disabled={!hasNext}
+              href={hasNext ? `/admin/events?page=${page + 1}&pageSize=${pageSize}` : "#"}
+              style={{
+                opacity: hasNext ? 1 : 0.5,
+                pointerEvents: hasNext ? "auto" : "none",
+              }}
+            >
+              Next
+            </Link>
+          </div>
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+function formatIso(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+const thStyle: CSSProperties = {
+  padding: "0.8rem",
+  fontSize: "0.85rem",
+};
+
+const tdStyle: CSSProperties = {
+  padding: "0.8rem",
+  verticalAlign: "top",
+};

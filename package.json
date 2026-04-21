@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "portless run next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
@@ -13,7 +13,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1032.0",
     "@aws-sdk/s3-request-presigner": "^3.1032.0",
-    "next": "16.2.4",
+    "next": "15.5.15",
     "pg": "^8.20.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
@@ -22,6 +22,7 @@
   "devDependencies": {
     "@aws-sdk/client-rekognition": "^3.1032.0",
     "@aws-sdk/client-secrets-manager": "^3.1032.0",
+    "@eslint/eslintrc": "^3.3.5",
     "@playwright/test": "^1.59.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -31,10 +32,10 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "15.5.15",
     "jsdom": "^29.0.2",
     "portless": "^0.10.3",
-    "typescript": "^6",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.4"
   }
 }

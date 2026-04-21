@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import React from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useState } from "react";
 

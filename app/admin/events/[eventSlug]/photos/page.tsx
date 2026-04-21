@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { PhotosManager } from "@/components/admin/events/photos-manager";
-import { loadAdminEventPhotosPage } from "@/lib/admin/events/http";
+import { getAdminEventHeader, listAdminEventPhotos } from "@/lib/admin/events/repository";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
@@ -25,8 +25,8 @@ export default async function AdminEventPhotosPage({
   const headerStore = await headers();
   const requestId = headerStore.get("x-amz-cf-id") ?? headerStore.get("x-amzn-requestid") ?? undefined;
 
-  let photosPage: NonNullable<Awaited<ReturnType<typeof loadAdminEventPhotosPage>>> = {
-    event: null,
+  let event: Awaited<ReturnType<typeof getAdminEventHeader>> = null;
+  let photosPage: Awaited<ReturnType<typeof listAdminEventPhotos>> = {
     photos: [],
     page,
     pageSize,
@@ -35,10 +35,11 @@ export default async function AdminEventPhotosPage({
   let loadError = false;
 
   try {
-    const result = await loadAdminEventPhotosPage({ eventSlug, page, pageSize });
-    if (result) {
-      photosPage = result;
-    }
+    const result = await Promise.all([
+      getAdminEventHeader(eventSlug),
+      listAdminEventPhotos({ eventSlug, page, pageSize }),
+    ]);
+    [event, photosPage] = result;
   } catch (error) {
     loadError = true;
     console.error(
@@ -88,7 +89,6 @@ export default async function AdminEventPhotosPage({
     );
   }
 
-  const event = photosPage.event;
   if (!event) {
     notFound();
   }

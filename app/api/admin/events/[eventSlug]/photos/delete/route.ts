@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { parseBatchDeleteInput } from "@/lib/admin/events/contracts";
-import { deleteAdminEventPhotosBatch } from "@/lib/admin/events/backend";
+import { deleteAdminEventPhotosBatch } from "@/lib/admin/events/repository";
 import { resolveAdminIdentity } from "@/lib/admin/auth";
 
 export async function POST(

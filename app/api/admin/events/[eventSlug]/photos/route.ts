@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { parsePaginationQuery } from "@/lib/admin/events/contracts";
-import { getAdminEventPhotosPage } from "@/lib/admin/events/backend";
+import { getAdminEventHeader, listAdminEventPhotos } from "@/lib/admin/events/repository";
 import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
 
 export async function GET(
@@ -24,20 +24,20 @@ export async function GET(
     return NextResponse.json({ error: "Invalid pagination" }, { status: 400 });
   }
 
-  const response = await getAdminEventPhotosPage({
-    eventSlug,
-    ...parsed.data,
-  });
+  const [event, photosPage] = await Promise.all([
+    getAdminEventHeader(eventSlug),
+    listAdminEventPhotos({
+      eventSlug,
+      ...parsed.data,
+    }),
+  ]);
 
-  if (!response.event) {
+  if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
   return NextResponse.json({
-    event: response.event,
-    photos: response.photos,
-    page: response.page,
-    pageSize: response.pageSize,
-    totalCount: response.totalCount,
+    event,
+    ...photosPage,
   });
 }

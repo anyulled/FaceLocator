@@ -31,8 +31,6 @@ Set these on the Amplify app or production branch:
 - `AWS_REGION`
 - `FACE_LOCATOR_AWS_UPLOAD_MODE=aws`
 - `FACE_LOCATOR_REPOSITORY_TYPE=postgres`
-- `ADMIN_READ_BACKEND=direct`
-- `ADMIN_WRITE_BACKEND=direct`
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
@@ -51,12 +49,6 @@ Recommended source of truth:
   - `cognito_user_pool_id`
   - `cognito_user_pool_client_id`
   - `cognito_user_pool_issuer`
-
-When the admin Lambda rollout is enabled for a tenant, also set:
-
-- `FACE_LOCATOR_ADMIN_READ_LAMBDA_NAME`
-- `FACE_LOCATOR_ADMIN_WRITE_EVENTS_LAMBDA_NAME`
-- `FACE_LOCATOR_ADMIN_WRITE_PHOTOS_LAMBDA_NAME`
 
 Example (eu-west-1):
 

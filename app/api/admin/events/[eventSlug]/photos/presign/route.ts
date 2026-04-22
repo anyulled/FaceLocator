@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { resolveAdminIdentity } from "@/lib/admin/auth";
+import { extractRequestId, resolveAdminIdentity } from "@/lib/admin/auth";
 import { parseAdminPhotoPresignInput } from "@/lib/admin/events/contracts";
 import { createAdminEventPhotoUpload } from "@/lib/admin/events/repository";
 import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
@@ -35,11 +35,7 @@ export async function POST(
 
     return NextResponse.json(upload);
   } catch (error) {
-    const requestId =
-      request.headers.get("x-amz-cf-id") ??
-      request.headers.get("x-amzn-requestid") ??
-      request.headers.get("x-correlation-id") ??
-      null;
+    const requestId = extractRequestId(request.headers) ?? null;
     const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;
     console.error(
       JSON.stringify({

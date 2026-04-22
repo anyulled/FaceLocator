@@ -49,9 +49,14 @@ type JwksResponse = {
 };
 
 const JWKS_TTL_MS = 5 * 60 * 1000;
+const OPENID_CONFIGURATION_TTL_MS = 5 * 60 * 1000;
 const ADMIN_GROUP = "admin";
 
 let jwksCache: { fetchedAt: number; keys: (JsonWebKey & { kid?: string })[] } | null = null;
+let openIdConfigurationCache: {
+  fetchedAt: number;
+  payload: { authorization_endpoint?: string; token_endpoint?: string };
+} | null = null;
 const DEFAULT_PUBLIC_BASE_URL = "http://localhost:3000";
 
 function normalizeBaseUrl(value: string) {
@@ -67,6 +72,37 @@ function readEnv(...keys: string[]) {
   }
 
   return "";
+}
+
+export function resolveRequestOrigin(request: Pick<NextRequest, "headers" | "nextUrl">) {
+  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const protocol = forwardedProto === "http" || forwardedProto === "https"
+    ? forwardedProto
+    : "https";
+
+  if (forwardedHost) {
+    return `${protocol}://${forwardedHost}`;
+  }
+
+  return request.nextUrl.origin;
+}
+
+export function extractRequestId(headers: Headers) {
+  return (
+    headers.get("x-amz-cf-id") ??
+    headers.get("x-amzn-requestid") ??
+    headers.get("x-correlation-id") ??
+    undefined
+  );
+}
+
+export function escapeHtmlAttribute(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 export function getCognitoIssuer() {
@@ -271,6 +307,11 @@ export async function getCognitoOpenIdConfiguration() {
     return null;
   }
 
+  const now = Date.now();
+  if (openIdConfigurationCache && now - openIdConfigurationCache.fetchedAt < OPENID_CONFIGURATION_TTL_MS) {
+    return openIdConfigurationCache.payload;
+  }
+
   const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
     method: "GET",
     cache: "no-store",
@@ -279,10 +320,15 @@ export async function getCognitoOpenIdConfiguration() {
     return null;
   }
 
-  return (await response.json()) as {
+  const payload = (await response.json()) as {
     authorization_endpoint?: string;
     token_endpoint?: string;
   };
+  openIdConfigurationCache = {
+    fetchedAt: now,
+    payload,
+  };
+  return payload;
 }
 
 export async function exchangeCognitoAuthorizationCode(input: {
@@ -563,11 +609,7 @@ export async function resolveAdminIdentityFromToken(
 
 export async function resolveAdminIdentity(request: NextRequest): Promise<AdminIdentity | null> {
   const token = extractJwtFromRequest(request);
-  const requestId =
-    request.headers.get("x-amz-cf-id") ??
-    request.headers.get("x-amzn-requestid") ??
-    request.headers.get("x-correlation-id") ??
-    undefined;
+  const requestId = extractRequestId(request.headers);
 
   try {
     return await resolveAdminIdentityFromToken(token, {
@@ -590,11 +632,7 @@ export async function isAuthorizedAdminRequest(request: NextRequest) {
     const identity = await resolveAdminIdentity(request);
     return Boolean(identity);
   } catch (error) {
-    const requestId =
-      request.headers.get("x-amz-cf-id") ??
-      request.headers.get("x-amzn-requestid") ??
-      request.headers.get("x-correlation-id") ??
-      undefined;
+    const requestId = extractRequestId(request.headers);
     logAdminAuthError("Unhandled error in admin authorization", {
       source: "api",
       requestPath: request.nextUrl.pathname,

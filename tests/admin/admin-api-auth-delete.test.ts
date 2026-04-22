@@ -19,6 +19,7 @@ import {
 import { isAuthorizedAdminRequest, resolveAdminIdentity } from "@/lib/admin/auth";
 
 vi.mock("@/lib/admin/auth", () => ({
+  extractRequestId: vi.fn(() => "request-id-1"),
   isAuthorizedAdminRequest: vi.fn(),
   resolveAdminIdentity: vi.fn(),
 }));

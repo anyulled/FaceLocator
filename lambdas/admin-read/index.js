@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 "use strict";
 
-const { GetObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { GetObjectCommand, HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { Client } = require("pg");
 
@@ -143,6 +143,13 @@ async function ensureAdminEventsSchema(client) {
 
 async function buildPreviewUrl(objectKey) {
   try {
+    await s3Client.send(
+      new HeadObjectCommand({
+        Bucket: env.eventPhotosBucketName,
+        Key: objectKey,
+      }),
+    );
+
     return await getSignedUrl(
       s3Client,
       new GetObjectCommand({

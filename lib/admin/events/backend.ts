@@ -1,6 +1,6 @@
 import "server-only";
 
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -93,6 +93,13 @@ function getEventPhotosBucketName() {
 
 async function buildPreviewUrl(objectKey: string) {
   try {
+    await getS3Client().send(
+      new HeadObjectCommand({
+        Bucket: getEventPhotosBucketName(),
+        Key: objectKey,
+      }),
+    );
+
     return await getSignedUrl(
       getS3Client(),
       new GetObjectCommand({

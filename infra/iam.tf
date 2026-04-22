@@ -159,6 +159,14 @@ data "aws_iam_policy_document" "admin_events_read_lambda" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [aws_secretsmanager_secret.database.arn]
   }
+
+  statement {
+    sid = "AllowReadEventPhotoObjects"
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = ["${aws_s3_bucket.event_photos.arn}/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "admin_events_read_lambda" {

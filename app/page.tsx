@@ -1,6 +1,8 @@
 import Link from "next/link";
 import styles from "./page.module.css";
 
+import { getFeaturedEventSlug } from "@/lib/events/queries";
+
 const proofLogos = ["Aperture House", "EventFrame", "Summit Pixel", "VenueLens", "Northlight Media"];
 
 const testimonials = [
@@ -30,7 +32,10 @@ const metrics = [
   { value: "< 60s", label: "Average lookup time" },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const featuredEventSlug = await getFeaturedEventSlug();
+  const featuredEventHref = `/events/${featuredEventSlug}/register`;
+
   return (
     <main className={styles.page}>
       <div className={styles.bgPattern} aria-hidden="true" />
@@ -39,10 +44,10 @@ export default function Home() {
         <nav className={styles.nav} aria-label="Primary">
           <p className={styles.brand}>FaceLocator</p>
           <div className={styles.navActions}>
-            <Link className={styles.navLink} href="/events/speaker-session-2026/register">
+            <Link className={styles.navLink} href={featuredEventHref}>
               Live demo
             </Link>
-            <Link className={styles.navCta} href="/events/speaker-session-2026/register">
+            <Link className={styles.navCta} href={featuredEventHref}>
               Start free
             </Link>
           </div>
@@ -58,8 +63,8 @@ export default function Home() {
             experience without spreadsheet chaos.
           </p>
           <div className={styles.heroActions}>
-            <Link className={styles.primaryCta} href="/events/speaker-session-2026/register">
-              Launch sample flow
+            <Link className={styles.primaryCta} href={featuredEventHref}>
+              Launch registration flow
             </Link>
             <a className={styles.secondaryCta} href="#testimonials">
               See success stories
@@ -141,8 +146,8 @@ export default function Home() {
       <section className={styles.finalCta}>
         <h2>Turn your next event gallery into a wow moment.</h2>
         <p>Launch in minutes, keep attendee data private, and let your team focus on creating great events.</p>
-        <Link className={styles.primaryCta} href="/events/speaker-session-2026/register">
-          Start with the sample event
+        <Link className={styles.primaryCta} href={featuredEventHref}>
+          Start with the live event
         </Link>
       </section>
     </main>

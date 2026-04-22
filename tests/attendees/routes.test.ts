@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { POST as completeRegistration } from "@/app/api/attendees/register/complete/route";
 import { POST as createRegistration } from "@/app/api/attendees/register/route";
 import { GET as getRegistrationStatus } from "@/app/api/attendees/register/status/[registrationId]/route";
+import type { InMemoryEnrollmentStore } from "@/lib/attendees/repository";
 
 declare global {
-  var __faceLocatorEnrollmentStore__: unknown;
+  var __faceLocatorEnrollmentStore__: InMemoryEnrollmentStore | undefined;
 }
 
 describe("attendee route handlers", () => {

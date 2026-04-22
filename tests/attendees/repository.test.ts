@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { AttendeeApiError } from "@/lib/attendees/errors";
+import type { InMemoryEnrollmentStore } from "@/lib/attendees/repository";
 import { inMemoryAttendeeRepository } from "@/lib/attendees/repository";
 import { mockUploadGateway } from "@/lib/attendees/upload-gateway";
 
 declare global {
-  var __faceLocatorEnrollmentStore__: unknown;
+  var __faceLocatorEnrollmentStore__: InMemoryEnrollmentStore | undefined;
 }
 
 const baseRequest = {

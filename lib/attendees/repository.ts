@@ -27,6 +27,8 @@ type Store = {
   submissionKeyToRegistrationId: Map<string, string>;
 };
 
+export type InMemoryEnrollmentStore = Store;
+
 declare global {
   var __faceLocatorEnrollmentStore__: Store | undefined;
 }

@@ -1,4 +1,5 @@
 import type { EnrollmentEventSummary } from "@/lib/attendees/contracts";
+import { getDatabasePool } from "@/lib/aws/database";
 
 export type EnrollmentFormEventProps = {
   eventSlug: string;
@@ -12,20 +13,92 @@ export type EventRegistrationPageData = EnrollmentEventSummary & {
   formProps: EnrollmentFormEventProps;
 };
 
-const events: EnrollmentEventSummary[] = [
-  {
-    slug: "speaker-session-2026",
-    title: "DevBcn 2026",
-    venue: "World Trade Center, Barcelona",
-    scheduledAt: "2026-06-16T09:00:00.000Z",
-    endsAt: "2026-06-17T18:00:00.000Z",
-    description:
-      "Register your selfie so the event photography system can match you to photos captured during DevBcn 2026.",
-  },
-];
+const DEMO_EVENT: EnrollmentEventSummary = {
+  slug: "speaker-session-2026",
+  title: "DevBcn 2026",
+  venue: "World Trade Center, Barcelona",
+  scheduledAt: "2026-06-16T09:00:00.000Z",
+  endsAt: "2026-06-17T18:00:00.000Z",
+  description:
+    "Register your selfie so the event photography system can match you to photos captured during DevBcn 2026.",
+};
+
+type EventRow = {
+  slug: string;
+  title: string;
+  venue: string | null;
+  description: string | null;
+  scheduledAt: string | null;
+  endsAt: string | null;
+};
 
 export async function getEventBySlug(slug: string): Promise<EnrollmentEventSummary | null> {
-  return events.find((event) => event.slug === slug) ?? null;
+  const normalizedSlug = slug.trim().toLowerCase();
+  if (!normalizedSlug) {
+    return null;
+  }
+
+  if (process.env.NODE_ENV !== "test") {
+    try {
+      const pool = await getDatabasePool();
+      const result = await pool.query<EventRow>(
+        `
+          SELECT
+            slug,
+            title,
+            venue,
+            description,
+            scheduled_at AS "scheduledAt",
+            ends_at AS "endsAt"
+          FROM events
+          WHERE slug = $1
+          LIMIT 1
+        `,
+        [normalizedSlug],
+      );
+
+      const row = result.rows[0];
+      if (row) {
+        return {
+          slug: row.slug,
+          title: row.title,
+          venue: row.venue ?? "",
+          scheduledAt: row.scheduledAt ?? new Date(0).toISOString(),
+          endsAt: row.endsAt ?? undefined,
+          description: row.description ?? "",
+        };
+      }
+    } catch (error) {
+      if (normalizedSlug === DEMO_EVENT.slug) {
+        return DEMO_EVENT;
+      }
+      throw error;
+    }
+  }
+
+  return normalizedSlug === DEMO_EVENT.slug ? DEMO_EVENT : null;
+}
+
+export async function getFeaturedEventSlug(): Promise<string> {
+  if (process.env.NODE_ENV === "test") {
+    return DEMO_EVENT.slug;
+  }
+
+  try {
+    const pool = await getDatabasePool();
+    const result = await pool.query<{ slug: string }>(
+      `
+        SELECT slug
+        FROM events
+        ORDER BY created_at DESC NULLS LAST, scheduled_at DESC NULLS LAST
+        LIMIT 1
+      `,
+    );
+
+    return result.rows[0]?.slug ?? DEMO_EVENT.slug;
+  } catch {
+    return DEMO_EVENT.slug;
+  }
 }
 
 export async function getEventRegistrationPageData(
@@ -41,7 +114,7 @@ export async function getEventRegistrationPageData(
     ...event,
     eyebrow: "Event registration",
     supportCopy:
-      "Upload flow stays mock-backed in this scaffold so the future AWS substitution remains isolated.",
+      "The registration flow now reads the live event record so the website stays aligned with the database.",
     formattedScheduledAt: formatEventDate(event.scheduledAt, event.endsAt),
     formProps: {
       eventSlug: event.slug,

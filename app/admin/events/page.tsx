@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { headers } from "next/headers";
 
-import { listAdminEvents } from "@/lib/admin/events/repository";
+import { AdminRouteError, loadAdminEventsPage } from "@/lib/admin/events/http";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
@@ -18,18 +17,30 @@ export default async function AdminEventsPage({
 
   await requireAdminPageAccess("/admin/events");
 
-  let events: Awaited<ReturnType<typeof listAdminEvents>>["events"] = [];
+  let events: Awaited<ReturnType<typeof loadAdminEventsPage>>["events"] = [];
   let totalCount = 0;
   let loadError = false;
-  const headerStore = await headers();
-  const requestId = headerStore.get("x-amz-cf-id") ?? headerStore.get("x-amzn-requestid") ?? undefined;
+  let loadErrorMessage = "Please retry in a few seconds.";
+  let requestId: string | undefined;
 
   try {
-    const result = await listAdminEvents({ page, pageSize });
+    const result = await loadAdminEventsPage({ page, pageSize });
     events = result.events;
     totalCount = result.totalCount;
   } catch (error) {
     loadError = true;
+    loadErrorMessage = error instanceof AdminRouteError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : "An unexpected error occurred while loading events.";
+    requestId =
+      error instanceof AdminRouteError &&
+      typeof error.body === "object" &&
+      error.body !== null &&
+      "requestId" in error.body
+        ? String((error.body as { requestId?: unknown }).requestId ?? "n/a")
+        : undefined;
     console.error(
       JSON.stringify({
         scope: "admin-events-page",
@@ -39,6 +50,12 @@ export default async function AdminEventsPage({
         requestId: requestId ?? null,
         page,
         pageSize,
+        route: error instanceof AdminRouteError
+          ? {
+              status: error.status,
+              body: error.body,
+            }
+          : null,
         error: error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
           : { message: String(error) },
@@ -101,7 +118,7 @@ export default async function AdminEventsPage({
           >
             <p style={{ fontWeight: 700 }}>Unable to load events right now.</p>
             <p style={{ marginTop: "0.4rem" }}>
-              Please retry in a few seconds. If this persists, check server logs with request id{" "}
+              {loadErrorMessage} If this persists, check server logs with request id{" "}
               <code>{requestId ?? "n/a"}</code>.
             </p>
           </section>

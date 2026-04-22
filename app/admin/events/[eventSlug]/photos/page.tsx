@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { PhotosManager } from "@/components/admin/events/photos-manager";
-import { getAdminEventHeader, listAdminEventPhotos } from "@/lib/admin/events/repository";
+import { AdminRouteError, loadAdminEventPhotosPage } from "@/lib/admin/events/http";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
@@ -22,26 +21,38 @@ export default async function AdminEventPhotosPage({
   const routePath = `/admin/events/${eventSlug}/photos`;
   await requireAdminPageAccess(routePath);
 
-  const headerStore = await headers();
-  const requestId = headerStore.get("x-amz-cf-id") ?? headerStore.get("x-amzn-requestid") ?? undefined;
-
-  let event: Awaited<ReturnType<typeof getAdminEventHeader>> = null;
-  let photosPage: Awaited<ReturnType<typeof listAdminEventPhotos>> = {
+  let event: Awaited<ReturnType<typeof loadAdminEventPhotosPage>>["event"] = null;
+  let photosPage: Awaited<ReturnType<typeof loadAdminEventPhotosPage>> = {
+    event: null,
     photos: [],
     page,
     pageSize,
     totalCount: 0,
   };
   let loadError = false;
+  let loadErrorMessage = "Please retry in a few seconds.";
+  let requestId: string | undefined;
 
   try {
-    const result = await Promise.all([
-      getAdminEventHeader(eventSlug),
-      listAdminEventPhotos({ eventSlug, page, pageSize }),
-    ]);
-    [event, photosPage] = result;
+    photosPage = await loadAdminEventPhotosPage({ eventSlug, page, pageSize });
+    event = photosPage.event;
   } catch (error) {
+    if (error instanceof AdminRouteError && error.status === 404) {
+      notFound();
+    }
     loadError = true;
+    loadErrorMessage = error instanceof AdminRouteError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : "An unexpected error occurred while loading event photos.";
+    requestId =
+      error instanceof AdminRouteError &&
+      typeof error.body === "object" &&
+      error.body !== null &&
+      "requestId" in error.body
+        ? String((error.body as { requestId?: unknown }).requestId ?? "n/a")
+        : undefined;
     console.error(
       JSON.stringify({
         scope: "admin-event-photos-page",
@@ -52,11 +63,21 @@ export default async function AdminEventPhotosPage({
         page,
         pageSize,
         eventSlug,
+        route: error instanceof AdminRouteError
+          ? {
+              status: error.status,
+              body: error.body,
+            }
+          : null,
         error: error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
           : { message: String(error) },
       }),
     );
+  }
+
+  if (!loadError && !event) {
+    notFound();
   }
 
   if (loadError) {
@@ -80,7 +101,7 @@ export default async function AdminEventPhotosPage({
           >
             <p style={{ fontWeight: 700 }}>Unable to load photos right now.</p>
             <p style={{ marginTop: "0.4rem" }}>
-              Please retry in a few seconds. If this persists, check server logs with request id{" "}
+              {loadErrorMessage} If this persists, check server logs with request id{" "}
               <code>{requestId ?? "n/a"}</code>.
             </p>
           </section>

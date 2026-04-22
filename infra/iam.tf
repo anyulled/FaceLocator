@@ -48,6 +48,20 @@ resource "aws_iam_policy" "nextjs_presign" {
   policy      = data.aws_iam_policy_document.nextjs_presign.json
 }
 
+data "aws_iam_policy_document" "nextjs_admin_events_read_invoke" {
+  statement {
+    sid       = "AllowInvokeAdminEventsReadLambda"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.admin_events_read.arn]
+  }
+}
+
+resource "aws_iam_policy" "nextjs_admin_events_read_invoke" {
+  name        = "${local.name_prefix}-nextjs-admin-events-read-invoke"
+  description = "Least-privilege Lambda invoke permission for the Next.js backend admin read flow."
+  policy      = data.aws_iam_policy_document.nextjs_admin_events_read_invoke.json
+}
+
 resource "aws_iam_role" "selfie_enrollment_lambda" {
   name               = "${local.lambda_names.selfie_enrollment}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
@@ -99,6 +113,45 @@ resource "aws_iam_role_policy" "selfie_enrollment_lambda" {
 
 resource "aws_iam_role_policy_attachment" "selfie_enrollment_vpc_access" {
   role       = aws_iam_role.selfie_enrollment_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role" "admin_events_read_lambda" {
+  name               = "${local.lambda_names.admin_events_read}-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+data "aws_iam_policy_document" "admin_events_read_lambda" {
+  statement {
+    sid       = "AllowCreateLogGroup"
+    actions   = ["logs:CreateLogGroup"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowWriteAdminEventsReadLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.admin_events_read.arn}:*"]
+  }
+
+  statement {
+    sid       = "AllowReadDatabaseSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.database.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "admin_events_read_lambda" {
+  name   = "${local.lambda_names.admin_events_read}-policy"
+  role   = aws_iam_role.admin_events_read_lambda.id
+  policy = data.aws_iam_policy_document.admin_events_read_lambda.json
+}
+
+resource "aws_iam_role_policy_attachment" "admin_events_read_vpc_access" {
+  role       = aws_iam_role.admin_events_read_lambda.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 

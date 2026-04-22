@@ -23,6 +23,16 @@ output "selfie_enrollment_lambda_name" {
   value       = aws_lambda_function.selfie_enrollment.function_name
 }
 
+output "admin_events_read_lambda_name" {
+  description = "Admin events read Lambda function name."
+  value       = aws_lambda_function.admin_events_read.function_name
+}
+
+output "admin_events_read_lambda_arn" {
+  description = "Admin events read Lambda function ARN."
+  value       = aws_lambda_function.admin_events_read.arn
+}
+
 output "event_photo_worker_lambda_name" {
   description = "Event photo worker Lambda function name."
   value       = aws_lambda_function.event_photo_worker.function_name
@@ -36,6 +46,11 @@ output "matched_photo_notifier_lambda_name" {
 output "nextjs_presign_policy_arn" {
   description = "Policy ARN to attach to the Next.js backend runtime principal for presigned uploads."
   value       = aws_iam_policy.nextjs_presign.arn
+}
+
+output "nextjs_admin_events_read_invoke_policy_arn" {
+  description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the admin events read Lambda."
+  value       = aws_iam_policy.nextjs_admin_events_read_invoke.arn
 }
 
 output "match_link_signing_secret_name" {

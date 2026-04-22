@@ -28,6 +28,30 @@ const QUERY_CODES = new Set([
   "42601",
 ]);
 
+const ADMIN_EVENTS_SCHEMA_QUERIES = [
+  {
+    text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS public_base_url text`,
+  },
+  {
+    text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS venue text`,
+  },
+  {
+    text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS description text`,
+  },
+  {
+    text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS ends_at timestamptz`,
+  },
+  {
+    text: `UPDATE events SET public_base_url = $1 WHERE public_base_url IS NULL`,
+    values: ["https://localhost:3000"],
+  },
+  {
+    text: `ALTER TABLE IF EXISTS events ALTER COLUMN public_base_url SET DEFAULT 'https://localhost:3000'`,
+  },
+];
+
+let ensureAdminEventsSchemaPromise = null;
+
 function classifyError(error) {
   const code = error && typeof error === "object" && "code" in error ? String(error.code || "") : "";
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
@@ -93,10 +117,28 @@ async function withDatabase(callback) {
   await client.connect();
 
   try {
+    await ensureAdminEventsSchema(client);
     return await callback(client);
   } finally {
     await client.end();
   }
+}
+
+async function runAdminEventsSchemaQueries(client) {
+  for (const query of ADMIN_EVENTS_SCHEMA_QUERIES) {
+    await client.query(query.text, query.values);
+  }
+}
+
+async function ensureAdminEventsSchema(client) {
+  if (!ensureAdminEventsSchemaPromise) {
+    ensureAdminEventsSchemaPromise = runAdminEventsSchemaQueries(client).catch((error) => {
+      ensureAdminEventsSchemaPromise = null;
+      throw error;
+    });
+  }
+
+  return ensureAdminEventsSchemaPromise;
 }
 
 async function buildPreviewUrl(objectKey) {

@@ -13,6 +13,7 @@ import type {
   CreateEventInput,
   PhotoDeleteResult,
 } from "@/lib/admin/events/contracts";
+import { ensureAdminEventsSchema } from "@/lib/admin/events/schema";
 
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
 
@@ -65,6 +66,7 @@ export async function listAdminEvents(input: { page: number; pageSize: number })
     }),
     handler: async () => {
       const pool = await getDatabasePool();
+      await ensureAdminEventsSchema(pool);
       const offset = (input.page - 1) * input.pageSize;
 
       const [rowsRes, totalRes] = await Promise.all([
@@ -116,6 +118,7 @@ export async function createAdminEvent(input: CreateEventInput): Promise<AdminEv
     context: adminDatabaseContext({ slug: input.slug }),
     handler: async () => {
       const pool = await getDatabasePool();
+      await ensureAdminEventsSchema(pool);
       const normalizedSlug = input.slug.trim().toLowerCase();
 
       const result = await pool.query<EventRow>(
@@ -194,6 +197,7 @@ export async function getAdminEventHeader(eventSlug: string) {
     context: adminDatabaseContext({ eventSlug }),
     handler: async () => {
       const pool = await getDatabasePool();
+      await ensureAdminEventsSchema(pool);
       const result = await pool.query<EventHeaderRow>(
         `
           SELECT

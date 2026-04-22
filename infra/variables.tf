@@ -236,3 +236,9 @@ variable "aws_profile" {
   type        = string
   default     = "default"
 }
+
+variable "nextjs_runtime_role_name" {
+  description = "Optional IAM role name used by the hosted Next.js runtime. When set, Terraform attaches the required backend policies."
+  type        = string
+  default     = null
+}

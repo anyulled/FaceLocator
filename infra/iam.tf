@@ -48,6 +48,17 @@ resource "aws_iam_policy" "nextjs_presign" {
   policy      = data.aws_iam_policy_document.nextjs_presign.json
 }
 
+data "aws_iam_role" "nextjs_runtime" {
+  count = trimspace(coalesce(var.nextjs_runtime_role_name, "")) == "" ? 0 : 1
+  name  = trimspace(var.nextjs_runtime_role_name)
+}
+
+resource "aws_iam_role_policy_attachment" "nextjs_presign" {
+  count      = length(data.aws_iam_role.nextjs_runtime) > 0 ? 1 : 0
+  role       = data.aws_iam_role.nextjs_runtime[0].name
+  policy_arn = aws_iam_policy.nextjs_presign.arn
+}
+
 data "aws_iam_policy_document" "nextjs_admin_events_read_invoke" {
   statement {
     sid       = "AllowInvokeAdminEventsReadLambda"
@@ -60,6 +71,12 @@ resource "aws_iam_policy" "nextjs_admin_events_read_invoke" {
   name        = "${local.name_prefix}-nextjs-admin-events-read-invoke"
   description = "Least-privilege Lambda invoke permission for the Next.js backend admin read flow."
   policy      = data.aws_iam_policy_document.nextjs_admin_events_read_invoke.json
+}
+
+resource "aws_iam_role_policy_attachment" "nextjs_admin_events_read_invoke" {
+  count      = length(data.aws_iam_role.nextjs_runtime) > 0 ? 1 : 0
+  role       = data.aws_iam_role.nextjs_runtime[0].name
+  policy_arn = aws_iam_policy.nextjs_admin_events_read_invoke.arn
 }
 
 resource "aws_iam_role" "selfie_enrollment_lambda" {

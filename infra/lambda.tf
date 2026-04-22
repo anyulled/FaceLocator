@@ -60,17 +60,17 @@ resource "aws_lambda_function" "admin_events_read" {
   handler       = "index.handler"
   filename      = local.lambda_package_paths.admin_events_read
 
-  source_code_hash = try(filebase64sha256(local.lambda_package_paths.admin_events_read), null)
-  timeout          = var.admin_events_read_lambda_timeout_seconds
-  memory_size      = var.admin_events_read_lambda_memory_size
+  source_code_hash               = try(filebase64sha256(local.lambda_package_paths.admin_events_read), null)
+  timeout                        = var.admin_events_read_lambda_timeout_seconds
+  memory_size                    = var.admin_events_read_lambda_memory_size
   reserved_concurrent_executions = var.admin_events_read_lambda_reserved_concurrency
 
   environment {
     variables = {
-      LOG_LEVEL                 = "info"
+      LOG_LEVEL                        = "info"
       FACE_LOCATOR_EVENT_PHOTOS_BUCKET = aws_s3_bucket.event_photos.bucket
-      DATABASE_SECRET_NAME      = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN       = aws_secretsmanager_secret.database.arn
+      DATABASE_SECRET_NAME             = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN              = aws_secretsmanager_secret.database.arn
     }
   }
 

@@ -3,6 +3,7 @@ import type {
   ApiErrorField,
   ApiErrorResponse,
 } from "@/lib/attendees/contracts";
+import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
 
 export class AttendeeApiError extends Error {
   constructor(
@@ -40,6 +41,16 @@ export function toApiErrorResponse(
     };
   }
 
+  if (isDatabaseErrorLike(error)) {
+    return {
+      error: {
+        code: "INTERNAL_ERROR",
+        message: describeDatabaseError(error).message,
+        correlationId,
+      },
+    };
+  }
+
   return {
     error: {
       code: "INTERNAL_ERROR",
@@ -50,6 +61,13 @@ export function toApiErrorResponse(
 }
 
 export function errorResponse(error: unknown) {
+  if (isDatabaseErrorLike(error)) {
+    const databaseError = describeDatabaseError(error);
+    return Response.json(toApiErrorResponse(error), {
+      status: databaseError.status,
+    });
+  }
+
   return Response.json(toApiErrorResponse(error), {
     status: error instanceof AttendeeApiError ? error.status : 500,
   });

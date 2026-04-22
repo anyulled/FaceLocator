@@ -33,6 +33,8 @@ Set these on the Amplify app or production branch:
 - `FACE_LOCATOR_REPOSITORY_TYPE=postgres`
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
+- `ADMIN_READ_BACKEND=lambda`
+- `FACE_LOCATOR_ADMIN_EVENTS_READ_LAMBDA_NAME`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
 
 ### Per-tenant Cognito admin variables (runbook)
@@ -130,9 +132,12 @@ Recommended trust policy:
 
 This role needs:
 
+- `lambda:InvokeFunction` on the admin read Lambda
 - `secretsmanager:GetSecretValue` on the database secret used by the hosted app
 - S3 permissions required by the Next.js presign boundary for selfie uploads
 - any KMS permissions only if the selected secret or bucket policy requires a customer-managed key
+
+Terraform exports the invoke policy as `nextjs_admin_events_read_invoke_policy_arn`; attach that policy to the Amplify compute role alongside `nextjs_presign_policy_arn`.
 
 ## GitHub repository configuration
 

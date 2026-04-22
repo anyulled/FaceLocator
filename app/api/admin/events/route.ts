@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { parseCreateEventInput, parsePaginationQuery } from "@/lib/admin/events/contracts";
-import { createAdminEvent, listAdminEvents } from "@/lib/admin/events/repository";
+import {
+  AdminReadBackendError,
+  listAdminEventsViaBackend,
+} from "@/lib/admin/events/backend";
+import { createAdminEvent } from "@/lib/admin/events/repository";
 import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
+import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,10 +38,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await listAdminEvents(parsed.data);
+    const result = await listAdminEventsViaBackend(parsed.data);
     return NextResponse.json(result);
   } catch (error) {
     const requestId = getRequestId(request);
+    const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;
+    const backendError = error instanceof AdminReadBackendError ? error : null;
     console.error(
       JSON.stringify({
         scope: "admin-events-api",
@@ -46,14 +53,25 @@ export async function GET(request: NextRequest) {
         requestId,
         page: parsed.data.page,
         pageSize: parsed.data.pageSize,
+        database: databaseError,
+        backend: backendError
+          ? {
+              message: backendError.message,
+              statusCode: backendError.statusCode,
+              details: backendError.details,
+            }
+          : null,
         error: error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
           : { message: String(error) },
       }),
     );
     return NextResponse.json(
-      { error: "Failed to list events", requestId },
-      { status: 503 },
+      {
+        error: databaseError?.message ?? backendError?.message ?? "Failed to list events",
+        requestId,
+      },
+      { status: databaseError?.status ?? backendError?.statusCode ?? 503 },
     );
   }
 }
@@ -74,6 +92,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
     const requestId = getRequestId(request);
+    const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;
     const isDuplicate =
       typeof error === "object" &&
       error !== null &&
@@ -91,11 +110,18 @@ export async function POST(request: NextRequest) {
         message: "Failed to create admin event",
         requestPath: request.nextUrl.pathname,
         requestId,
+        database: databaseError,
         error: error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
           : { message: String(error) },
       }),
     );
-    return NextResponse.json({ error: "Failed to create event", requestId }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: databaseError?.message ?? "Failed to create event",
+        requestId,
+      },
+      { status: databaseError?.status ?? 500 },
+    );
   }
 }

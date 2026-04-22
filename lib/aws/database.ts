@@ -1,6 +1,8 @@
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { Pool } from "pg";
 
+import { DatabaseOperationError } from "@/lib/aws/database-errors";
+
 let cachedPool: Pool | null = null;
 
 function getDatabaseSecretId() {
@@ -37,8 +39,38 @@ export async function getDatabasePool(): Promise<Pool> {
     );
     config = JSON.parse(response.SecretString!);
   } catch (err) {
-    console.error("Failed to fetch database secret from Secrets Manager", err);
-    throw new Error("Database configuration unavailable");
+    const error = new DatabaseOperationError({
+      operation: "database.getPool",
+      kind: "configuration",
+      status: 500,
+      message:
+        "Database configuration is unavailable while loading the connection pool. Troubleshooting: check the database secret name, host, database name, username, and password stored in Secrets Manager.",
+      troubleshooting:
+        "Check the database secret name, host, database name, username, and password stored in Secrets Manager.",
+      details: {
+        region,
+        secretId,
+      },
+      cause: err,
+    });
+
+    console.error(
+      JSON.stringify({
+        scope: "database",
+        level: "error",
+        message: error.message,
+        operation: error.operation,
+        kind: error.kind,
+        status: error.status,
+        troubleshooting: error.troubleshooting,
+        context: error.context,
+        details: error.details,
+        error: error.cause instanceof Error
+          ? { name: error.cause.name, message: error.cause.message, stack: error.cause.stack }
+          : { message: String(error.cause) },
+      }),
+    );
+    throw error;
   }
 
   const pool = new Pool({
@@ -57,9 +89,14 @@ export async function getDatabasePool(): Promise<Pool> {
   pool.on("error", (error) => {
     console.error(
       JSON.stringify({
-        scope: "database-pool",
+        scope: "database",
         level: "error",
         message: "Unexpected PostgreSQL pool error",
+        operation: "database.pool",
+        kind: "connectivity",
+        status: 503,
+        troubleshooting:
+          "Check private RDS reachability, security groups, subnet routes, the database secret, and whether the instance is healthy.",
         error: error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
           : { message: String(error) },

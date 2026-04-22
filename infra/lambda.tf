@@ -3,6 +3,11 @@ resource "aws_cloudwatch_log_group" "selfie_enrollment" {
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
+resource "aws_cloudwatch_log_group" "admin_events_read" {
+  name              = local.log_group_names.admin_events_read
+  retention_in_days = var.cloudwatch_log_retention_days
+}
+
 resource "aws_cloudwatch_log_group" "event_photo_worker" {
   name              = local.log_group_names.event_photo_worker
   retention_in_days = var.cloudwatch_log_retention_days
@@ -45,6 +50,41 @@ resource "aws_lambda_function" "selfie_enrollment" {
   depends_on = [
     aws_cloudwatch_log_group.selfie_enrollment,
     aws_iam_role_policy_attachment.selfie_enrollment_vpc_access,
+  ]
+}
+
+resource "aws_lambda_function" "admin_events_read" {
+  function_name = local.lambda_names.admin_events_read
+  role          = aws_iam_role.admin_events_read_lambda.arn
+  runtime       = "nodejs20.x"
+  handler       = "index.handler"
+  filename      = local.lambda_package_paths.admin_events_read
+
+  source_code_hash = try(filebase64sha256(local.lambda_package_paths.admin_events_read), null)
+  timeout          = var.admin_events_read_lambda_timeout_seconds
+  memory_size      = var.admin_events_read_lambda_memory_size
+  reserved_concurrent_executions = var.admin_events_read_lambda_reserved_concurrency
+
+  environment {
+    variables = {
+      LOG_LEVEL                 = "info"
+      FACE_LOCATOR_EVENT_PHOTOS_BUCKET = aws_s3_bucket.event_photos.bucket
+      DATABASE_SECRET_NAME      = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN       = aws_secretsmanager_secret.database.arn
+    }
+  }
+
+  dynamic "vpc_config" {
+    for_each = local.use_lambda_vpc ? [1] : []
+    content {
+      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+      security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    }
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.admin_events_read,
+    aws_iam_role_policy_attachment.admin_events_read_vpc_access,
   ]
 }
 

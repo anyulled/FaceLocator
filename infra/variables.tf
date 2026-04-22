@@ -58,6 +58,24 @@ variable "selfie_lambda_timeout_seconds" {
   default     = 30
 }
 
+variable "admin_events_read_lambda_memory_size" {
+  description = "Memory size in MB for the admin events read Lambda."
+  type        = number
+  default     = 256
+}
+
+variable "admin_events_read_lambda_timeout_seconds" {
+  description = "Timeout in seconds for the admin events read Lambda."
+  type        = number
+  default     = 20
+}
+
+variable "admin_events_read_lambda_reserved_concurrency" {
+  description = "Reserved concurrency for the admin events read Lambda."
+  type        = number
+  default     = null
+}
+
 variable "event_photo_lambda_memory_size" {
   description = "Memory size in MB for the event photo worker Lambda."
   type        = number

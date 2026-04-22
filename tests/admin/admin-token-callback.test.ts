@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/admin/auth", () => ({
+  escapeHtmlAttribute: vi.fn((value: string) => value),
   exchangeCognitoAuthorizationCode: vi.fn(),
+  extractRequestId: vi.fn(() => "request-id-1"),
   parseAdminAuthState: vi.fn(),
+  resolveRequestOrigin: vi.fn((request: Request & { nextUrl?: URL }) => request.nextUrl?.origin ?? "http://localhost"),
   resolveAdminIdentityFromToken: vi.fn(),
 }));
 

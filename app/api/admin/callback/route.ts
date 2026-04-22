@@ -4,21 +4,8 @@ import type { NextRequest } from "next/server";
 import {
   decodeAdminAuthState,
   exchangeCognitoAuthorizationCode,
+  resolveRequestOrigin,
 } from "@/lib/admin/auth";
-
-function resolveRequestOrigin(request: NextRequest) {
-  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  const forwardedProto = request.headers.get("x-forwarded-proto");
-  const protocol = forwardedProto === "http" || forwardedProto === "https"
-    ? forwardedProto
-    : "https";
-
-  if (forwardedHost) {
-    return `${protocol}://${forwardedHost}`;
-  }
-
-  return request.nextUrl.origin;
-}
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");

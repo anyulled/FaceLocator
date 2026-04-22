@@ -2,24 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import {
+  escapeHtmlAttribute,
   exchangeCognitoAuthorizationCode,
+  extractRequestId,
   parseAdminAuthState,
+  resolveRequestOrigin,
   resolveAdminIdentityFromToken,
 } from "@/lib/admin/auth";
-
-function resolveRequestOrigin(request: NextRequest) {
-  const forwardedHost = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  const forwardedProto = request.headers.get("x-forwarded-proto");
-  const protocol = forwardedProto === "http" || forwardedProto === "https"
-    ? forwardedProto
-    : "https";
-
-  if (forwardedHost) {
-    return `${protocol}://${forwardedHost}`;
-  }
-
-  return request.nextUrl.origin;
-}
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -45,11 +34,7 @@ export async function GET(request: NextRequest) {
   const admin = await resolveAdminIdentityFromToken(exchanged.accessToken, {
     source: "api",
     requestPath: request.nextUrl.pathname,
-    requestId:
-      request.headers.get("x-amz-cf-id") ??
-      request.headers.get("x-amzn-requestid") ??
-      request.headers.get("x-correlation-id") ??
-      undefined,
+    requestId: extractRequestId(request.headers),
   });
 
   if (!admin) {
@@ -60,7 +45,7 @@ export async function GET(request: NextRequest) {
   if (authState?.handoffUrl) {
     const expiresAt = new Date(Date.now() + exchanged.expiresIn * 1000).toISOString();
     const usernameInput = admin.username
-      ? `<input type="hidden" name="username" value="${admin.username.replaceAll("\"", "&quot;")}" />`
+      ? `<input type="hidden" name="username" value="${escapeHtmlAttribute(admin.username)}" />`
       : "";
     const html = `<!doctype html>
 <html lang="en">
@@ -70,11 +55,11 @@ export async function GET(request: NextRequest) {
     <title>Face Uploader Sign-in</title>
   </head>
   <body>
-    <form id="desktop-handoff" method="post" action="${authState.handoffUrl}">
-      <input type="hidden" name="accessToken" value="${exchanged.accessToken.replaceAll("\"", "&quot;")}" />
+    <form id="desktop-handoff" method="post" action="${escapeHtmlAttribute(authState.handoffUrl)}">
+      <input type="hidden" name="accessToken" value="${escapeHtmlAttribute(exchanged.accessToken)}" />
       <input type="hidden" name="expiresIn" value="${String(exchanged.expiresIn)}" />
-      <input type="hidden" name="expiresAt" value="${expiresAt}" />
-      <input type="hidden" name="sub" value="${admin.sub.replaceAll("\"", "&quot;")}" />
+      <input type="hidden" name="expiresAt" value="${escapeHtmlAttribute(expiresAt)}" />
+      <input type="hidden" name="sub" value="${escapeHtmlAttribute(admin.sub)}" />
       ${usernameInput}
     </form>
     <p>Completing sign-in for Face Uploader…</p>

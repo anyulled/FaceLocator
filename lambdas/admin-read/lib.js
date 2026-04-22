@@ -1,5 +1,6 @@
 "use strict";
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { GetSecretValueCommand, SecretsManagerClient } = require("@aws-sdk/client-secrets-manager");
 
 function getRequiredEnv(env) {

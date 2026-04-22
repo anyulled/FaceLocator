@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as listEvents } from "@/app/api/admin/events/route";
 import { POST as createEvent } from "@/app/api/admin/events/route";
 import { GET as listEventPhotos } from "@/app/api/admin/events/[eventSlug]/photos/route";
+import { POST as presignPhotoUpload } from "@/app/api/admin/events/[eventSlug]/photos/presign/route";
 import { POST as deletePhotosBatch } from "@/app/api/admin/events/[eventSlug]/photos/delete/route";
 import { DELETE as deleteSinglePhoto } from "@/app/api/admin/events/[eventSlug]/photos/[photoId]/route";
 import {
+  createAdminEventPhotoUpload,
   deleteAdminEventPhoto,
   deleteAdminEventPhotosBatch,
 } from "@/lib/admin/events/repository";
@@ -28,6 +30,7 @@ vi.mock("@/lib/admin/events/backend", () => ({
 }));
 
 vi.mock("@/lib/admin/events/repository", () => ({
+  createAdminEventPhotoUpload: vi.fn(),
   deleteAdminEventPhoto: vi.fn(),
   deleteAdminEventPhotosBatch: vi.fn(),
 }));
@@ -37,6 +40,7 @@ const mockedResolveAdminIdentity = vi.mocked(resolveAdminIdentity);
 const mockedListAdminEvents = vi.mocked(listAdminEventsViaBackend);
 const mockedCreateAdminEvent = vi.mocked(createAdminEventViaBackend);
 const mockedListAdminEventPhotos = vi.mocked(getAdminEventPhotosPageViaBackend);
+const mockedCreateAdminEventPhotoUpload = vi.mocked(createAdminEventPhotoUpload);
 const mockedDeleteAdminEventPhoto = vi.mocked(deleteAdminEventPhoto);
 const mockedDeleteAdminEventPhotosBatch = vi.mocked(deleteAdminEventPhotosBatch);
 
@@ -214,6 +218,79 @@ describe("admin api auth and delete behavior", () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
     expect(mockedDeleteAdminEventPhoto).not.toHaveBeenCalled();
+  });
+
+  it("rejects unauthorized photo presign requests", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue(null);
+
+    const response = await presignPhotoUpload(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: "image/jpeg" }),
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(mockedCreateAdminEventPhotoUpload).not.toHaveBeenCalled();
+  });
+
+  it("returns a photo upload contract for authorized admins", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue({
+      sub: "admin-user-1",
+      tokenUse: "access",
+      groups: ["admin"],
+      username: "ops@example.com",
+    });
+    mockedCreateAdminEventPhotoUpload.mockResolvedValue({
+      event: { id: "demo", slug: "demo" },
+      photo: {
+        photoId: "photo-1",
+        objectKey: "events/pending/demo/photos/photo-1.jpg",
+        uploadedBy: "admin-user-1",
+      },
+      upload: {
+        method: "PUT",
+        url: "https://example.com/upload",
+        headers: {
+          "Content-Type": "image/jpeg",
+          "x-amz-meta-event-id": "demo",
+          "x-amz-meta-photo-id": "photo-1",
+          "x-amz-meta-uploaded-by": "admin-user-1",
+        },
+        objectKey: "events/pending/demo/photos/photo-1.jpg",
+        expiresAt: "2026-04-22T18:00:00.000Z",
+      },
+    });
+
+    const response = await presignPhotoUpload(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: "image/jpeg", fileSizeBytes: 1234 }),
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      event: { id: "demo", slug: "demo" },
+      photo: {
+        photoId: "photo-1",
+        uploadedBy: "admin-user-1",
+      },
+    });
+    expect(mockedCreateAdminEventPhotoUpload).toHaveBeenCalledWith({
+      eventSlug: "demo",
+      contentType: "image/jpeg",
+      uploadedBy: "admin-user-1",
+    });
   });
 
   it("passes actor identity to single photo hard-delete", async () => {

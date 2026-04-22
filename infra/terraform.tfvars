@@ -11,7 +11,10 @@ enable_cognito_admin_auth = true
 cognito_domain_prefix     = "face-locator-poc-admin"
 cognito_callback_urls = [
   "http://localhost:3000/admin",
+  "http://localhost:3000/api/admin/callback",
+  "http://localhost:3000/api/admin/token-callback",
   "https://main.d1lne42ooc3wfs.amplifyapp.com/api/admin/callback",
+  "https://main.d1lne42ooc3wfs.amplifyapp.com/api/admin/token-callback",
 ]
 cognito_logout_urls = [
   "http://localhost:3000/",

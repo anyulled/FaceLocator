@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { DeleteObjectCommand, GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { getDatabasePool } from "@/lib/aws/database";
@@ -9,13 +9,16 @@ import type {
   AdminEventPhoto,
   AdminEventPhotosPage,
   AdminEventSummary,
+  AdminPhotoPresignResponse,
   BatchDeleteSummary,
   CreateEventInput,
   PhotoDeleteResult,
 } from "@/lib/admin/events/contracts";
 import { ensureAdminEventsSchema } from "@/lib/admin/events/schema";
+import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
+const PHOTO_UPLOAD_TTL_SECONDS = 60 * 10;
 
 type DeleteAuditResult = PhotoDeleteResult["status"];
 
@@ -228,6 +231,79 @@ export async function getAdminEventHeader(eventSlug: string) {
         description: row.description ?? "",
         startsAt: row.startsAt,
         endsAt: row.endsAt,
+      };
+    },
+  });
+}
+
+export async function createAdminEventPhotoUpload(input: {
+  eventSlug: string;
+  contentType: string;
+  uploadedBy: string;
+}): Promise<AdminPhotoPresignResponse | null> {
+  return runDatabaseOperation({
+    operation: "admin.createAdminEventPhotoUpload",
+    label: "creating an admin photo upload contract",
+    context: adminDatabaseContext({
+      eventSlug: input.eventSlug,
+      contentType: input.contentType,
+      uploadedBy: input.uploadedBy,
+    }),
+    handler: async () => {
+      const event = await getAdminEventHeader(input.eventSlug);
+      if (!event) {
+        return null;
+      }
+
+      const photoId = randomUUID();
+      const objectKey = buildEventPhotoPendingObjectKey({
+        eventId: event.id,
+        photoId,
+        extension: "jpg",
+      });
+      const command = new PutObjectCommand({
+        Bucket: getEventPhotosBucketName(),
+        Key: objectKey,
+        ContentType: input.contentType,
+        Metadata: {
+          "event-id": event.id,
+          "photo-id": photoId,
+          "uploaded-by": input.uploadedBy,
+        },
+      });
+
+      const url = await getSignedUrl(getS3Client(), command, {
+        expiresIn: PHOTO_UPLOAD_TTL_SECONDS,
+        signableHeaders: new Set([
+          "content-type",
+          "x-amz-meta-event-id",
+          "x-amz-meta-photo-id",
+          "x-amz-meta-uploaded-by",
+        ]),
+      });
+
+      return {
+        event: {
+          id: event.id,
+          slug: event.slug,
+        },
+        photo: {
+          photoId,
+          objectKey,
+          uploadedBy: input.uploadedBy,
+        },
+        upload: {
+          method: "PUT",
+          url,
+          headers: {
+            "Content-Type": input.contentType,
+            "x-amz-meta-event-id": event.id,
+            "x-amz-meta-photo-id": photoId,
+            "x-amz-meta-uploaded-by": input.uploadedBy,
+          },
+          objectKey,
+          expiresAt: new Date(Date.now() + PHOTO_UPLOAD_TTL_SECONDS * 1000).toISOString(),
+        },
       };
     },
   });

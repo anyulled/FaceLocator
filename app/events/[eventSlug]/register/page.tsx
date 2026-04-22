@@ -20,7 +20,65 @@ export default async function EventRegistrationPage({
 }: EventRegistrationPageProps) {
   const { eventSlug } = await params;
   const { registrationId } = (await searchParams) ?? {};
-  const event = await getEventRegistrationPageData(eventSlug);
+  let event;
+
+  try {
+    event = await getEventRegistrationPageData(eventSlug);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: "event-registration-page",
+        level: "error",
+        message: "Failed to render event registration page",
+        eventSlug,
+        error: error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : { message: String(error) },
+      }),
+    );
+
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          padding: "clamp(1.25rem, 3vw, 2.5rem)",
+        }}
+      >
+        <section
+          style={{
+            width: "min(40rem, 100%)",
+            padding: "2rem",
+            borderRadius: "2rem",
+            background:
+              "linear-gradient(145deg, rgba(255,255,255,0.96), rgba(255,245,235,0.88))",
+            border: "1px solid var(--border)",
+            boxShadow: "var(--shadow)",
+          }}
+        >
+          <p
+            style={{
+              color: "var(--accent-strong)",
+              textTransform: "uppercase",
+              letterSpacing: "0.16em",
+              fontSize: "0.78rem",
+            }}
+          >
+            Event registration unavailable
+          </p>
+          <h1 style={{ marginTop: "0.85rem", fontSize: "clamp(2rem, 4vw, 3.5rem)" }}>
+            We could not load this registration page right now.
+          </h1>
+          <p style={{ marginTop: "1rem", color: "var(--muted)", lineHeight: 1.8 }}>
+            This usually means the event record is incomplete or the registration backend is
+            temporarily unavailable. Please try again shortly. If the problem persists, check the
+            server logs for the event slug <strong>{eventSlug}</strong>.
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   if (!event) {
     notFound();

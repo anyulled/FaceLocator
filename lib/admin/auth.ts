@@ -7,6 +7,20 @@ export type AdminIdentity = {
   username: string | null;
 };
 
+export type AdminAuthResponseMode = "cookie" | "token";
+
+export type CognitoTokenExchangeResult = {
+  idToken: string;
+  accessToken: string;
+  refreshToken: string | null;
+  expiresIn: number;
+};
+
+type AdminAuthStatePayload = {
+  redirectPath: string;
+  handoffUrl?: string;
+};
+
 type AdminAuthContext = {
   source: "request" | "page" | "api";
   requestPath?: string;
@@ -116,6 +130,10 @@ export function getCognitoLoginRedirectUri(origin?: string) {
   return `${getPublicBaseUrl(origin)}/api/admin/callback`;
 }
 
+export function getCognitoTokenRedirectUri(origin?: string) {
+  return `${getPublicBaseUrl(origin)}/api/admin/token-callback`;
+}
+
 export function getCognitoLogoutRedirectUri(origin?: string) {
   return `${getPublicBaseUrl(origin)}/`;
 }
@@ -143,31 +161,72 @@ function base64UrlToBytes(value: string) {
   return bytes;
 }
 
-export function encodeAdminAuthState(redirectPath: string) {
-  return bytesToBase64Url(new TextEncoder().encode(JSON.stringify({ redirectPath })));
+export function encodeAdminAuthState(redirectPath: string, handoffUrl?: string) {
+  return bytesToBase64Url(
+    new TextEncoder().encode(
+      JSON.stringify({
+        redirectPath,
+        handoffUrl: handoffUrl || undefined,
+      } satisfies AdminAuthStatePayload),
+    ),
+  );
 }
 
-export function decodeAdminAuthState(state: string | null | undefined) {
+export function parseAdminAuthState(state: string | null | undefined): AdminAuthStatePayload | null {
   if (!state) {
     return null;
   }
 
   try {
     const decoded = new TextDecoder().decode(base64UrlToBytes(state));
-    const parsed = JSON.parse(decoded) as { redirectPath?: string };
-    if (parsed.redirectPath && parsed.redirectPath.startsWith("/")) {
-      return parsed.redirectPath;
+    const parsed = JSON.parse(decoded) as AdminAuthStatePayload;
+    if (!parsed.redirectPath || !parsed.redirectPath.startsWith("/")) {
+      return null;
     }
-    return null;
+    if (parsed.handoffUrl && !isAllowedDesktopHandoffUrl(parsed.handoffUrl)) {
+      return null;
+    }
+    return {
+      redirectPath: parsed.redirectPath,
+      handoffUrl: parsed.handoffUrl,
+    };
   } catch {
     return null;
   }
 }
 
-export function buildCognitoAuthorizeUrl(redirectPath: string, origin?: string) {
+export function decodeAdminAuthState(state: string | null | undefined) {
+  return parseAdminAuthState(state)?.redirectPath ?? null;
+}
+
+export function isAllowedDesktopHandoffUrl(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:") {
+      return false;
+    }
+    return url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  } catch {
+    return false;
+  }
+}
+
+export function parseAdminAuthResponseMode(value: string | null | undefined): AdminAuthResponseMode {
+  return value === "token" ? "token" : "cookie";
+}
+
+export function buildCognitoAuthorizeUrl(
+  redirectPath: string,
+  origin?: string,
+  responseMode: AdminAuthResponseMode = "cookie",
+  handoffUrl?: string,
+) {
   const domain = getCognitoHostedDomain();
   const clientId = getCognitoClientId();
-  const redirectUri = getCognitoLoginRedirectUri(origin);
+  const redirectUri =
+    responseMode === "token"
+      ? getCognitoTokenRedirectUri(origin)
+      : getCognitoLoginRedirectUri(origin);
 
   if (!domain || !clientId || !redirectUri) {
     return "";
@@ -178,7 +237,7 @@ export function buildCognitoAuthorizeUrl(redirectPath: string, origin?: string) 
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid email profile");
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("state", encodeAdminAuthState(redirectPath));
+  url.searchParams.set("state", encodeAdminAuthState(redirectPath, handoffUrl));
 
   return url.toString();
 }
@@ -204,6 +263,78 @@ export function isCognitoHostedUiConfigured() {
 
 export function isCognitoAdminAuthConfigured() {
   return getCognitoIssuer().length > 0 && getCognitoClientId().length > 0;
+}
+
+export async function getCognitoOpenIdConfiguration() {
+  const issuer = getCognitoIssuer();
+  if (!issuer) {
+    return null;
+  }
+
+  const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as {
+    authorization_endpoint?: string;
+    token_endpoint?: string;
+  };
+}
+
+export async function exchangeCognitoAuthorizationCode(input: {
+  code: string;
+  origin?: string;
+  responseMode?: AdminAuthResponseMode;
+}): Promise<CognitoTokenExchangeResult> {
+  const clientId = getCognitoClientId();
+  const openIdConfiguration = await getCognitoOpenIdConfiguration();
+  const redirectUri =
+    input.responseMode === "token"
+      ? getCognitoTokenRedirectUri(input.origin)
+      : getCognitoLoginRedirectUri(input.origin);
+
+  if (!openIdConfiguration?.token_endpoint || !clientId || !redirectUri) {
+    throw new Error("COGNITO_OAUTH_CONFIGURATION_INCOMPLETE");
+  }
+
+  const response = await fetch(openIdConfiguration.token_endpoint, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code: input.code,
+      redirect_uri: redirectUri,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("COGNITO_TOKEN_EXCHANGE_FAILED");
+  }
+
+  const payload = (await response.json()) as {
+    id_token?: string;
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+  };
+
+  if (!payload.id_token || !payload.access_token) {
+    throw new Error("COGNITO_TOKEN_EXCHANGE_FAILED");
+  }
+
+  return {
+    idToken: payload.id_token,
+    accessToken: payload.access_token,
+    refreshToken: payload.refresh_token ?? null,
+    expiresIn: Math.max(60, Number(payload.expires_in || 3600)),
+  };
 }
 
 function extractBearerToken(authorizationHeader: string | null) {

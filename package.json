@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "desktop:dev": "pnpm --filter macos-uploader dev",
+    "desktop:build": "pnpm --filter macos-uploader build",
+    "desktop:tauri": "pnpm --filter macos-uploader tauri build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1032.0",

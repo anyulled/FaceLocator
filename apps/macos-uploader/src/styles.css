@@ -1,0 +1,265 @@
+:root {
+  color: #171717;
+  background: linear-gradient(180deg, #f7f4ed 0%, #efe9de 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+select,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 1.1rem;
+  background: #1d4ed8;
+  color: white;
+  cursor: pointer;
+}
+
+button.danger {
+  background: #b91c1c;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.toolbar {
+  padding: 1.5rem 2rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+}
+
+.toolbar h1,
+.empty-state h2,
+.drop-zone h2 {
+  margin: 0;
+}
+
+.eyebrow,
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  color: #5f5b55;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.auth-chip,
+.event-select,
+.banner,
+.summary-card,
+.status-strip {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.auth-chip,
+.event-select {
+  padding: 0.55rem 0.8rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.event-select {
+  flex-direction: column;
+  align-items: start;
+}
+
+.content {
+  padding: 1rem 2rem 2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.empty-state,
+.drop-zone,
+.summary-card {
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+}
+
+.empty-state {
+  background: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  display: grid;
+  gap: 1rem;
+  place-items: center;
+  min-height: 50vh;
+}
+
+.drop-zone {
+  border: 2px dashed rgba(23, 23, 23, 0.16);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.drop-zone-active {
+  border-color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.6);
+}
+
+.banner {
+  margin: 0 2rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.summary-grid div {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.summary-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.details-toggle {
+  margin-top: 1rem;
+  background: transparent;
+  color: #171717;
+  border: 1px solid rgba(23, 23, 23, 0.14);
+}
+
+.queue-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.queue-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.queue-row div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.queue-row span,
+.queue-row small {
+  color: #5f5b55;
+}
+
+.status-strip {
+  margin: 0 2rem 2rem;
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.progress-track {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(23, 23, 23, 0.08);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1d4ed8, #0f766e);
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 23, 23, 0.3);
+  display: grid;
+  place-items: center;
+}
+
+.sheet {
+  width: min(28rem, calc(100vw - 2rem));
+  background: #ffffff;
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.sheet label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.sheet input,
+.event-select select {
+  width: 100%;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(23, 23, 23, 0.16);
+  background: white;
+  padding: 0.75rem 0.9rem;
+}
+
+.sheet-actions {
+  display: flex;
+  justify-content: end;
+  gap: 0.75rem;
+}
+
+.error {
+  color: #b91c1c;
+}
+
+@media (max-width: 840px) {
+  .toolbar,
+  .content,
+  .status-strip,
+  .banner {
+    margin: 0;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .summary-grid,
+  .status-strip {
+    grid-template-columns: 1fr;
+  }
+}

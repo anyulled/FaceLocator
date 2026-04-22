@@ -57,3 +57,8 @@ lambdas/**/node_modules/
 # local tooling
 .portless/
 .codex/
+
+# desktop app
+apps/**/node_modules/
+apps/**/dist/
+apps/**/src-tauri/target/

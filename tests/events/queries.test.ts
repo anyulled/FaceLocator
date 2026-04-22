@@ -75,4 +75,28 @@ describe("event queries", () => {
       ["cantus-laudis-2026"],
     );
   });
+
+  it("falls back safely when live event dates are malformed", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          slug: "cantus-laudis-2026",
+          title: "Cantus Laudis",
+          venue: "Auditorium",
+          description: "A live event stored in Postgres.",
+          scheduledAt: "not-a-date",
+          endsAt: "also-not-a-date",
+        },
+      ],
+    });
+
+    await expect(
+      getEventRegistrationPageData("cantus-laudis-2026"),
+    ).resolves.toMatchObject({
+      slug: "cantus-laudis-2026",
+      title: "Cantus Laudis",
+      formattedScheduledAt: "Date to be announced",
+    });
+  });
 });

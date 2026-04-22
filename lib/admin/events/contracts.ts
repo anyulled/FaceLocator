@@ -19,6 +19,30 @@ export type BatchDeletePhotosInput = {
   photoIds: string[];
 };
 
+export type AdminPhotoPresignInput = {
+  contentType: string;
+  fileSizeBytes?: number;
+};
+
+export type AdminPhotoPresignResponse = {
+  event: {
+    id: string;
+    slug: string;
+  };
+  photo: {
+    photoId: string;
+    objectKey: string;
+    uploadedBy: string;
+  };
+  upload: {
+    method: "PUT";
+    url: string;
+    headers: Record<string, string>;
+    objectKey: string;
+    expiresAt: string;
+  };
+};
+
 export type ValidationResult<T> =
   | {
       success: true;
@@ -177,5 +201,31 @@ export function parseBatchDeleteInput(payload: unknown): ValidationResult<BatchD
   return {
     success: true,
     data: { photoIds },
+  };
+}
+
+export function parseAdminPhotoPresignInput(payload: unknown): ValidationResult<AdminPhotoPresignInput> {
+  if (!payload || typeof payload !== "object") {
+    return { success: false, error: "Payload must be an object" };
+  }
+
+  const candidate = payload as Record<string, unknown>;
+  const contentType = String(candidate.contentType || "").trim().toLowerCase();
+  const rawFileSize = candidate.fileSizeBytes;
+  const fileSizeBytes =
+    typeof rawFileSize === "number" && Number.isFinite(rawFileSize) && rawFileSize >= 0
+      ? Math.floor(rawFileSize)
+      : undefined;
+
+  if (contentType !== "image/jpeg") {
+    return { success: false, error: "Only image/jpeg uploads are supported" };
+  }
+
+  return {
+    success: true,
+    data: {
+      contentType,
+      fileSizeBytes,
+    },
   };
 }

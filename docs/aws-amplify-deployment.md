@@ -44,6 +44,7 @@ For each tenant/environment, set these exact variables in Amplify so `/admin/*` 
 - `COGNITO_USER_POOL_ID=<tenant_user_pool_id>`
 - `COGNITO_APP_CLIENT_ID=<tenant_app_client_id>`
 - `COGNITO_ISSUER=https://cognito-idp.<aws-region>.amazonaws.com/<tenant_user_pool_id>`
+- Cognito callback URLs must include both `/api/admin/callback` and `/api/admin/token-callback` when the macOS uploader is enabled.
 
 Recommended source of truth:
 

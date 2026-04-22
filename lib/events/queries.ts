@@ -1,5 +1,6 @@
 import type { EnrollmentEventSummary } from "@/lib/attendees/contracts";
 import { getDatabasePool } from "@/lib/aws/database";
+import { describeDatabaseError } from "@/lib/aws/database-errors";
 
 export type EnrollmentFormEventProps = {
   eventSlug: string;
@@ -24,13 +25,32 @@ const DEMO_EVENT: EnrollmentEventSummary = {
 };
 
 type EventRow = {
-  slug: string;
-  title: string;
-  venue: string | null;
-  description: string | null;
-  scheduledAt: string | null;
-  endsAt: string | null;
+  slug: unknown;
+  title: unknown;
+  venue: unknown;
+  description: unknown;
+  scheduledAt: unknown;
+  endsAt: unknown;
 };
+
+function readText(value: unknown, fallback = "") {
+  return typeof value === "string" ? value.trim() : fallback;
+}
+
+function normalizeIsoDate(value: unknown, fallback?: string) {
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = new Date(value);
+    if (Number.isFinite(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  return fallback;
+}
 
 export async function getEventBySlug(slug: string): Promise<EnrollmentEventSummary | null> {
   const normalizedSlug = slug.trim().toLowerCase();
@@ -59,19 +79,32 @@ export async function getEventBySlug(slug: string): Promise<EnrollmentEventSumma
 
       const row = result.rows[0];
       if (row) {
+        const scheduledAt = normalizeIsoDate(row.scheduledAt, "") ?? "";
+        const endsAt = normalizeIsoDate(row.endsAt);
+
         return {
-          slug: row.slug,
-          title: row.title,
-          venue: row.venue ?? "",
-          scheduledAt: row.scheduledAt ?? new Date(0).toISOString(),
-          endsAt: row.endsAt ?? undefined,
-          description: row.description ?? "",
+          slug: readText(row.slug, normalizedSlug),
+          title: readText(row.title, normalizedSlug),
+          venue: readText(row.venue),
+          scheduledAt,
+          endsAt,
+          description: readText(row.description),
         };
       }
     } catch (error) {
       if (normalizedSlug === DEMO_EVENT.slug) {
         return DEMO_EVENT;
       }
+
+      console.error(
+        JSON.stringify({
+          ...describeDatabaseError(error, "loading public event registration"),
+          scope: "event-registration",
+          level: "error",
+          summary: "Failed to load event registration data",
+          eventSlug: normalizedSlug,
+        }),
+      );
       throw error;
     }
   }
@@ -125,6 +158,9 @@ export async function getEventRegistrationPageData(
 
 function formatEventDate(startDateIso: string, endDateIso?: string): string {
   const startDate = new Date(startDateIso);
+  if (!Number.isFinite(startDate.getTime())) {
+    return "Date to be announced";
+  }
 
   if (!endDateIso) {
     return new Intl.DateTimeFormat("en", {
@@ -133,6 +169,13 @@ function formatEventDate(startDateIso: string, endDateIso?: string): string {
   }
 
   const endDate = new Date(endDateIso);
+  if (!Number.isFinite(endDate.getTime())) {
+    return new Intl.DateTimeFormat("en", {
+      dateStyle: "long",
+      timeZone: "UTC",
+    }).format(startDate);
+  }
+
   const sameMonth = startDate.getUTCFullYear() === endDate.getUTCFullYear()
     && startDate.getUTCMonth() === endDate.getUTCMonth();
 

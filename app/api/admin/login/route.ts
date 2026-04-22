@@ -5,8 +5,11 @@ import {
   buildCognitoAuthorizeUrl,
   encodeAdminAuthState,
   getCognitoClientId,
-  getCognitoIssuer,
+  getCognitoOpenIdConfiguration,
   getCognitoLoginRedirectUri,
+  getCognitoTokenRedirectUri,
+  isAllowedDesktopHandoffUrl,
+  parseAdminAuthResponseMode,
 } from "@/lib/admin/auth";
 
 function resolveRequestOrigin(request: NextRequest) {
@@ -24,34 +27,35 @@ function resolveRequestOrigin(request: NextRequest) {
 }
 
 async function getAuthorizationEndpointFromIssuer() {
-  const issuer = getCognitoIssuer();
-  if (!issuer) {
-    return null;
-  }
-
-  const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
-    method: "GET",
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as { authorization_endpoint?: string };
-  return payload.authorization_endpoint ?? null;
+  const payload = await getCognitoOpenIdConfiguration();
+  return payload?.authorization_endpoint ?? null;
 }
 
 export async function GET(request: NextRequest) {
   const redirectPath = request.nextUrl.searchParams.get("redirect") || "/admin/events";
   const normalizedRedirectPath = redirectPath.startsWith("/") ? redirectPath : "/admin/events";
+  const responseMode = parseAdminAuthResponseMode(request.nextUrl.searchParams.get("responseMode"));
+  const handoffUrl = request.nextUrl.searchParams.get("handoff");
+  const normalizedHandoffUrl =
+    responseMode === "token" && handoffUrl && isAllowedDesktopHandoffUrl(handoffUrl)
+      ? handoffUrl
+      : undefined;
   const requestOrigin = resolveRequestOrigin(request);
-  let loginUrl = buildCognitoAuthorizeUrl(normalizedRedirectPath, requestOrigin);
+  let loginUrl = buildCognitoAuthorizeUrl(
+    normalizedRedirectPath,
+    requestOrigin,
+    responseMode,
+    normalizedHandoffUrl,
+  );
 
   if (!loginUrl) {
     const authorizationEndpoint = await getAuthorizationEndpointFromIssuer();
     if (authorizationEndpoint) {
       const clientId = getCognitoClientId();
-      const redirectUri = getCognitoLoginRedirectUri(requestOrigin);
+      const redirectUri =
+        responseMode === "token"
+          ? getCognitoTokenRedirectUri(requestOrigin)
+          : getCognitoLoginRedirectUri(requestOrigin);
       if (clientId) {
         const url = new URL(authorizationEndpoint);
         url.searchParams.set("client_id", clientId);
@@ -60,7 +64,7 @@ export async function GET(request: NextRequest) {
         url.searchParams.set("redirect_uri", redirectUri);
         url.searchParams.set(
           "state",
-          encodeAdminAuthState(normalizedRedirectPath),
+          encodeAdminAuthState(normalizedRedirectPath, normalizedHandoffUrl),
         );
         loginUrl = url.toString();
       }

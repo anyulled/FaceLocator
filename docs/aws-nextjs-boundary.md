@@ -21,6 +21,8 @@ This document fixes the assumptions the Next.js backend must honor when real AWS
   - `event-id`
   - `photo-id`
   - `uploaded-by`
+- Desktop uploads request a presigned PUT contract from `POST /api/admin/events/{eventSlug}/photos/presign`.
+- `uploaded-by` is derived server-side from the authenticated admin identity and is not client-controlled.
 
 ## Required application environment variables
 

@@ -3,9 +3,7 @@ import type { NextRequest } from "next/server";
 
 import {
   decodeAdminAuthState,
-  getCognitoClientId,
-  getCognitoIssuer,
-  getCognitoLoginRedirectUri,
+  exchangeCognitoAuthorizationCode,
 } from "@/lib/admin/auth";
 
 function resolveRequestOrigin(request: NextRequest) {
@@ -22,74 +20,35 @@ function resolveRequestOrigin(request: NextRequest) {
   return request.nextUrl.origin;
 }
 
-async function getTokenEndpointFromIssuer() {
-  const issuer = getCognitoIssuer();
-  if (!issuer) {
-    return null;
-  }
-
-  const response = await fetch(`${issuer}/.well-known/openid-configuration`, {
-    method: "GET",
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as { token_endpoint?: string };
-  return payload.token_endpoint ?? null;
-}
-
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.json({ error: "Missing authorization code" }, { status: 400 });
   }
 
-  const clientId = getCognitoClientId();
-  const redirectUri = getCognitoLoginRedirectUri(resolveRequestOrigin(request));
-  const tokenEndpoint = await getTokenEndpointFromIssuer();
-
-  if (!tokenEndpoint || !clientId || !redirectUri) {
-    return NextResponse.json({ error: "Cognito OAuth configuration is incomplete" }, { status: 503 });
-  }
-
-  const response = await fetch(tokenEndpoint, {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: clientId,
+  let exchanged;
+  try {
+    exchanged = await exchangeCognitoAuthorizationCode({
       code,
-      redirect_uri: redirectUri,
-    }),
-  });
-
-  if (!response.ok) {
-    return NextResponse.json({ error: "Failed to exchange authorization code" }, { status: 401 });
-  }
-
-  const payload = (await response.json()) as {
-    id_token?: string;
-    access_token?: string;
-    refresh_token?: string;
-    expires_in?: number;
-  };
-
-  if (!payload.id_token || !payload.access_token) {
-    return NextResponse.json({ error: "Token exchange did not return required tokens" }, { status: 401 });
+      origin: resolveRequestOrigin(request),
+      responseMode: "cookie",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "COGNITO_TOKEN_EXCHANGE_FAILED";
+    return NextResponse.json(
+      { error: message === "COGNITO_OAUTH_CONFIGURATION_INCOMPLETE" ? "Cognito OAuth configuration is incomplete" : "Failed to exchange authorization code" },
+      { status: message === "COGNITO_OAUTH_CONFIGURATION_INCOMPLETE" ? 503 : 401 },
+    );
   }
 
   const redirectPath = decodeAdminAuthState(request.nextUrl.searchParams.get("state")) || "/admin/events";
   const redirectUrl = new URL(redirectPath, resolveRequestOrigin(request));
-  const authMaxAge = Math.max(60, Number(payload.expires_in || 3600));
+  const authMaxAge = exchanged.expiresIn;
 
   const nextResponse = NextResponse.redirect(redirectUrl);
   nextResponse.cookies.set({
     name: "idToken",
-    value: payload.id_token,
+    value: exchanged.idToken,
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -98,7 +57,7 @@ export async function GET(request: NextRequest) {
   });
   nextResponse.cookies.set({
     name: "accessToken",
-    value: payload.access_token,
+    value: exchanged.accessToken,
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -106,10 +65,10 @@ export async function GET(request: NextRequest) {
     maxAge: authMaxAge,
   });
 
-  if (payload.refresh_token) {
+  if (exchanged.refreshToken) {
     nextResponse.cookies.set({
       name: "refreshToken",
-      value: payload.refresh_token,
+      value: exchanged.refreshToken,
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

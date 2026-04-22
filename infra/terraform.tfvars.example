@@ -20,7 +20,11 @@ enable_cognito_admin_auth = true
 # Must be globally unique in AWS region. Override per tenant/environment.
 cognito_domain_prefix = "face-locator-poc-admin"
 # Include your local and deployed admin entrypoints.
-cognito_callback_urls = ["http://localhost:3000/admin"]
+cognito_callback_urls = [
+  "http://localhost:3000/admin",
+  "http://localhost:3000/api/admin/callback",
+  "http://localhost:3000/api/admin/token-callback",
+]
 cognito_logout_urls = ["http://localhost:3000/"]
 cognito_admin_group_name = "admin"
 # Optional bootstrap admin user.

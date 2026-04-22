@@ -91,7 +91,7 @@ export default async function AdminEventsPage({
             >
               Create event
             </Link>
-            <Link
+            <a
               href="/api/admin/logout"
               style={{
                 border: "1px solid var(--border)",
@@ -102,7 +102,7 @@ export default async function AdminEventsPage({
               }}
             >
               Logout
-            </Link>
+            </a>
           </div>
         </header>
 

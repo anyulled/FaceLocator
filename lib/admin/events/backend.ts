@@ -6,7 +6,11 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { listAdminEvents } from "@/lib/admin/events/repository";
 import { getDatabasePool } from "@/lib/aws/database";
-import type { AdminEventPhotosPage, AdminEventSummary } from "@/lib/admin/events/contracts";
+import type {
+  AdminEventPhotosPage,
+  AdminEventSummary,
+  CreateEventInput,
+} from "@/lib/admin/events/contracts";
 
 type AdminReadBackendMode = "direct" | "lambda";
 
@@ -183,6 +187,15 @@ export async function listAdminEventsViaBackend(input: {
   }
 
   return listAdminEvents(input);
+}
+
+export async function createAdminEventViaBackend(input: CreateEventInput): Promise<AdminEventSummary> {
+  if (getAdminReadBackendMode() === "lambda") {
+    return invokeAdminReadLambda("createAdminEvent", input);
+  }
+
+  const { createAdminEvent } = await import("@/lib/admin/events/repository");
+  return createAdminEvent(input);
 }
 
 export async function getAdminEventPhotosPageViaBackend(input: {

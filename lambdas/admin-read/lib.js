@@ -15,6 +15,7 @@ function getRequiredEnv(env) {
     databaseSecretName: env.DATABASE_SECRET_NAME,
     databaseSecretArn: env.DATABASE_SECRET_ARN || null,
     eventPhotosBucketName: env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET,
+    publicBaseUrl: env.FACE_LOCATOR_PUBLIC_BASE_URL || null,
     logLevel: env.LOG_LEVEL || "info",
   };
 }

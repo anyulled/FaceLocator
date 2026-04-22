@@ -69,6 +69,7 @@ resource "aws_lambda_function" "admin_events_read" {
     variables = {
       LOG_LEVEL                        = "info"
       FACE_LOCATOR_EVENT_PHOTOS_BUCKET = aws_s3_bucket.event_photos.bucket
+      FACE_LOCATOR_PUBLIC_BASE_URL     = var.public_base_url
       DATABASE_SECRET_NAME             = aws_secretsmanager_secret.database.name
       DATABASE_SECRET_ARN              = aws_secretsmanager_secret.database.arn
     }

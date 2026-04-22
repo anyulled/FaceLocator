@@ -212,6 +212,12 @@ variable "cognito_logout_urls" {
   default     = ["http://localhost:3000/"]
 }
 
+variable "public_base_url" {
+  description = "Public base URL used when generating event links."
+  type        = string
+  default     = "http://localhost:3000"
+}
+
 variable "cognito_admin_group_name" {
   description = "Cognito group name required for admin access."
   type        = string

@@ -200,6 +200,76 @@ async function listAdminEvents(input) {
   });
 }
 
+async function createAdminEvent(input) {
+  return withDatabase(async (client) => {
+    const normalizedSlug = String(input.slug || "").trim().toLowerCase();
+    const result = await client.query(
+      `
+        INSERT INTO events (
+          id,
+          slug,
+          title,
+          venue,
+          description,
+          scheduled_at,
+          ends_at,
+          public_base_url
+        )
+        VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8)
+        RETURNING
+          id,
+          slug,
+          title,
+          venue,
+          description,
+          scheduled_at AS "startsAt",
+          ends_at AS "endsAt",
+          '0' AS "photoCount"
+      `,
+      [
+        normalizedSlug,
+        normalizedSlug,
+        input.title,
+        input.venue,
+        input.description,
+        input.startsAt,
+        input.endsAt,
+        env.publicBaseUrl || "https://localhost:3000",
+      ],
+    );
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      venue: row.venue || "",
+      description: row.description || "",
+      startsAt: row.startsAt || input.startsAt,
+      endsAt: row.endsAt || input.endsAt,
+      photoCount: 0,
+    };
+  });
+}
+
+async function deleteAdminEvent(input) {
+  return withDatabase(async (client) => {
+    const normalizedSlug = String(input.slug || "").trim().toLowerCase();
+    const result = await client.query(
+      `
+        DELETE FROM events
+        WHERE slug = $1
+        RETURNING id
+      `,
+      [normalizedSlug],
+    );
+
+    return {
+      deleted: result.rowCount > 0,
+    };
+  });
+}
+
 async function getAdminEventPhotosPage(input) {
   return withDatabase(async (client) => {
     const eventRes = await client.query(
@@ -298,6 +368,14 @@ async function handler(event) {
     const payload = event || {};
     if (payload.operation === "listAdminEvents") {
       return await listAdminEvents(payload.input);
+    }
+
+    if (payload.operation === "createAdminEvent") {
+      return await createAdminEvent(payload.input);
+    }
+
+    if (payload.operation === "deleteAdminEvent") {
+      return await deleteAdminEvent(payload.input);
     }
 
     if (payload.operation === "getAdminEventPhotosPage") {

@@ -6,11 +6,11 @@ import { GET as listEventPhotos } from "@/app/api/admin/events/[eventSlug]/photo
 import { POST as deletePhotosBatch } from "@/app/api/admin/events/[eventSlug]/photos/delete/route";
 import { DELETE as deleteSinglePhoto } from "@/app/api/admin/events/[eventSlug]/photos/[photoId]/route";
 import {
-  createAdminEvent,
   deleteAdminEventPhoto,
   deleteAdminEventPhotosBatch,
 } from "@/lib/admin/events/repository";
 import {
+  createAdminEventViaBackend,
   getAdminEventPhotosPageViaBackend,
   listAdminEventsViaBackend,
 } from "@/lib/admin/events/backend";
@@ -23,11 +23,11 @@ vi.mock("@/lib/admin/auth", () => ({
 
 vi.mock("@/lib/admin/events/backend", () => ({
   listAdminEventsViaBackend: vi.fn(),
+  createAdminEventViaBackend: vi.fn(),
   getAdminEventPhotosPageViaBackend: vi.fn(),
 }));
 
 vi.mock("@/lib/admin/events/repository", () => ({
-  createAdminEvent: vi.fn(),
   deleteAdminEventPhoto: vi.fn(),
   deleteAdminEventPhotosBatch: vi.fn(),
 }));
@@ -35,8 +35,8 @@ vi.mock("@/lib/admin/events/repository", () => ({
 const mockedIsAuthorizedAdminRequest = vi.mocked(isAuthorizedAdminRequest);
 const mockedResolveAdminIdentity = vi.mocked(resolveAdminIdentity);
 const mockedListAdminEvents = vi.mocked(listAdminEventsViaBackend);
+const mockedCreateAdminEvent = vi.mocked(createAdminEventViaBackend);
 const mockedListAdminEventPhotos = vi.mocked(getAdminEventPhotosPageViaBackend);
-const mockedCreateAdminEvent = vi.mocked(createAdminEvent);
 const mockedDeleteAdminEventPhoto = vi.mocked(deleteAdminEventPhoto);
 const mockedDeleteAdminEventPhotosBatch = vi.mocked(deleteAdminEventPhotosBatch);
 

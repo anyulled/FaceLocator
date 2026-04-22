@@ -56,3 +56,4 @@ lambdas/**/node_modules/
 
 # local tooling
 .portless/
+.codex/

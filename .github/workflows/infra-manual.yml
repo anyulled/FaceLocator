@@ -52,7 +52,9 @@ jobs:
         run: terraform -chdir=infra validate
 
       - name: Configure AWS credentials with OIDC
-        if: ${{ inputs.run_plan && secrets.AWS_ROLE_TO_ASSUME != '' }}
+        if: ${{ inputs.run_plan && env.AWS_ROLE_TO_ASSUME != '' }}
+        env:
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -60,7 +62,11 @@ jobs:
           role-session-name: github-actions-infra-plan
 
       - name: Configure AWS credentials with access keys
-        if: ${{ inputs.run_plan && secrets.AWS_ROLE_TO_ASSUME == '' && secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        if: ${{ inputs.run_plan && env.AWS_ROLE_TO_ASSUME == '' && env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
+        env:
+          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}

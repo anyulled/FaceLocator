@@ -71,12 +71,12 @@ resource "aws_lambda_function" "attendee_registration" {
 
   environment {
     variables = {
-      LOG_LEVEL                    = "info"
-      FACE_LOCATOR_SELFIES_BUCKET  = aws_s3_bucket.selfies.bucket
+      LOG_LEVEL                       = "info"
+      FACE_LOCATOR_SELFIES_BUCKET     = aws_s3_bucket.selfies.bucket
       FACE_LOCATOR_EVENT_LOGOS_BUCKET = aws_s3_bucket.event_logos.bucket
-      FACE_LOCATOR_PUBLIC_BASE_URL = var.public_base_url
-      DATABASE_SECRET_NAME         = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN          = aws_secretsmanager_secret.database.arn
+      FACE_LOCATOR_PUBLIC_BASE_URL    = var.public_base_url
+      DATABASE_SECRET_NAME            = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN             = aws_secretsmanager_secret.database.arn
     }
   }
 

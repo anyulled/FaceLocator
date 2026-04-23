@@ -100,6 +100,26 @@ resource "aws_iam_role_policy_attachment" "nextjs_attendee_registration_invoke" 
   policy_arn = aws_iam_policy.nextjs_attendee_registration_invoke.arn
 }
 
+data "aws_iam_policy_document" "nextjs_matched_photo_notifier_invoke" {
+  statement {
+    sid       = "AllowInvokeMatchedPhotoNotifierLambda"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.matched_photo_notifier.arn]
+  }
+}
+
+resource "aws_iam_policy" "nextjs_matched_photo_notifier_invoke" {
+  name        = "${local.name_prefix}-nextjs-matched-photo-notifier-invoke"
+  description = "Least-privilege Lambda invoke permission for manual matched-photo notifications from the Next.js admin flow."
+  policy      = data.aws_iam_policy_document.nextjs_matched_photo_notifier_invoke.json
+}
+
+resource "aws_iam_role_policy_attachment" "nextjs_matched_photo_notifier_invoke" {
+  count      = length(data.aws_iam_role.nextjs_runtime) > 0 ? 1 : 0
+  role       = data.aws_iam_role.nextjs_runtime[0].name
+  policy_arn = aws_iam_policy.nextjs_matched_photo_notifier_invoke.arn
+}
+
 resource "aws_iam_role" "selfie_enrollment_lambda" {
   name               = "${local.lambda_names.selfie_enrollment}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json

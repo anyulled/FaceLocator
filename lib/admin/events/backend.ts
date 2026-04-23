@@ -13,6 +13,7 @@ import { listAdminEvents } from "@/lib/admin/events/repository";
 import { getDatabasePool } from "@/lib/aws/database";
 import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 import type {
+  AdminEventFaceMatch,
   AdminEventPhotosPage,
   AdminEventSummary,
   CreateEventInput,
@@ -34,6 +35,7 @@ type AdminReadBackendErrorDetails = {
 };
 
 const DEFAULT_ADMIN_READ_LAMBDA_NAME = "face-locator-poc-admin-events-read";
+const DEFAULT_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME = "face-locator-poc-matched-photo-notifier";
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
 
 let lambdaClient: LambdaClient | null = null;
@@ -75,6 +77,15 @@ export function getAdminEventsReadLambdaName() {
       "ADMIN_EVENTS_READ_LAMBDA_NAME",
       "ADMIN_READ_LAMBDA_NAME",
     ) || DEFAULT_ADMIN_READ_LAMBDA_NAME
+  );
+}
+
+export function getMatchedPhotoNotifierLambdaName() {
+  return (
+    readEnv(
+      "FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME",
+      "MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME",
+    ) || DEFAULT_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME
   );
 }
 
@@ -270,6 +281,10 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     return {
       event: null,
       photos: [],
+      faceMatchSummary: {
+        totalMatchedFaces: 0,
+        matchedFaces: [],
+      },
       page: input.page,
       pageSize: input.pageSize,
       totalCount: 0,
@@ -277,7 +292,7 @@ export async function getAdminEventPhotosPageViaBackend(input: {
   }
 
   const offset = (input.page - 1) * input.pageSize;
-  const [rowsRes, totalRes] = await Promise.all([
+  const [rowsRes, totalRes, faceMatchesRes] = await Promise.all([
     pool.query<{
       id: string;
       eventId: string;
@@ -313,7 +328,69 @@ export async function getAdminEventPhotosPageViaBackend(input: {
       `,
       [input.eventSlug],
     ),
+    pool.query<{
+      attendeeId: string;
+      attendeeName: string | null;
+      attendeeEmail: string | null;
+      faceEnrollmentId: string;
+      faceId: string;
+      matchedPhotoCount: number;
+      lastMatchedAt: string | null;
+    }>(
+      `
+        SELECT
+          ea.attendee_id AS "attendeeId",
+          a.name AS "attendeeName",
+          a.email AS "attendeeEmail",
+          current_face.id AS "faceEnrollmentId",
+          current_face.rekognition_face_id AS "faceId",
+          COUNT(DISTINCT m.event_photo_id)::int AS "matchedPhotoCount",
+          MAX(ep.uploaded_at) AS "lastMatchedAt"
+        FROM event_attendees ea
+        JOIN attendees a
+          ON a.id = ea.attendee_id
+        JOIN LATERAL (
+          SELECT fe.id, fe.rekognition_face_id
+          FROM face_enrollments fe
+          WHERE fe.event_id = ea.event_id
+            AND fe.attendee_id = ea.attendee_id
+            AND fe.deleted_at IS NULL
+            AND fe.rekognition_face_id IS NOT NULL
+          ORDER BY COALESCE(fe.enrolled_at, fe.created_at) DESC
+          LIMIT 1
+        ) current_face ON true
+        JOIN photo_face_matches m
+          ON m.attendee_id = ea.attendee_id
+         AND m.face_enrollment_id = current_face.id
+        JOIN event_photos ep
+          ON ep.id = m.event_photo_id
+         AND ep.event_id = ea.event_id
+         AND ep.deleted_at IS NULL
+        WHERE ea.event_id = $1
+        GROUP BY
+          ea.attendee_id,
+          a.name,
+          a.email,
+          current_face.id,
+          current_face.rekognition_face_id
+        ORDER BY
+          COUNT(DISTINCT m.event_photo_id) DESC,
+          MAX(ep.uploaded_at) DESC,
+          ea.attendee_id ASC
+      `,
+      [event.id],
+    ),
   ]);
+
+  const matchedFaces: AdminEventFaceMatch[] = faceMatchesRes.rows.map((row) => ({
+    attendeeId: row.attendeeId,
+    attendeeName: row.attendeeName ?? "Attendee",
+    attendeeEmail: row.attendeeEmail ?? "",
+    faceEnrollmentId: row.faceEnrollmentId,
+    faceId: row.faceId,
+    matchedPhotoCount: Number(row.matchedPhotoCount),
+    lastMatchedAt: row.lastMatchedAt ?? new Date(0).toISOString(),
+  }));
 
   return {
     event: {
@@ -337,6 +414,10 @@ export async function getAdminEventPhotosPageViaBackend(input: {
         previewUrl: await buildPreviewUrl(row.objectKey),
       })),
     ),
+    faceMatchSummary: {
+      totalMatchedFaces: matchedFaces.length,
+      matchedFaces,
+    },
     page: input.page,
     pageSize: input.pageSize,
     totalCount: Number(totalRes.rows[0]?.total ?? "0"),
@@ -450,4 +531,93 @@ export async function reprocessAdminEventPhotosViaBackend(input: {
     queued,
     failed,
   };
+}
+
+export async function sendMatchedPhotoNotificationViaBackend(input: {
+  eventSlug: string;
+  attendeeId: string;
+  forceResend?: boolean;
+}): Promise<{
+  scanned: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+  reason?: string;
+}> {
+  const lambdaName = getMatchedPhotoNotifierLambdaName();
+
+  try {
+    const response = await getLambdaClient().send(
+      new InvokeCommand({
+        FunctionName: lambdaName,
+        InvocationType: "RequestResponse",
+        Payload: Buffer.from(
+          JSON.stringify({
+            operation: "sendSingleNotification",
+            input: {
+              eventSlug: input.eventSlug,
+              attendeeId: input.attendeeId,
+              forceResend: input.forceResend ?? true,
+            },
+          }),
+        ),
+      }),
+    );
+
+    const payloadText = response.Payload ? Buffer.from(response.Payload).toString("utf8") : "";
+    const payload = payloadText ? JSON.parse(payloadText) : null;
+
+    if (!payload) {
+      throw new AdminReadBackendError(
+        "Matched photo notifier returned an empty response. Check Lambda logs and invocation payload.",
+        502,
+        {
+          operation: "sendSingleNotification",
+          backend: "lambda",
+          lambdaName,
+        },
+      );
+    }
+
+    if (typeof payload === "object" && payload !== null && "statusCode" in payload) {
+      const statusCode = Number((payload as { statusCode?: unknown }).statusCode) || 500;
+      const errorMessage =
+        typeof (payload as { errorMessage?: unknown }).errorMessage === "string"
+          ? (payload as { errorMessage: string }).errorMessage
+          : "Matched photo notifier failed.";
+
+      throw new AdminReadBackendError(errorMessage, statusCode, {
+        operation: "sendSingleNotification",
+        backend: "lambda",
+        lambdaName,
+        response: payload,
+      });
+    }
+
+    return payload as {
+      scanned: number;
+      sent: number;
+      skipped: number;
+      failed: number;
+      reason?: string;
+    };
+  } catch (error) {
+    if (error instanceof AdminReadBackendError) {
+      throw error;
+    }
+
+    throw new AdminReadBackendError(
+      "Matched photo notifier invocation failed. Check Lambda invoke permission, function name, and CloudWatch logs.",
+      503,
+      {
+        operation: "sendSingleNotification",
+        backend: "lambda",
+        lambdaName,
+        response:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : { message: String(error) },
+      },
+    );
+  }
 }

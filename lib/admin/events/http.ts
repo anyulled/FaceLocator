@@ -153,6 +153,18 @@ export async function loadAdminEventPhotosPage(input: {
       uploadedAt: string;
       previewUrl: string | null;
     }>;
+    faceMatchSummary: {
+      totalMatchedFaces: number;
+      matchedFaces: Array<{
+        attendeeId: string;
+        attendeeName: string;
+        attendeeEmail: string;
+        faceEnrollmentId: string;
+        faceId: string;
+        matchedPhotoCount: number;
+        lastMatchedAt: string;
+      }>;
+    };
     page: number;
     pageSize: number;
     totalCount: number;

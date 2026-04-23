@@ -6,6 +6,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getDatabasePool } from "@/lib/aws/database";
 import { runDatabaseOperation } from "@/lib/aws/database-errors";
 import type {
+  AdminEventFaceMatch,
   AdminEventPhoto,
   AdminEventPhotosPage,
   AdminEventSummary,
@@ -53,6 +54,7 @@ type EventRow = {
   description: string | null;
   startsAt: string | null;
   endsAt: string | null;
+  logoObjectKey: string | null;
   photoCount: string;
 };
 
@@ -79,16 +81,17 @@ export async function listAdminEvents(input: { page: number; pageSize: number })
               e.id,
               e.slug,
               e.title,
-              e.venue,
-              e.description,
-              e.scheduled_at AS "startsAt",
-              e.ends_at AS "endsAt",
-              COUNT(ep.id)::text AS "photoCount"
+            e.venue,
+            e.description,
+            e.scheduled_at AS "startsAt",
+            e.ends_at AS "endsAt",
+            e.logo_object_key AS "logoObjectKey",
+            COUNT(ep.id)::text AS "photoCount"
             FROM events e
             LEFT JOIN event_photos ep
               ON ep.event_id = e.id
              AND ep.deleted_at IS NULL
-            GROUP BY e.id, e.slug, e.title, e.venue, e.description, e.scheduled_at, e.ends_at
+            GROUP BY e.id, e.slug, e.title, e.venue, e.description, e.scheduled_at, e.ends_at, e.logo_object_key
             ORDER BY e.scheduled_at DESC NULLS LAST, e.created_at DESC
             LIMIT $1 OFFSET $2
           `,
@@ -106,6 +109,7 @@ export async function listAdminEvents(input: { page: number; pageSize: number })
           description: row.description ?? "",
           startsAt: row.startsAt ?? new Date(0).toISOString(),
           endsAt: row.endsAt ?? row.startsAt ?? new Date(0).toISOString(),
+          logoObjectKey: row.logoObjectKey ?? undefined,
           photoCount: Number(row.photoCount),
         })),
         totalCount: Number(totalRes.rows[0]?.total ?? "0"),
@@ -134,9 +138,10 @@ export async function createAdminEvent(input: CreateEventInput): Promise<AdminEv
             description,
             scheduled_at,
             ends_at,
+            logo_object_key,
             public_base_url
           )
-          VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8)
+          VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8, $9)
           RETURNING
             id,
             slug,
@@ -145,6 +150,7 @@ export async function createAdminEvent(input: CreateEventInput): Promise<AdminEv
             description,
             scheduled_at AS "startsAt",
             ends_at AS "endsAt",
+            logo_object_key AS "logoObjectKey",
             '0' AS "photoCount"
       `,
         [
@@ -155,6 +161,7 @@ export async function createAdminEvent(input: CreateEventInput): Promise<AdminEv
           input.description,
           input.startsAt,
           input.endsAt,
+          input.logoObjectKey ?? null,
           process.env.FACE_LOCATOR_PUBLIC_BASE_URL ?? "https://localhost:3000",
         ],
       );
@@ -168,6 +175,7 @@ export async function createAdminEvent(input: CreateEventInput): Promise<AdminEv
         description: row.description ?? "",
         startsAt: row.startsAt ?? input.startsAt,
         endsAt: row.endsAt ?? input.endsAt,
+        logoObjectKey: row.logoObjectKey ?? undefined,
         photoCount: 0,
       };
     },
@@ -182,6 +190,7 @@ type EventHeaderRow = {
   description: string | null;
   startsAt: string | null;
   endsAt: string | null;
+  logoObjectKey: string | null;
 };
 
 type PhotoRow = {
@@ -191,6 +200,16 @@ type PhotoRow = {
   objectKey: string;
   status: string;
   uploadedAt: string;
+};
+
+type FaceMatchRow = {
+  attendeeId: string;
+  attendeeName: string | null;
+  attendeeEmail: string | null;
+  faceEnrollmentId: string;
+  faceId: string;
+  matchedPhotoCount: number;
+  lastMatchedAt: string | null;
 };
 
 export async function getAdminEventHeader(eventSlug: string) {
@@ -210,7 +229,8 @@ export async function getAdminEventHeader(eventSlug: string) {
             e.venue,
             e.description,
             e.scheduled_at AS "startsAt",
-            e.ends_at AS "endsAt"
+            e.ends_at AS "endsAt",
+            e.logo_object_key AS "logoObjectKey"
           FROM events e
           WHERE e.slug = $1
           LIMIT 1
@@ -231,6 +251,7 @@ export async function getAdminEventHeader(eventSlug: string) {
         description: row.description ?? "",
         startsAt: row.startsAt,
         endsAt: row.endsAt,
+        logoObjectKey: row.logoObjectKey ?? undefined,
       };
     },
   });
@@ -345,6 +366,10 @@ export async function listAdminEventPhotos(input: {
       if (!event) {
         return {
           photos: [],
+          faceMatchSummary: {
+            totalMatchedFaces: 0,
+            matchedFaces: [],
+          },
           page: input.page,
           pageSize: input.pageSize,
           totalCount: 0,
@@ -353,7 +378,7 @@ export async function listAdminEventPhotos(input: {
 
       const offset = (input.page - 1) * input.pageSize;
 
-      const [rowsRes, totalRes] = await Promise.all([
+      const [rowsRes, totalRes, faceMatchesRes] = await Promise.all([
         pool.query<PhotoRow>(
           `
             SELECT
@@ -382,6 +407,50 @@ export async function listAdminEventPhotos(input: {
           `,
           [input.eventSlug],
         ),
+        pool.query<FaceMatchRow>(
+          `
+            SELECT
+              ea.attendee_id AS "attendeeId",
+              a.name AS "attendeeName",
+              a.email AS "attendeeEmail",
+              current_face.id AS "faceEnrollmentId",
+              current_face.rekognition_face_id AS "faceId",
+              COUNT(DISTINCT m.event_photo_id)::int AS "matchedPhotoCount",
+              MAX(ep.uploaded_at) AS "lastMatchedAt"
+            FROM event_attendees ea
+            JOIN attendees a
+              ON a.id = ea.attendee_id
+            JOIN LATERAL (
+              SELECT fe.id, fe.rekognition_face_id
+              FROM face_enrollments fe
+              WHERE fe.event_id = ea.event_id
+                AND fe.attendee_id = ea.attendee_id
+                AND fe.deleted_at IS NULL
+                AND fe.rekognition_face_id IS NOT NULL
+              ORDER BY COALESCE(fe.enrolled_at, fe.created_at) DESC
+              LIMIT 1
+            ) current_face ON true
+            JOIN photo_face_matches m
+              ON m.attendee_id = ea.attendee_id
+             AND m.face_enrollment_id = current_face.id
+            JOIN event_photos ep
+              ON ep.id = m.event_photo_id
+             AND ep.event_id = ea.event_id
+             AND ep.deleted_at IS NULL
+            WHERE ea.event_id = $1
+            GROUP BY
+              ea.attendee_id,
+              a.name,
+              a.email,
+              current_face.id,
+              current_face.rekognition_face_id
+            ORDER BY
+              COUNT(DISTINCT m.event_photo_id) DESC,
+              MAX(ep.uploaded_at) DESC,
+              ea.attendee_id ASC
+          `,
+          [event.id],
+        ),
       ]);
 
       const s3Client = getS3Client();
@@ -397,8 +466,22 @@ export async function listAdminEventPhotos(input: {
         })),
       );
 
+      const matchedFaces: AdminEventFaceMatch[] = faceMatchesRes.rows.map((row) => ({
+        attendeeId: row.attendeeId,
+        attendeeName: row.attendeeName ?? "Attendee",
+        attendeeEmail: row.attendeeEmail ?? "",
+        faceEnrollmentId: row.faceEnrollmentId,
+        faceId: row.faceId,
+        matchedPhotoCount: Number(row.matchedPhotoCount),
+        lastMatchedAt: row.lastMatchedAt ?? new Date(0).toISOString(),
+      }));
+
       return {
         photos,
+        faceMatchSummary: {
+          totalMatchedFaces: matchedFaces.length,
+          matchedFaces,
+        },
         page: input.page,
         pageSize: input.pageSize,
         totalCount: Number(totalRes.rows[0]?.total ?? "0"),

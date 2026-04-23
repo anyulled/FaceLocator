@@ -5,11 +5,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { isUnauthorizedAdminStatus, redirectToAdminAuth } from "@/lib/admin/client";
-import type { AdminEventPhoto } from "@/lib/admin/events/contracts";
+import type { AdminEventFaceMatchSummary, AdminEventPhoto } from "@/lib/admin/events/contracts";
 
 type Props = {
   eventSlug: string;
   initialPhotos: AdminEventPhoto[];
+  initialFaceMatchSummary: AdminEventFaceMatchSummary;
 };
 
 type BatchResult = {
@@ -26,13 +27,14 @@ type ReprocessSummary = {
   skipped: number | null;
 };
 
-export function PhotosManager({ eventSlug, initialPhotos }: Props) {
+export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummary }: Props) {
   const router = useRouter();
   const [photos, setPhotos] = useState(initialPhotos);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busyPhotoId, setBusyPhotoId] = useState<string | null>(null);
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
   const [isReprocessingAll, setIsReprocessingAll] = useState(false);
+  const [notifyingAttendeeId, setNotifyingAttendeeId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
@@ -226,6 +228,39 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
     router.refresh();
   };
 
+  const sendEmailLink = async (attendeeId: string, attendeeName: string) => {
+    setNotifyingAttendeeId(attendeeId);
+    setStatusMessage(null);
+
+    const response = await fetch(`/api/admin/events/${eventSlug}/photos/notify`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ attendeeId }),
+    });
+
+    if (isUnauthorizedAdminStatus(response.status)) {
+      setNotifyingAttendeeId(null);
+      redirectToAdminAuth();
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message =
+        payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "Failed to send notification";
+      setStatusMessage(`Could not send email to ${attendeeName}: ${message}.`);
+      setNotifyingAttendeeId(null);
+      return;
+    }
+
+    setStatusMessage(`Email link sent to ${attendeeName}.`);
+    setNotifyingAttendeeId(null);
+  };
+
   if (photos.length === 0) {
     return (
       <section style={{ border: "1px dashed var(--border)", borderRadius: "1rem", padding: "1rem" }}>
@@ -291,6 +326,52 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
           {selected.size === photos.length ? "Clear selection" : "Select all on page"}
         </button>
       </div>
+
+      <section
+        style={{
+          border: "1px solid var(--border)",
+          borderRadius: "0.85rem",
+          padding: "0.8rem 0.95rem",
+          background: "var(--surface-strong)",
+          display: "grid",
+          gap: "0.6rem",
+        }}
+      >
+        <p style={{ margin: 0, fontWeight: 700 }}>
+          Matched faces in this event: {initialFaceMatchSummary.totalMatchedFaces}
+        </p>
+
+        {initialFaceMatchSummary.matchedFaces.length === 0 ? (
+          <p style={{ margin: 0, color: "var(--muted)" }}>No face matches found yet.</p>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: "1rem", display: "grid", gap: "0.35rem" }}>
+            {initialFaceMatchSummary.matchedFaces.map((match) => (
+              <li key={`${match.attendeeId}:${match.faceEnrollmentId}`} style={{ fontSize: "0.93rem" }}>
+                <span style={{ fontWeight: 600 }}>{match.attendeeName}</span>
+                {match.attendeeEmail ? ` (${match.attendeeEmail})` : ""}: {match.matchedPhotoCount} photo
+                {match.matchedPhotoCount === 1 ? "" : "s"} matched
+                <button
+                  type="button"
+                  onClick={() => void sendEmailLink(match.attendeeId, match.attendeeName)}
+                  disabled={notifyingAttendeeId === match.attendeeId}
+                  style={{
+                    marginLeft: "0.6rem",
+                    border: "1px solid var(--border)",
+                    borderRadius: "999px",
+                    padding: "0.22rem 0.6rem",
+                    background: "var(--surface)",
+                    cursor: notifyingAttendeeId === match.attendeeId ? "not-allowed" : "pointer",
+                    opacity: notifyingAttendeeId === match.attendeeId ? 0.6 : 1,
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  {notifyingAttendeeId === match.attendeeId ? "Sending..." : "Send email link"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {statusMessage ? (
         <p aria-live="polite" style={{ color: "var(--accent-strong)", fontWeight: 700 }}>

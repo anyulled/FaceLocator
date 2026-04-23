@@ -8,6 +8,11 @@ output "event_photos_bucket_name" {
   value       = aws_s3_bucket.event_photos.bucket
 }
 
+output "event_logos_bucket_name" {
+  description = "Public S3 bucket used for event logo uploads."
+  value       = aws_s3_bucket.event_logos.bucket
+}
+
 output "rekognition_collection_id" {
   description = "Rekognition collection id for attendee face enrollment."
   value       = aws_rekognition_collection.attendee_faces.collection_id
@@ -61,6 +66,11 @@ output "nextjs_admin_events_read_invoke_policy_arn" {
 output "nextjs_attendee_registration_invoke_policy_arn" {
   description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the public registration Lambda."
   value       = aws_iam_policy.nextjs_attendee_registration_invoke.arn
+}
+
+output "nextjs_matched_photo_notifier_invoke_policy_arn" {
+  description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the matched photo notifier Lambda."
+  value       = aws_iam_policy.nextjs_matched_photo_notifier_invoke.arn
 }
 
 output "match_link_signing_secret_name" {

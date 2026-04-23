@@ -124,7 +124,32 @@ async function withDatabase(callback) {
   }
 }
 
-async function getNotificationCandidates(client) {
+async function getNotificationCandidates(client, options = {}) {
+  const whereParts = ["ea.photo_notifications_unsubscribed_at IS NULL"];
+  const values = [];
+  let nextParam = 1;
+
+  if (options.eventSlug) {
+    whereParts.push(`e.slug = $${nextParam++}`);
+    values.push(options.eventSlug);
+  }
+
+  if (options.eventId) {
+    whereParts.push(`ea.event_id = $${nextParam++}`);
+    values.push(options.eventId);
+  }
+
+  if (options.attendeeId) {
+    whereParts.push(`ea.attendee_id = $${nextParam++}`);
+    values.push(options.attendeeId);
+  }
+
+  if (!options.includeAlreadyNotified) {
+    whereParts.push("n.id IS NULL");
+  }
+
+  const limitClause = options.limit ? `LIMIT ${Number(options.limit)}` : "";
+
   const result = await client.query(
     `
       SELECT
@@ -165,8 +190,7 @@ async function getNotificationCandidates(client) {
       LEFT JOIN matched_photo_notifications n
         ON n.event_id = ea.event_id
        AND n.attendee_id = ea.attendee_id
-      WHERE ea.photo_notifications_unsubscribed_at IS NULL
-        AND n.id IS NULL
+      WHERE ${whereParts.join("\n        AND ")}
       GROUP BY
         ea.event_id,
         ea.attendee_id,
@@ -176,7 +200,9 @@ async function getNotificationCandidates(client) {
         e.public_base_url,
         current_face.id,
         current_face.rekognition_face_id
+      ${limitClause}
     `,
+    values,
   );
 
   return result.rows;
@@ -231,7 +257,12 @@ async function persistNotification(client, candidate, providerMessageId) {
         $5,
         now()
       )
-      ON CONFLICT (event_id, attendee_id) DO NOTHING
+      ON CONFLICT (event_id, attendee_id) DO UPDATE
+      SET
+        face_enrollment_id = excluded.face_enrollment_id,
+        match_count = excluded.match_count,
+        provider_message_id = excluded.provider_message_id,
+        sent_at = now()
     `,
     [
       candidate.eventId,
@@ -243,7 +274,7 @@ async function persistNotification(client, candidate, providerMessageId) {
   );
 }
 
-async function processCandidate(client, candidate) {
+async function processCandidate(client, candidate, options = {}) {
   await client.query("BEGIN");
   try {
     const lockRes = await client.query(
@@ -267,7 +298,7 @@ async function processCandidate(client, candidate) {
       [candidate.eventId, candidate.attendeeId],
     );
 
-    if (existingRes.rowCount > 0) {
+    if (existingRes.rowCount > 0 && !options.forceResend) {
       await client.query("ROLLBACK");
       return { outcome: "skipped_already_notified" };
     }
@@ -283,52 +314,90 @@ async function processCandidate(client, candidate) {
   }
 }
 
-async function handler() {
-  await getSigningSecret();
-
+async function processCandidates(client, candidates, options = {}) {
   const summary = {
-    scanned: 0,
+    scanned: candidates.length,
     sent: 0,
     skipped: 0,
     failed: 0,
   };
 
-  return withDatabase(async (client) => {
-    const candidates = await getNotificationCandidates(client);
-    summary.scanned = candidates.length;
-
-    for (const candidate of candidates) {
-      try {
-        const result = await processCandidate(client, candidate);
-        if (result.outcome === "sent") {
-          summary.sent += 1;
-        } else {
-          summary.skipped += 1;
-        }
-
-        console.info(
-          JSON.stringify({
-            eventId: candidate.eventId,
-            attendeeId: candidate.attendeeId,
-            faceId: candidate.faceId,
-            outcome: result.outcome,
-          }),
-        );
-      } catch (error) {
-        summary.failed += 1;
-        console.error(
-          JSON.stringify({
-            eventId: candidate.eventId,
-            attendeeId: candidate.attendeeId,
-            faceId: candidate.faceId,
-            outcome: "failed",
-            error: error instanceof Error ? error.message : "Unknown error",
-          }),
-        );
+  for (const candidate of candidates) {
+    try {
+      const result = await processCandidate(client, candidate, options);
+      if (result.outcome === "sent") {
+        summary.sent += 1;
+      } else {
+        summary.skipped += 1;
       }
+
+      console.info(
+        JSON.stringify({
+          eventId: candidate.eventId,
+          attendeeId: candidate.attendeeId,
+          faceId: candidate.faceId,
+          outcome: result.outcome,
+        }),
+      );
+    } catch (error) {
+      summary.failed += 1;
+      console.error(
+        JSON.stringify({
+          eventId: candidate.eventId,
+          attendeeId: candidate.attendeeId,
+          faceId: candidate.faceId,
+          outcome: "failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
+    }
+  }
+
+  return summary;
+}
+
+async function handler(event = {}) {
+  await getSigningSecret();
+
+  return withDatabase(async (client) => {
+    if (event.operation === "sendSingleNotification") {
+      const payload = event.input || {};
+      const attendeeId = String(payload.attendeeId || "").trim();
+      const eventSlug = String(payload.eventSlug || "").trim();
+      const eventId = String(payload.eventId || "").trim();
+
+      if (!attendeeId || (!eventSlug && !eventId)) {
+        return {
+          statusCode: 400,
+          errorMessage: "attendeeId and eventSlug (or eventId) are required",
+        };
+      }
+
+      const candidates = await getNotificationCandidates(client, {
+        attendeeId,
+        eventSlug: eventSlug || undefined,
+        eventId: eventId || undefined,
+        includeAlreadyNotified: payload.forceResend === true,
+        limit: 1,
+      });
+
+      if (candidates.length === 0) {
+        return {
+          scanned: 0,
+          sent: 0,
+          skipped: 1,
+          failed: 0,
+          reason: "candidate_not_found",
+        };
+      }
+
+      return processCandidates(client, candidates, {
+        forceResend: payload.forceResend === true,
+      });
     }
 
-    return summary;
+    const candidates = await getNotificationCandidates(client);
+    return processCandidates(client, candidates);
   });
 }
 

@@ -26,7 +26,7 @@ resource "aws_cloudwatch_log_group" "matched_photo_notifier" {
 resource "aws_lambda_function" "selfie_enrollment" {
   function_name = local.lambda_names.selfie_enrollment
   role          = aws_iam_role.selfie_enrollment_lambda.arn
-  runtime       = "nodejs20.x"
+  runtime       = "nodejs24.x"
   handler       = "index.handler"
   filename      = local.lambda_package_paths.selfie_enrollment
 
@@ -61,7 +61,7 @@ resource "aws_lambda_function" "selfie_enrollment" {
 resource "aws_lambda_function" "attendee_registration" {
   function_name = local.lambda_names.attendee_registration
   role          = aws_iam_role.attendee_registration_lambda.arn
-  runtime       = "nodejs20.x"
+  runtime       = "nodejs24.x"
   handler       = "index.handler"
   filename      = local.lambda_package_paths.attendee_registration
 
@@ -168,7 +168,7 @@ resource "aws_lambda_function" "event_photo_worker" {
 resource "aws_lambda_function" "matched_photo_notifier" {
   function_name = local.lambda_names.matched_notifier
   role          = aws_iam_role.matched_photo_notifier_lambda.arn
-  runtime       = "nodejs20.x"
+  runtime       = "nodejs24.x"
   handler       = "index.handler"
   filename      = local.lambda_package_paths.matched_notifier
 

@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated desktop artifacts should not be linted by web app CI.
+    "apps/macos-uploader/dist/**",
+    "apps/macos-uploader/src-tauri/target/**",
   ]),
 ]);
 

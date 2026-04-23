@@ -40,6 +40,16 @@ data "aws_iam_policy_document" "nextjs_presign" {
     ]
     resources = ["${aws_s3_bucket.event_photos.arn}/events/pending/*"]
   }
+
+  statement {
+    sid = "AllowEventLogoUploads"
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:PutObject",
+      "s3:PutObjectTagging",
+    ]
+    resources = ["${aws_s3_bucket.event_logos.arn}/events/*/logos/*"]
+  }
 }
 
 resource "aws_iam_policy" "nextjs_presign" {
@@ -235,6 +245,14 @@ data "aws_iam_policy_document" "admin_events_read_lambda" {
       "s3:GetObject",
     ]
     resources = ["${aws_s3_bucket.event_photos.arn}/*"]
+  }
+
+  statement {
+    sid = "AllowQueueEventPhotoObjects"
+    actions = [
+      "s3:PutObject",
+    ]
+    resources = ["${aws_s3_bucket.event_photos.arn}/events/pending/*"]
   }
 }
 

@@ -18,12 +18,21 @@ type BatchResult = {
   message?: string;
 };
 
+type ReprocessSummary = {
+  total: number | null;
+  queued: number | null;
+  succeeded: number | null;
+  failed: number | null;
+  skipped: number | null;
+};
+
 export function PhotosManager({ eventSlug, initialPhotos }: Props) {
   const router = useRouter();
   const [photos, setPhotos] = useState(initialPhotos);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busyPhotoId, setBusyPhotoId] = useState<string | null>(null);
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  const [isReprocessingAll, setIsReprocessingAll] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
@@ -38,6 +47,88 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
       }
       return next;
     });
+  };
+
+  const readSummary = (payload: unknown): ReprocessSummary => {
+    const source =
+      payload && typeof payload === "object" && "summary" in payload && payload.summary
+        ? payload.summary
+        : payload;
+    const candidate = source && typeof source === "object" ? (source as Record<string, unknown>) : {};
+    const readCount = (...keys: string[]) => {
+      for (const key of keys) {
+        const value = candidate[key];
+        if (typeof value === "number" && Number.isFinite(value)) {
+          return value;
+        }
+      }
+      return null;
+    };
+
+    return {
+      total: readCount("total", "totalCount", "totalPhotos", "photoCount", "requested"),
+      queued: readCount("queued", "queuedCount", "enqueued"),
+      succeeded: readCount("succeeded", "success", "processed", "processedCount", "reprocessed"),
+      failed: readCount("failed", "failedCount", "errorCount"),
+      skipped: readCount("skipped", "skippedCount"),
+    };
+  };
+
+  const formatSummary = (summary: ReprocessSummary) => {
+    const parts: string[] = [];
+    if (summary.total !== null) {
+      parts.push(`total ${summary.total}`);
+    }
+    if (summary.queued !== null) {
+      parts.push(`queued ${summary.queued}`);
+    }
+    if (summary.succeeded !== null) {
+      parts.push(`succeeded ${summary.succeeded}`);
+    }
+    if (summary.failed !== null) {
+      parts.push(`failed ${summary.failed}`);
+    }
+    if (summary.skipped !== null) {
+      parts.push(`skipped ${summary.skipped}`);
+    }
+    return parts.join(", ");
+  };
+
+  const reprocessAllUploaded = async () => {
+    setIsReprocessingAll(true);
+    setStatusMessage("Reprocessing all uploaded photos for this event...");
+
+    const response = await fetch(`/api/admin/events/${eventSlug}/photos/reprocess`, {
+      method: "POST",
+    });
+
+    if (isUnauthorizedAdminStatus(response.status)) {
+      setIsReprocessingAll(false);
+      redirectToAdminAuth();
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    const summary = readSummary(payload);
+    const summaryText = formatSummary(summary);
+
+    if (!response.ok) {
+      const message =
+        payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "Failed to start reprocess";
+      setStatusMessage(summaryText ? `Reprocess failed: ${message}. Summary: ${summaryText}.` : `Reprocess failed: ${message}.`);
+      setIsReprocessingAll(false);
+      return;
+    }
+
+    setStatusMessage(
+      summaryText
+        ? `Reprocess request submitted. Summary: ${summaryText}.`
+        : "Reprocess request submitted.",
+    );
+    setIsReprocessingAll(false);
+    router.refresh();
   };
 
   const deleteOne = async (photoId: string) => {
@@ -148,7 +239,23 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
         <button
           type="button"
-          disabled={selectedIds.length === 0 || isBatchDeleting || busyPhotoId !== null}
+          disabled={isReprocessingAll || isBatchDeleting || busyPhotoId !== null}
+          onClick={() => void reprocessAllUploaded()}
+          style={{
+            border: "1px solid var(--border)",
+            borderRadius: "999px",
+            padding: "0.65rem 1rem",
+            background: "var(--surface-strong)",
+            cursor: isReprocessingAll ? "not-allowed" : "pointer",
+            opacity: isReprocessingAll ? 0.6 : 1,
+          }}
+        >
+          {isReprocessingAll ? "Reprocessing..." : "Reprocess all uploaded photos"}
+        </button>
+
+        <button
+          type="button"
+          disabled={selectedIds.length === 0 || isBatchDeleting || busyPhotoId !== null || isReprocessingAll}
           onClick={deleteBatch}
           style={{
             border: "none",
@@ -226,7 +333,7 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
                   type="checkbox"
                   checked={selected.has(photo.id)}
                   onChange={() => toggleSelected(photo.id)}
-                  disabled={isBatchDeleting || busyPhotoId !== null}
+                  disabled={isBatchDeleting || busyPhotoId !== null || isReprocessingAll}
                   aria-label={`Select photo ${photo.id}`}
                 />
                 <span style={{ fontSize: "0.88rem" }}>{photo.id}</span>
@@ -235,7 +342,7 @@ export function PhotosManager({ eventSlug, initialPhotos }: Props) {
               <button
                 type="button"
                 onClick={() => void deleteOne(photo.id)}
-                disabled={isBatchDeleting || busyPhotoId === photo.id}
+                disabled={isBatchDeleting || busyPhotoId === photo.id || isReprocessingAll}
                 style={{
                   border: "none",
                   borderRadius: "0.7rem",

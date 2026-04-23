@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 "use strict";
 
-const { GetObjectCommand, HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { CopyObjectCommand, GetObjectCommand, HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { Client } = require("pg");
 
@@ -40,6 +40,9 @@ const ADMIN_EVENTS_SCHEMA_QUERIES = [
   },
   {
     text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS ends_at timestamptz`,
+  },
+  {
+    text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS logo_object_key text`,
   },
   {
     text: `UPDATE events SET public_base_url = $1 WHERE public_base_url IS NULL`,
@@ -177,12 +180,13 @@ async function listAdminEvents(input) {
             e.description,
             e.scheduled_at AS "startsAt",
             e.ends_at AS "endsAt",
+            e.logo_object_key AS "logoObjectKey",
             COUNT(ep.id)::text AS "photoCount"
           FROM events e
           LEFT JOIN event_photos ep
             ON ep.event_id = e.id
            AND ep.deleted_at IS NULL
-          GROUP BY e.id, e.slug, e.title, e.venue, e.description, e.scheduled_at, e.ends_at
+          GROUP BY e.id, e.slug, e.title, e.venue, e.description, e.scheduled_at, e.ends_at, e.logo_object_key
           ORDER BY e.scheduled_at DESC NULLS LAST, e.created_at DESC
           LIMIT $1 OFFSET $2
         `,
@@ -200,6 +204,7 @@ async function listAdminEvents(input) {
         description: row.description || "",
         startsAt: row.startsAt || new Date(0).toISOString(),
         endsAt: row.endsAt || row.startsAt || new Date(0).toISOString(),
+        logoObjectKey: row.logoObjectKey || undefined,
         photoCount: Number(row.photoCount),
       })),
       totalCount: Number(totalRes.rows[0]?.total || "0"),
@@ -220,9 +225,10 @@ async function createAdminEvent(input) {
           description,
           scheduled_at,
           ends_at,
+          logo_object_key,
           public_base_url
         )
-        VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8)
+        VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7::timestamptz, $8, $9)
         RETURNING
           id,
           slug,
@@ -231,6 +237,7 @@ async function createAdminEvent(input) {
           description,
           scheduled_at AS "startsAt",
           ends_at AS "endsAt",
+          logo_object_key AS "logoObjectKey",
           '0' AS "photoCount"
       `,
       [
@@ -241,6 +248,7 @@ async function createAdminEvent(input) {
         input.description,
         input.startsAt,
         input.endsAt,
+        input.logoObjectKey || null,
         env.publicBaseUrl || "https://localhost:3000",
       ],
     );
@@ -254,6 +262,7 @@ async function createAdminEvent(input) {
       description: row.description || "",
       startsAt: row.startsAt || input.startsAt,
       endsAt: row.endsAt || input.endsAt,
+      logoObjectKey: row.logoObjectKey || undefined,
       photoCount: 0,
     };
   });
@@ -288,7 +297,8 @@ async function getAdminEventPhotosPage(input) {
           e.venue,
           e.description,
           e.scheduled_at AS "startsAt",
-          e.ends_at AS "endsAt"
+          e.ends_at AS "endsAt",
+          e.logo_object_key AS "logoObjectKey"
         FROM events e
         WHERE e.slug = $1
         LIMIT 1
@@ -361,11 +371,111 @@ async function getAdminEventPhotosPage(input) {
         description: event.description || "",
         startsAt: event.startsAt || new Date(0).toISOString(),
         endsAt: event.endsAt || event.startsAt || new Date(0).toISOString(),
+        logoObjectKey: event.logoObjectKey || undefined,
       },
       photos,
       page: input.page,
       pageSize: input.pageSize,
       totalCount: Number(totalRes.rows[0]?.total || "0"),
+    };
+  });
+}
+
+function getObjectKeyExtension(objectKey) {
+  const match = String(objectKey || "").match(/\.([a-z0-9]+)$/i);
+  return (match && match[1] ? String(match[1]).toLowerCase() : "") || "jpg";
+}
+
+function sanitizeSegment(value) {
+  return String(value || "").trim().replace(/\s+/g, "-").toLowerCase();
+}
+
+function buildEventPhotoPendingObjectKey(input) {
+  const extension = String(input.extension || "jpg").replace(/^\./, "").toLowerCase();
+  return `events/pending/${sanitizeSegment(input.eventId)}/photos/${sanitizeSegment(input.photoId)}.${extension}`;
+}
+
+function buildS3CopySource(bucketName, objectKey) {
+  return `${bucketName}/${String(objectKey || "")
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/")}`;
+}
+
+async function reprocessAdminEventPhotos(input) {
+  return withDatabase(async (client) => {
+    const eventRes = await client.query(
+      `
+        SELECT e.id
+        FROM events e
+        WHERE e.slug = $1
+        LIMIT 1
+      `,
+      [input.eventSlug],
+    );
+
+    const event = eventRes.rows[0];
+    if (!event) {
+      return null;
+    }
+
+    const rowsRes = await client.query(
+      `
+        SELECT
+          ep.id,
+          ep.object_key AS "objectKey"
+        FROM event_photos ep
+        JOIN events e ON e.id = ep.event_id
+        WHERE e.slug = $1
+          AND ep.deleted_at IS NULL
+      `,
+      [input.eventSlug],
+    );
+
+    const stamp = Date.now().toString();
+    let queued = 0;
+    let failed = 0;
+
+    for (const row of rowsRes.rows) {
+      const extension = getObjectKeyExtension(row.objectKey);
+      const basePendingKey = buildEventPhotoPendingObjectKey({
+        eventId: event.id,
+        photoId: row.id,
+        extension,
+      });
+      const targetKey =
+        basePendingKey === row.objectKey
+          ? buildEventPhotoPendingObjectKey({
+              eventId: event.id,
+              photoId: `${row.id}-reprocess-${stamp}`,
+              extension,
+            })
+          : basePendingKey;
+
+      try {
+        await s3Client.send(
+          new CopyObjectCommand({
+            Bucket: env.eventPhotosBucketName,
+            CopySource: buildS3CopySource(env.eventPhotosBucketName, row.objectKey),
+            Key: targetKey,
+            MetadataDirective: "REPLACE",
+            Metadata: {
+              "event-id": event.id,
+              "photo-id": row.id,
+            },
+          }),
+        );
+        queued += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return {
+      eventSlug: input.eventSlug,
+      total: rowsRes.rows.length,
+      queued,
+      failed,
     };
   });
 }
@@ -387,6 +497,10 @@ async function handler(event) {
 
     if (payload.operation === "getAdminEventPhotosPage") {
       return await getAdminEventPhotosPage(payload.input);
+    }
+
+    if (payload.operation === "reprocessAdminEventPhotos") {
+      return await reprocessAdminEventPhotos(payload.input);
     }
 
     return {

@@ -65,6 +65,8 @@ export default async function AdminEventsPage({
 
   const hasPrevious = page > 1;
   const hasNext = page * pageSize < totalCount;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const pageLinks = getVisiblePages(page, totalPages);
 
   return (
     <main style={{ minHeight: "100vh", padding: "1.4rem" }}>
@@ -177,10 +179,10 @@ export default async function AdminEventsPage({
 
         <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <p style={{ color: "var(--muted)" }}>
-            Page {page} · Total events {totalCount}
+            Page {page} of {totalPages} · Total events {totalCount}
           </p>
 
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "0.8rem", alignItems: "center", flexWrap: "wrap" }}>
             <Link
               aria-disabled={!hasPrevious}
               href={hasPrevious ? `/admin/events?page=${page - 1}&pageSize=${pageSize}` : "#"}
@@ -191,6 +193,26 @@ export default async function AdminEventsPage({
             >
               Previous
             </Link>
+
+            <div style={{ display: "flex", gap: "0.45rem", alignItems: "center", flexWrap: "wrap" }}>
+              {pageLinks.map((pageLink) => (
+                <Link
+                  key={pageLink}
+                  href={`/admin/events?page=${pageLink}&pageSize=${pageSize}`}
+                  aria-current={pageLink === page ? "page" : undefined}
+                  style={{
+                    border: pageLink === page ? "1px solid var(--accent-strong)" : "1px solid var(--border)",
+                    borderRadius: "999px",
+                    padding: "0.2rem 0.6rem",
+                    fontWeight: pageLink === page ? 700 : 500,
+                    background: pageLink === page ? "rgba(0,0,0,0.05)" : "transparent",
+                  }}
+                >
+                  {pageLink}
+                </Link>
+              ))}
+            </div>
+
             <Link
               aria-disabled={!hasNext}
               href={hasNext ? `/admin/events?page=${page + 1}&pageSize=${pageSize}` : "#"}
@@ -226,3 +248,10 @@ const tdStyle: CSSProperties = {
   padding: "0.8rem",
   verticalAlign: "top",
 };
+
+function getVisiblePages(currentPage: number, totalPages: number) {
+  const pages = new Set<number>([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+  return Array.from(pages)
+    .filter((value) => value >= 1 && value <= totalPages)
+    .sort((a, b) => a - b);
+}

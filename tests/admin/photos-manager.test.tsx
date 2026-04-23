@@ -84,4 +84,99 @@ describe("photos manager", () => {
       expect(redirectToAdminAuthMock).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("reprocesses all uploaded photos and shows summary counts", async () => {
+    const user = userEvent.setup();
+    let releaseFetch!: () => void;
+    const fetchResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        summary: {
+          total: 120,
+          queued: 120,
+          succeeded: 117,
+          failed: 3,
+        },
+      }),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise((resolve) => {
+            releaseFetch = () => resolve(fetchResponse);
+          }),
+      ),
+    );
+
+    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+
+    await user.click(screen.getByRole("button", { name: "Reprocess all uploaded photos" }));
+
+    expect(screen.getByText("Reprocessing all uploaded photos for this event...")).toBeTruthy();
+    expect(fetch).toHaveBeenCalledWith("/api/admin/events/devbcn-2027/photos/reprocess", {
+      method: "POST",
+    });
+
+    releaseFetch();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Reprocess request submitted. Summary: total 120, queued 120, succeeded 117, failed 3."),
+      ).toBeTruthy();
+    });
+
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("redirects to admin auth when reprocess is unauthorized", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "Unauthorized" }),
+      }),
+    );
+
+    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+
+    await user.click(screen.getByRole("button", { name: "Reprocess all uploaded photos" }));
+
+    await waitFor(() => {
+      expect(redirectToAdminAuthMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("shows failure status and summary counts when reprocess request fails", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({
+          error: "Lambda invoke failed",
+          summary: {
+            total: 87,
+            queued: 40,
+            failed: 47,
+          },
+        }),
+      }),
+    );
+
+    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+
+    await user.click(screen.getByRole("button", { name: "Reprocess all uploaded photos" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Reprocess failed: Lambda invoke failed. Summary: total 87, queued 40, failed 47."),
+      ).toBeTruthy();
+    });
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
 });

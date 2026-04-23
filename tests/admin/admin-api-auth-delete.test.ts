@@ -4,6 +4,7 @@ import { GET as listEvents } from "@/app/api/admin/events/route";
 import { POST as createEvent } from "@/app/api/admin/events/route";
 import { GET as listEventPhotos } from "@/app/api/admin/events/[eventSlug]/photos/route";
 import { POST as presignPhotoUpload } from "@/app/api/admin/events/[eventSlug]/photos/presign/route";
+import { POST as reprocessPhotos } from "@/app/api/admin/events/[eventSlug]/photos/reprocess/route";
 import { POST as deletePhotosBatch } from "@/app/api/admin/events/[eventSlug]/photos/delete/route";
 import { DELETE as deleteSinglePhoto } from "@/app/api/admin/events/[eventSlug]/photos/[photoId]/route";
 import {
@@ -15,6 +16,7 @@ import {
   createAdminEventViaBackend,
   getAdminEventPhotosPageViaBackend,
   listAdminEventsViaBackend,
+  reprocessAdminEventPhotosViaBackend,
 } from "@/lib/admin/events/backend";
 import { isAuthorizedAdminRequest, resolveAdminIdentity } from "@/lib/admin/auth";
 
@@ -28,6 +30,9 @@ vi.mock("@/lib/admin/events/backend", () => ({
   listAdminEventsViaBackend: vi.fn(),
   createAdminEventViaBackend: vi.fn(),
   getAdminEventPhotosPageViaBackend: vi.fn(),
+  getAdminReadBackendMode: vi.fn(() => "direct"),
+  createAdminEventPhotoUploadViaBackend: vi.fn(),
+  reprocessAdminEventPhotosViaBackend: vi.fn(),
 }));
 
 vi.mock("@/lib/admin/events/repository", () => ({
@@ -41,6 +46,7 @@ const mockedResolveAdminIdentity = vi.mocked(resolveAdminIdentity);
 const mockedListAdminEvents = vi.mocked(listAdminEventsViaBackend);
 const mockedCreateAdminEvent = vi.mocked(createAdminEventViaBackend);
 const mockedListAdminEventPhotos = vi.mocked(getAdminEventPhotosPageViaBackend);
+const mockedReprocessAdminEventPhotos = vi.mocked(reprocessAdminEventPhotosViaBackend);
 const mockedCreateAdminEventPhotoUpload = vi.mocked(createAdminEventPhotoUpload);
 const mockedDeleteAdminEventPhoto = vi.mocked(deleteAdminEventPhoto);
 const mockedDeleteAdminEventPhotosBatch = vi.mocked(deleteAdminEventPhotosBatch);
@@ -138,6 +144,31 @@ describe("admin api auth and delete behavior", () => {
       slug: "demo",
       title: "Demo",
     });
+  });
+
+  it("rejects unsupported event logo types", async () => {
+    mockedIsAuthorizedAdminRequest.mockResolvedValue(true);
+    const formData = new FormData();
+    formData.set("title", "Demo");
+    formData.set("slug", "demo");
+    formData.set("venue", "Venue");
+    formData.set("description", "Desc");
+    formData.set("startsAt", "2026-01-01T10:00:00.000Z");
+    formData.set("endsAt", "2026-01-01T12:00:00.000Z");
+    formData.set("logo", new File(["bad"], "logo.gif", { type: "image/gif" }));
+
+    const response = await createEvent(
+      makeNextRequest("http://localhost/api/admin/events", {
+        method: "POST",
+        body: formData,
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Only JPG, PNG, and SVG logos are supported",
+    });
+    expect(mockedCreateAdminEvent).not.toHaveBeenCalled();
   });
 
   it("returns event photo listings when authorized", async () => {
@@ -347,6 +378,80 @@ describe("admin api auth and delete behavior", () => {
       error: "Idempotency-Key header is required",
     });
     expect(mockedDeleteAdminEventPhotosBatch).not.toHaveBeenCalled();
+  });
+
+  it("rejects unauthorized photo reprocess requests", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue(null);
+
+    const response = await reprocessPhotos(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/reprocess", {
+        method: "POST",
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(mockedReprocessAdminEventPhotos).not.toHaveBeenCalled();
+  });
+
+  it("reprocesses event photos for authorized admins", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue({
+      sub: "admin-user-1",
+      tokenUse: "access",
+      groups: ["admin"],
+      username: "ops@example.com",
+    });
+    mockedReprocessAdminEventPhotos.mockResolvedValue({
+      eventSlug: "demo",
+      total: 12,
+      queued: 11,
+      failed: 1,
+    });
+
+    const response = await reprocessPhotos(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/reprocess", {
+        method: "POST",
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      eventSlug: "demo",
+      total: 12,
+      queued: 11,
+      failed: 1,
+    });
+    expect(mockedReprocessAdminEventPhotos).toHaveBeenCalledWith({
+      eventSlug: "demo",
+    });
+  });
+
+  it("returns 404 when reprocess target event is missing", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue({
+      sub: "admin-user-1",
+      tokenUse: "access",
+      groups: ["admin"],
+      username: "ops@example.com",
+    });
+    mockedReprocessAdminEventPhotos.mockResolvedValue(null);
+
+    const response = await reprocessPhotos(
+      makeNextRequest("http://localhost/api/admin/events/missing/photos/reprocess", {
+        method: "POST",
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "missing" }),
+      },
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "Event not found" });
   });
 
   it("rejects idempotency-key reuse with a different payload", async () => {

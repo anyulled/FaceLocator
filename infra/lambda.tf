@@ -73,6 +73,7 @@ resource "aws_lambda_function" "attendee_registration" {
     variables = {
       LOG_LEVEL                    = "info"
       FACE_LOCATOR_SELFIES_BUCKET  = aws_s3_bucket.selfies.bucket
+      FACE_LOCATOR_EVENT_LOGOS_BUCKET = aws_s3_bucket.event_logos.bucket
       FACE_LOCATOR_PUBLIC_BASE_URL = var.public_base_url
       DATABASE_SECRET_NAME         = aws_secretsmanager_secret.database.name
       DATABASE_SECRET_ARN          = aws_secretsmanager_secret.database.arn
@@ -96,7 +97,7 @@ resource "aws_lambda_function" "attendee_registration" {
 resource "aws_lambda_function" "admin_events_read" {
   function_name = local.lambda_names.admin_events_read
   role          = aws_iam_role.admin_events_read_lambda.arn
-  runtime       = "nodejs20.x"
+  runtime       = "nodejs24.x"
   handler       = "index.handler"
   filename      = local.lambda_package_paths.admin_events_read
 
@@ -132,7 +133,7 @@ resource "aws_lambda_function" "admin_events_read" {
 resource "aws_lambda_function" "event_photo_worker" {
   function_name = local.lambda_names.event_photo_worker
   role          = aws_iam_role.event_photo_worker_lambda.arn
-  runtime       = "nodejs20.x"
+  runtime       = "nodejs24.x"
   handler       = "index.handler"
   filename      = local.lambda_package_paths.event_photo_worker
 

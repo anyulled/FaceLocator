@@ -1,11 +1,17 @@
 import "server-only";
 
-import { GetObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  CopyObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { listAdminEvents } from "@/lib/admin/events/repository";
 import { getDatabasePool } from "@/lib/aws/database";
+import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 import type {
   AdminEventPhotosPage,
   AdminEventSummary,
@@ -13,6 +19,12 @@ import type {
 } from "@/lib/admin/events/contracts";
 
 type AdminReadBackendMode = "direct" | "lambda";
+export type AdminEventPhotoReprocessSummary = {
+  eventSlug: string;
+  total: number;
+  queued: number;
+  failed: number;
+};
 
 type AdminReadBackendErrorDetails = {
   operation: string;
@@ -218,6 +230,7 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     description: string;
     startsAt: string;
     endsAt: string;
+    logoObjectKey?: string;
   } | null;
 }> {
   if (getAdminReadBackendMode() === "lambda") {
@@ -230,9 +243,10 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     slug: string;
     title: string;
     venue: string | null;
-    description: string | null;
-    startsAt: string | null;
-    endsAt: string | null;
+      description: string | null;
+      startsAt: string | null;
+      endsAt: string | null;
+      logoObjectKey: string | null;
   }>(
     `
       SELECT
@@ -242,7 +256,8 @@ export async function getAdminEventPhotosPageViaBackend(input: {
         e.venue,
         e.description,
         e.scheduled_at AS "startsAt",
-        e.ends_at AS "endsAt"
+        e.ends_at AS "endsAt",
+        e.logo_object_key AS "logoObjectKey"
       FROM events e
       WHERE e.slug = $1
       LIMIT 1
@@ -309,6 +324,7 @@ export async function getAdminEventPhotosPageViaBackend(input: {
       description: event.description ?? "",
       startsAt: event.startsAt ?? new Date(0).toISOString(),
       endsAt: event.endsAt ?? event.startsAt ?? new Date(0).toISOString(),
+      logoObjectKey: event.logoObjectKey ?? undefined,
     },
     photos: await Promise.all(
       rowsRes.rows.map(async (row) => ({
@@ -324,5 +340,114 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     page: input.page,
     pageSize: input.pageSize,
     totalCount: Number(totalRes.rows[0]?.total ?? "0"),
+  };
+}
+
+function getObjectKeyExtension(objectKey: string) {
+  const match = objectKey.match(/\.([a-z0-9]+)$/i);
+  return match?.[1]?.toLowerCase() || "jpg";
+}
+
+function buildS3CopySource(bucketName: string, objectKey: string) {
+  return `${bucketName}/${objectKey.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function buildReprocessObjectKey(input: {
+  eventId: string;
+  photoId: string;
+  sourceObjectKey: string;
+  stamp?: string;
+}) {
+  const extension = getObjectKeyExtension(input.sourceObjectKey);
+  const pendingKey = buildEventPhotoPendingObjectKey({
+    eventId: input.eventId,
+    photoId: input.photoId,
+    extension,
+  });
+
+  if (pendingKey !== input.sourceObjectKey) {
+    return pendingKey;
+  }
+
+  return buildEventPhotoPendingObjectKey({
+    eventId: input.eventId,
+    photoId: `${input.photoId}-reprocess-${input.stamp ?? Date.now().toString()}`,
+    extension,
+  });
+}
+
+export async function reprocessAdminEventPhotosViaBackend(input: {
+  eventSlug: string;
+}): Promise<AdminEventPhotoReprocessSummary | null> {
+  if (getAdminReadBackendMode() === "lambda") {
+    return invokeAdminReadLambda("reprocessAdminEventPhotos", input);
+  }
+
+  const pool = await getDatabasePool();
+  const eventRes = await pool.query<{ id: string }>(
+    `
+      SELECT e.id
+      FROM events e
+      WHERE e.slug = $1
+      LIMIT 1
+    `,
+    [input.eventSlug],
+  );
+
+  const event = eventRes.rows[0];
+  if (!event) {
+    return null;
+  }
+
+  const rowsRes = await pool.query<{ id: string; objectKey: string }>(
+    `
+      SELECT
+        ep.id,
+        ep.object_key AS "objectKey"
+      FROM event_photos ep
+      JOIN events e ON e.id = ep.event_id
+      WHERE e.slug = $1
+        AND ep.deleted_at IS NULL
+    `,
+    [input.eventSlug],
+  );
+
+  const bucketName = getEventPhotosBucketName();
+  const stamp = Date.now().toString();
+  let queued = 0;
+  let failed = 0;
+
+  for (const row of rowsRes.rows) {
+    const targetKey = buildReprocessObjectKey({
+      eventId: event.id,
+      photoId: row.id,
+      sourceObjectKey: row.objectKey,
+      stamp,
+    });
+
+    try {
+      await getS3Client().send(
+        new CopyObjectCommand({
+          Bucket: bucketName,
+          CopySource: buildS3CopySource(bucketName, row.objectKey),
+          Key: targetKey,
+          MetadataDirective: "REPLACE",
+          Metadata: {
+            "event-id": event.id,
+            "photo-id": row.id,
+          },
+        }),
+      );
+      queued += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  return {
+    eventSlug: input.eventSlug,
+    total: rowsRes.rows.length,
+    queued,
+    failed,
   };
 }

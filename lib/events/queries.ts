@@ -35,6 +35,7 @@ type EventRow = {
   description: unknown;
   scheduledAt: unknown;
   endsAt: unknown;
+  logoObjectKey: unknown;
 };
 
 function readText(value: unknown, fallback = "") {
@@ -54,6 +55,32 @@ function normalizeIsoDate(value: unknown, fallback?: string) {
   }
 
   return fallback;
+}
+
+function getEventLogosBucketName() {
+  return (process.env.FACE_LOCATOR_EVENT_LOGOS_BUCKET || "").trim();
+}
+
+function buildPublicS3ObjectUrl(bucketName: string, objectKey: string) {
+  const region = (process.env.AWS_REGION || "eu-west-1").trim();
+  const encodedKey = objectKey
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  if (region === "us-east-1") {
+    return `https://${bucketName}.s3.amazonaws.com/${encodedKey}`;
+  }
+  return `https://${bucketName}.s3.${region}.amazonaws.com/${encodedKey}`;
+}
+
+function getEventLogoUrl(logoObjectKey: unknown) {
+  const key = readText(logoObjectKey);
+  const bucket = getEventLogosBucketName();
+  if (!key || !bucket) {
+    return undefined;
+  }
+
+  return buildPublicS3ObjectUrl(bucket, key);
 }
 
 export async function getEventBySlug(slug: string): Promise<EnrollmentEventSummary | null> {
@@ -78,7 +105,8 @@ export async function getEventBySlug(slug: string): Promise<EnrollmentEventSumma
             venue,
             description,
             scheduled_at AS "scheduledAt",
-            ends_at AS "endsAt"
+            ends_at AS "endsAt",
+            logo_object_key AS "logoObjectKey"
           FROM events
           WHERE slug = $1
           LIMIT 1
@@ -98,6 +126,7 @@ export async function getEventBySlug(slug: string): Promise<EnrollmentEventSumma
           scheduledAt,
           endsAt,
           description: readText(row.description),
+          logoUrl: getEventLogoUrl(row.logoObjectKey),
         };
       }
     } catch (error) {

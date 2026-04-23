@@ -15,6 +15,7 @@ function getRequiredEnv(env) {
       "face-locator-poc-database",
     publicBaseUrl: env.FACE_LOCATOR_PUBLIC_BASE_URL || "https://localhost:3000",
     selfiesBucketName: env.FACE_LOCATOR_SELFIES_BUCKET || env.SELFIES_BUCKET_NAME || "",
+    eventLogosBucketName: env.FACE_LOCATOR_EVENT_LOGOS_BUCKET || "",
   };
 }
 

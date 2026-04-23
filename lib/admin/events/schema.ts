@@ -23,6 +23,9 @@ export const ADMIN_EVENTS_SCHEMA_QUERIES: AdminEventsSchemaQuery[] = [
     text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS ends_at timestamptz`,
   },
   {
+    text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS logo_object_key text`,
+  },
+  {
     text: `UPDATE events SET public_base_url = $1 WHERE public_base_url IS NULL`,
     values: [DEFAULT_PUBLIC_BASE_URL],
   },

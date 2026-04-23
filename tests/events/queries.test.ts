@@ -51,6 +51,8 @@ describe("event queries", () => {
 
   it("loads live event metadata from the database when available", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("AWS_REGION", "eu-west-1");
+    vi.stubEnv("FACE_LOCATOR_EVENT_LOGOS_BUCKET", "face-locator-poc-event-logos");
     queryMock.mockResolvedValueOnce({
       rows: [
         {
@@ -60,6 +62,7 @@ describe("event queries", () => {
           description: "A live event stored in Postgres.",
           scheduledAt: "2026-09-10T10:00:00.000Z",
           endsAt: "2026-09-10T18:00:00.000Z",
+          logoObjectKey: "events/cantus-laudis-2026/logos/logo.svg",
         },
       ],
     });
@@ -69,6 +72,8 @@ describe("event queries", () => {
       title: "Cantus Laudis",
       venue: "Auditorium",
       description: "A live event stored in Postgres.",
+      logoUrl:
+        "https://face-locator-poc-event-logos.s3.eu-west-1.amazonaws.com/events/cantus-laudis-2026/logos/logo.svg",
     });
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining("FROM events"),

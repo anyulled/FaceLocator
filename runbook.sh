@@ -58,6 +58,7 @@ required_env=(
   MATCH_LINK_SIGNING_SECRET
   SES_FROM_EMAIL
   FACE_LOCATOR_EVENT_PHOTOS_BUCKET
+  FACE_LOCATOR_EVENT_LOGOS_BUCKET
   ADMIN_READ_BACKEND
   PUBLIC_REGISTRATION_BACKEND
 )
@@ -81,10 +82,12 @@ run pnpm -s dlx tsx -e "import { getDatabasePool } from './lib/aws/database';
   const t = await pool.query(\"select to_regclass('public.matched_photo_notifications') as v\");
   const c1 = await pool.query(\"select exists (select 1 from information_schema.columns where table_schema='public' and table_name='event_attendees' and column_name='photo_notifications_unsubscribed_at') as v\");
   const c2 = await pool.query(\"select exists (select 1 from information_schema.columns where table_schema='public' and table_name='events' and column_name='public_base_url') as v\");
+  const c3 = await pool.query(\"select exists (select 1 from information_schema.columns where table_schema='public' and table_name='events' and column_name='logo_object_key') as v\");
   console.log(JSON.stringify({
     matched_photo_notifications: t.rows[0].v !== null,
     photo_notifications_unsubscribed_at: c1.rows[0].v,
-    events_public_base_url: c2.rows[0].v
+    events_public_base_url: c2.rows[0].v,
+    events_logo_object_key: c3.rows[0].v
   }, null, 2));
   await pool.end();
 })().catch((err) => { console.error(err); process.exit(1); });"

@@ -95,4 +95,5 @@ export type EnrollmentEventSummary = {
   scheduledAt: string;
   endsAt?: string;
   description: string;
+  logoUrl?: string;
 };

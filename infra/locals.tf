@@ -10,6 +10,7 @@ locals {
   bucket_names = {
     selfies      = "${local.name_prefix}-selfies"
     event_photos = "${local.name_prefix}-event-photos"
+    event_logos  = "${local.name_prefix}-event-logos"
   }
 
   lambda_names = {

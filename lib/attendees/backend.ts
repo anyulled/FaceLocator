@@ -121,6 +121,7 @@ export async function getPublicEventBySlugViaBackend(slug: string) {
       scheduledAt: string;
       endsAt?: string;
       description: string;
+      logoUrl?: string;
     } | null;
   }>("getEventBySlug", { slug });
 }

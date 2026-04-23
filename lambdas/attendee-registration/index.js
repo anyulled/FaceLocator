@@ -65,6 +65,22 @@ function mapDatabaseStatus(status) {
   }
 }
 
+function buildPublicS3ObjectUrl(bucketName, objectKey) {
+  const region = (env.awsRegion || "eu-west-1").trim();
+  const encodedKey = String(objectKey || "")
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  if (!bucketName || !encodedKey) {
+    return undefined;
+  }
+
+  if (region === "us-east-1") {
+    return `https://${bucketName}.s3.amazonaws.com/${encodedKey}`;
+  }
+  return `https://${bucketName}.s3.${region}.amazonaws.com/${encodedKey}`;
+}
+
 function statusMessage(status) {
   switch (status) {
     case "UPLOAD_PENDING":
@@ -166,6 +182,7 @@ function mapEvent(row, fallbackSlug) {
     scheduledAt: row.scheduledAt ? new Date(row.scheduledAt).toISOString() : "",
     endsAt: row.endsAt ? new Date(row.endsAt).toISOString() : undefined,
     description: String(row.description || "").trim(),
+    logoUrl: buildPublicS3ObjectUrl(env.eventLogosBucketName, row.logoObjectKey),
   };
 }
 
@@ -184,7 +201,8 @@ async function getEventBySlug(input) {
           venue,
           description,
           scheduled_at AS "scheduledAt",
-          ends_at AS "endsAt"
+          ends_at AS "endsAt",
+          logo_object_key AS "logoObjectKey"
         FROM events
         WHERE slug = $1
         LIMIT 1

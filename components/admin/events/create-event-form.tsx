@@ -28,6 +28,7 @@ const initialFormState: FormState = {
 export function CreateEventForm() {
   const router = useRouter();
   const [state, setState] = useState<FormState>(initialFormState);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,19 +51,28 @@ export function CreateEventForm() {
       return;
     }
 
+    if (logoFile && logoFile.size > 1024 * 1024) {
+      setError("Logo must be 1 MB or smaller.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
+    const payload = new FormData();
+    payload.set("title", state.title);
+    payload.set("slug", state.slug);
+    payload.set("venue", state.venue);
+    payload.set("description", state.description);
+    payload.set("startsAt", new Date(state.startsAt).toISOString());
+    payload.set("endsAt", new Date(state.endsAt).toISOString());
+    if (logoFile) {
+      payload.set("logo", logoFile);
+    }
+
     const response = await fetch("/api/admin/events", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        ...state,
-        startsAt: new Date(state.startsAt).toISOString(),
-        endsAt: new Date(state.endsAt).toISOString(),
-      }),
+      body: payload,
     });
 
     if (isUnauthorizedAdminStatus(response.status)) {
@@ -155,6 +165,22 @@ export function CreateEventForm() {
           onChange={(event) => setState((prev) => ({ ...prev, description: event.target.value }))}
           style={{ ...inputStyle, minHeight: "8rem", resize: "vertical" }}
         />
+      </label>
+
+      <label style={{ display: "grid", gap: "0.4rem" }}>
+        <span>Event logo (optional)</span>
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png,.svg,image/jpeg,image/png,image/svg+xml"
+          onChange={(event) => {
+            const file = event.target.files?.[0] ?? null;
+            setLogoFile(file);
+          }}
+          style={inputStyle}
+        />
+        <small style={{ color: "var(--muted)" }}>
+          Supported: JPG, PNG, SVG. Max size: 1 MB.
+        </small>
       </label>
 
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>

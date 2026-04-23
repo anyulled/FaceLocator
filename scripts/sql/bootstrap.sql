@@ -131,6 +131,9 @@ alter table if exists events
 alter table if exists events
   add column if not exists ends_at timestamptz;
 
+alter table if exists events
+  add column if not exists logo_object_key text;
+
 update events
 set public_base_url = 'https://localhost:3000'
 where public_base_url is null;

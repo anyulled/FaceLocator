@@ -131,3 +131,49 @@ resource "aws_s3_bucket_cors_configuration" "event_photos" {
     max_age_seconds = 3000
   }
 }
+
+resource "aws_s3_bucket" "event_logos" {
+  bucket = local.bucket_names.event_logos
+}
+
+resource "aws_s3_bucket_public_access_block" "event_logos" {
+  bucket                  = aws_s3_bucket.event_logos.id
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "event_logos" {
+  bucket = aws_s3_bucket.event_logos.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = local.s3_encryption_algorithm
+    }
+  }
+}
+
+data "aws_iam_policy_document" "event_logos_public_read" {
+  statement {
+    sid    = "AllowPublicReadEventLogos"
+    effect = "Allow"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.event_logos.arn}/*",
+    ]
+  }
+}
+
+resource "aws_s3_bucket_policy" "event_logos_public_read" {
+  bucket = aws_s3_bucket.event_logos.id
+  policy = data.aws_iam_policy_document.event_logos_public_read.json
+
+  depends_on = [aws_s3_bucket_public_access_block.event_logos]
+}

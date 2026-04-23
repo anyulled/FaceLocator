@@ -148,7 +148,10 @@ async function getNotificationCandidates(client, options = {}) {
     whereParts.push("n.id IS NULL");
   }
 
-  const limitClause = options.limit ? `LIMIT ${Number(options.limit)}` : "";
+  const limitClause = options.limit ? `LIMIT $${nextParam++}` : "";
+  if (options.limit) {
+    values.push(Number(options.limit));
+  }
 
   const result = await client.query(
     `
@@ -191,6 +194,7 @@ async function getNotificationCandidates(client, options = {}) {
         ON n.event_id = ea.event_id
        AND n.attendee_id = ea.attendee_id
       WHERE ${whereParts.join("\n        AND ")}
+        AND a.email IS NOT NULL
       GROUP BY
         ea.event_id,
         ea.attendee_id,
@@ -343,11 +347,25 @@ async function processCandidates(client, candidates, options = {}) {
       summary.failed += 1;
       console.error(
         JSON.stringify({
+          scope: "lambda.matched-photo-notifier",
+          level: "error",
+          operation: "processCandidateMatch",
+          statusCode: 500,
+          backendMode: "lambda",
+          requestId:
+            (typeof options.requestId === "string" && options.requestId) ||
+            (typeof options.awsRequestId === "string" && options.awsRequestId) ||
+            null,
           eventId: candidate.eventId,
           attendeeId: candidate.attendeeId,
           faceId: candidate.faceId,
           outcome: "failed",
-          error: error instanceof Error ? error.message : "Unknown error",
+          troubleshootingHint:
+            "Check SES send permissions/quota, signing secret access, and DB connectivity for matched_photo_notifications upsert.",
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message, stack: error.stack }
+              : { message: String(error) },
         }),
       );
     }
@@ -385,7 +403,7 @@ async function handler(event = {}) {
         return {
           scanned: 0,
           sent: 0,
-          skipped: 1,
+          skipped: 0,
           failed: 0,
           reason: "candidate_not_found",
         };
@@ -393,11 +411,19 @@ async function handler(event = {}) {
 
       return processCandidates(client, candidates, {
         forceResend: payload.forceResend === true,
+        requestId:
+          (typeof payload.requestId === "string" && payload.requestId) ||
+          (typeof event.requestId === "string" && event.requestId) ||
+          null,
+        awsRequestId: typeof event.awsRequestId === "string" ? event.awsRequestId : null,
       });
     }
 
     const candidates = await getNotificationCandidates(client);
-    return processCandidates(client, candidates);
+    return processCandidates(client, candidates, {
+      requestId: typeof event.requestId === "string" ? event.requestId : null,
+      awsRequestId: typeof event.awsRequestId === "string" ? event.awsRequestId : null,
+    });
   });
 }
 

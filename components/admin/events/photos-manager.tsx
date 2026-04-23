@@ -228,7 +228,13 @@ export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummar
     router.refresh();
   };
 
-  const sendEmailLink = async (attendeeId: string, attendeeName: string) => {
+  const sendEmailLink = async (attendeeId: string, attendeeName: string, attendeeEmail?: string) => {
+    const emailPart = attendeeEmail ? ` (${attendeeEmail})` : "";
+    const ok = window.confirm(`Send notification email to ${attendeeName}${emailPart}?`);
+    if (!ok) {
+      return;
+    }
+
     setNotifyingAttendeeId(attendeeId);
     setStatusMessage(null);
 
@@ -352,7 +358,7 @@ export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummar
                 {match.matchedPhotoCount === 1 ? "" : "s"} matched
                 <button
                   type="button"
-                  onClick={() => void sendEmailLink(match.attendeeId, match.attendeeName)}
+                  onClick={() => void sendEmailLink(match.attendeeId, match.attendeeName, match.attendeeEmail)}
                   disabled={notifyingAttendeeId === match.attendeeId}
                   style={{
                     marginLeft: "0.6rem",

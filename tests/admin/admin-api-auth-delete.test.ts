@@ -573,6 +573,41 @@ describe("admin api auth and delete behavior", () => {
     });
   });
 
+  it("returns 500 when notifier reports internal send failures", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue({
+      sub: "admin-user-1",
+      tokenUse: "access",
+      groups: ["admin"],
+      username: "ops@example.com",
+    });
+    mockedSendMatchedPhotoNotification.mockResolvedValue({
+      scanned: 1,
+      sent: 0,
+      skipped: 0,
+      failed: 1,
+    });
+
+    const response = await notifyPhotoMatch(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attendeeId: "attendee-1" }),
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      scanned: 1,
+      sent: 0,
+      skipped: 0,
+      failed: 1,
+      error: "Internal error sending notifications",
+    });
+  });
+
   it("rejects idempotency-key reuse with a different payload", async () => {
     mockedResolveAdminIdentity.mockResolvedValue({
       sub: "admin-user-1",

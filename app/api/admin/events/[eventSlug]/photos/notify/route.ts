@@ -53,6 +53,16 @@ export async function POST(
       );
     }
 
+    if (summary.scanned > 0 && summary.sent === 0 && summary.failed > 0) {
+      return NextResponse.json(
+        {
+          ...summary,
+          error: "Internal error sending notifications",
+        },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json(
       {
         ...summary,

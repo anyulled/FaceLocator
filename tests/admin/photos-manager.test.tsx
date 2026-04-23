@@ -98,6 +98,7 @@ describe("photos manager", () => {
 
   it("sends an individual email link for a matched attendee", async () => {
     const user = userEvent.setup();
+    vi.stubGlobal("confirm", vi.fn(() => true));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -132,6 +133,7 @@ describe("photos manager", () => {
 
   it("redirects to admin auth when manual email send is unauthorized", async () => {
     const user = userEvent.setup();
+    vi.stubGlobal("confirm", vi.fn(() => true));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({

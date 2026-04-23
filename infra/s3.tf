@@ -43,7 +43,10 @@ resource "aws_s3_bucket_cors_configuration" "selfies" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD", "PUT"]
-    allowed_origins = ["https://face-locator-enrollment.localhost"]
+    allowed_origins = [
+      "https://face-locator-enrollment.localhost",
+      var.public_base_url,
+    ]
     expose_headers  = ["ETag", "x-amz-request-id"]
     max_age_seconds = 3000
   }
@@ -120,7 +123,10 @@ resource "aws_s3_bucket_cors_configuration" "event_photos" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD", "PUT"]
-    allowed_origins = ["https://face-locator-enrollment.localhost"]
+    allowed_origins = [
+      "https://face-locator-enrollment.localhost",
+      var.public_base_url,
+    ]
     expose_headers  = ["ETag", "x-amz-request-id"]
     max_age_seconds = 3000
   }

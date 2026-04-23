@@ -181,7 +181,7 @@ button.danger {
 }
 
 .status-strip {
-  margin: 0 2rem 2rem;
+  margin-top: 1rem;
   border-radius: 1rem;
   padding: 0.9rem 1rem;
   display: grid;
@@ -246,7 +246,6 @@ button.danger {
 @media (max-width: 840px) {
   .toolbar,
   .content,
-  .status-strip,
   .banner {
     margin: 0;
     padding-left: 1rem;

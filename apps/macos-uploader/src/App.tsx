@@ -446,6 +446,27 @@ export function App() {
                   ) : null}
                 </div>
 
+                <div className="status-strip">
+                  <span>
+                    {session.status === "RUNNING"
+                      ? `Uploading ${resolvedCount}/${totalCount}`
+                      : session.status === "COMPLETED"
+                        ? `Upload complete ${resolvedCount}/${totalCount}`
+                        : session.status === "CANCELLED"
+                          ? `Upload stopped ${resolvedCount}/${totalCount}`
+                          : `Ready ${readyCount}/${totalCount}`}
+                  </span>
+                  <div className="progress-track">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${totalCount > 0 ? (resolvedCount / totalCount) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span>
+                    Failed {failedCount} · Skipped {skippedCount}
+                  </span>
+                </div>
+
                 <button type="button" className="details-toggle" onClick={() => setShowDetails((current) => !current)}>
                   {showDetails ? "Hide details" : "Show details"}
                 </button>
@@ -471,29 +492,6 @@ export function App() {
           </>
         )}
       </main>
-
-      {session ? (
-        <footer className="status-strip">
-          <span>
-            {session.status === "RUNNING"
-              ? `Uploading ${resolvedCount}/${totalCount}`
-              : session.status === "COMPLETED"
-                ? `Upload complete ${resolvedCount}/${totalCount}`
-                : session.status === "CANCELLED"
-                  ? `Upload stopped ${resolvedCount}/${totalCount}`
-                  : `Ready ${readyCount}/${totalCount}`}
-          </span>
-          <div className="progress-track">
-            <div
-              className="progress-fill"
-              style={{ width: `${totalCount > 0 ? (resolvedCount / totalCount) * 100 : 0}%` }}
-            />
-          </div>
-          <span>
-            Failed {failedCount} · Skipped {skippedCount}
-          </span>
-        </footer>
-      ) : null}
 
       {showTokenSheet ? (
         <div className="sheet-backdrop" role="presentation" onClick={() => setShowTokenSheet(false)}>

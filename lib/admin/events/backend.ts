@@ -40,6 +40,10 @@ const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
 
 let lambdaClient: LambdaClient | null = null;
 let s3Client: S3Client | null = null;
+const EMPTY_FACE_MATCH_SUMMARY: AdminEventPhotosPage["faceMatchSummary"] = {
+  totalMatchedFaces: 0,
+  matchedFaces: [],
+};
 
 export class AdminReadBackendError extends Error {
   public readonly statusCode: number;
@@ -245,7 +249,60 @@ export async function getAdminEventPhotosPageViaBackend(input: {
   } | null;
 }> {
   if (getAdminReadBackendMode() === "lambda") {
-    return invokeAdminReadLambda("getAdminEventPhotosPage", input);
+    const payload = await invokeAdminReadLambda<
+      AdminEventPhotosPage & {
+        event: {
+          id: string;
+          slug: string;
+          title: string;
+          venue: string;
+          description: string;
+          startsAt: string;
+          endsAt: string;
+          logoObjectKey?: string;
+        } | null;
+      }
+    >("getAdminEventPhotosPage", input);
+
+    const summaryCandidate =
+      payload && typeof payload === "object" && "faceMatchSummary" in payload
+        ? (payload as { faceMatchSummary?: unknown }).faceMatchSummary
+        : undefined;
+    const summaryRecord =
+      summaryCandidate && typeof summaryCandidate === "object"
+        ? (summaryCandidate as Record<string, unknown>)
+        : null;
+    const matchedFacesRaw = summaryRecord?.matchedFaces;
+    const matchedFaces = Array.isArray(matchedFacesRaw)
+      ? matchedFacesRaw.filter((row) => row && typeof row === "object").map((row) => {
+          const candidate = row as Record<string, unknown>;
+          const matchedPhotoCountRaw = Number(candidate.matchedPhotoCount ?? 0);
+          return {
+            attendeeId: String(candidate.attendeeId ?? ""),
+            attendeeName: String(candidate.attendeeName ?? "Attendee"),
+            attendeeEmail: String(candidate.attendeeEmail ?? ""),
+            faceEnrollmentId: String(candidate.faceEnrollmentId ?? ""),
+            faceId: String(candidate.faceId ?? ""),
+            matchedPhotoCount: Number.isFinite(matchedPhotoCountRaw) ? matchedPhotoCountRaw : 0,
+            lastMatchedAt: String(candidate.lastMatchedAt ?? new Date().toISOString()),
+          } satisfies AdminEventFaceMatch;
+        })
+      : [];
+
+    const totalMatchedFacesRaw = summaryRecord?.totalMatchedFaces;
+    const totalMatchedFaces =
+      typeof totalMatchedFacesRaw === "number" && Number.isFinite(totalMatchedFacesRaw)
+        ? totalMatchedFacesRaw
+        : matchedFaces.length;
+
+    return {
+      ...payload,
+      faceMatchSummary: {
+        ...EMPTY_FACE_MATCH_SUMMARY,
+        totalMatchedFaces,
+        matchedFaces,
+      },
+    };
   }
 
   const pool = await getDatabasePool();

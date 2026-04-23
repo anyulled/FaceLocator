@@ -140,7 +140,12 @@ export default async function AdminEventPhotosPage({
         <PhotosManager
           eventSlug={eventSlug}
           initialPhotos={photosPage.photos}
-          initialFaceMatchSummary={photosPage.faceMatchSummary}
+          initialFaceMatchSummary={
+            photosPage.faceMatchSummary ?? {
+              totalMatchedFaces: 0,
+              matchedFaces: [],
+            }
+          }
         />
 
         <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

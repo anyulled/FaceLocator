@@ -30,6 +30,10 @@ type ReprocessSummary = {
 export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummary }: Props) {
   const router = useRouter();
   const [photos, setPhotos] = useState(initialPhotos);
+  const faceMatchSummary = initialFaceMatchSummary ?? {
+    totalMatchedFaces: 0,
+    matchedFaces: [],
+  };
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busyPhotoId, setBusyPhotoId] = useState<string | null>(null);
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
@@ -344,14 +348,14 @@ export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummar
         }}
       >
         <p style={{ margin: 0, fontWeight: 700 }}>
-          Matched faces in this event: {initialFaceMatchSummary.totalMatchedFaces}
+          Matched faces in this event: {faceMatchSummary.totalMatchedFaces}
         </p>
 
-        {initialFaceMatchSummary.matchedFaces.length === 0 ? (
+        {faceMatchSummary.matchedFaces.length === 0 ? (
           <p style={{ margin: 0, color: "var(--muted)" }}>No face matches found yet.</p>
         ) : (
           <ul style={{ margin: 0, paddingLeft: "1rem", display: "grid", gap: "0.35rem" }}>
-            {initialFaceMatchSummary.matchedFaces.map((match) => (
+            {faceMatchSummary.matchedFaces.map((match) => (
               <li key={`${match.attendeeId}:${match.faceEnrollmentId}`} style={{ fontSize: "0.93rem" }}>
                 <span style={{ fontWeight: 600 }}>{match.attendeeName}</span>
                 {match.attendeeEmail ? ` (${match.attendeeEmail})` : ""}: {match.matchedPhotoCount} photo

@@ -2,8 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
-import { getMatchedGalleryData } from "@/lib/notifications/gallery";
-import { verifySignedNotificationToken } from "@/lib/notifications/token";
+import { getMatchedGalleryDataViaBackend } from "@/lib/notifications/backend";
 
 type MatchedGalleryPageProps = {
   params: Promise<{
@@ -26,15 +25,10 @@ export default async function MatchedGalleryPage({
     notFound();
   }
 
-  const payload = verifySignedNotificationToken(token, "gallery");
-  if (!payload || payload.eventId !== eventSlug || payload.faceId !== faceId) {
-    notFound();
-  }
-
-  const galleryData = await getMatchedGalleryData({
+  const galleryData = await getMatchedGalleryDataViaBackend({
     eventId: eventSlug,
-    attendeeId: payload.sub,
     faceId,
+    token,
   });
 
   if (!galleryData) {

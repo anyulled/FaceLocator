@@ -7,7 +7,6 @@ const notFoundMock = vi.fn(() => {
 });
 
 const getMatchedGalleryDataMock = vi.fn();
-const verifySignedNotificationTokenMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   notFound: notFoundMock,
@@ -25,30 +24,18 @@ vi.mock("next/image", () => ({
   },
 }));
 
-vi.mock("@/lib/notifications/gallery", () => ({
-  getMatchedGalleryData: (...args: unknown[]) => getMatchedGalleryDataMock(...args),
-}));
-
-vi.mock("@/lib/notifications/token", () => ({
-  verifySignedNotificationToken: (...args: unknown[]) =>
-    verifySignedNotificationTokenMock(...args),
+vi.mock("@/lib/notifications/backend", () => ({
+  getMatchedGalleryDataViaBackend: (...args: unknown[]) =>
+    getMatchedGalleryDataMock(...args),
 }));
 
 describe("matched gallery page", () => {
   beforeEach(() => {
     notFoundMock.mockClear();
     getMatchedGalleryDataMock.mockReset();
-    verifySignedNotificationTokenMock.mockReset();
   });
 
   it("renders only logo, attendee name, and photos for a valid token", async () => {
-    verifySignedNotificationTokenMock.mockReturnValue({
-      sub: "att_123",
-      eventId: "speaker-session-2026",
-      faceId: "face_abc",
-      action: "gallery",
-      exp: Math.floor(Date.now() / 1000) + 1000,
-    });
     getMatchedGalleryDataMock.mockResolvedValue({
       attendeeName: "Jane Doe",
       photoUrls: ["https://photos.example.test/1.jpg", "https://photos.example.test/2.jpg"],
@@ -76,7 +63,7 @@ describe("matched gallery page", () => {
   });
 
   it("delegates invalid links to notFound", async () => {
-    verifySignedNotificationTokenMock.mockReturnValue(null);
+    getMatchedGalleryDataMock.mockResolvedValue(null);
 
     const { default: MatchedGalleryPage } = await import(
       "@/app/events/[eventSlug]/faces/[faceId]/page"

@@ -2,8 +2,11 @@
 "use strict";
 
 const { createHmac } = require("node:crypto");
+const { timingSafeEqual } = require("node:crypto");
+const { GetObjectCommand, S3Client } = require("@aws-sdk/client-s3");
 const { GetSecretValueCommand, SecretsManagerClient } = require("@aws-sdk/client-secrets-manager");
 const { SendEmailCommand, SESv2Client } = require("@aws-sdk/client-sesv2");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { Client } = require("pg");
 
 const { getRequiredEnv } = require("./lib");
@@ -11,6 +14,7 @@ const { getRequiredEnv } = require("./lib");
 const env = getRequiredEnv(process.env);
 const secretsClient = new SecretsManagerClient({ region: env.awsRegion });
 const sesClient = new SESv2Client({ region: env.awsRegion });
+const s3Client = new S3Client({ region: env.awsRegion });
 
 let cachedDatabaseConfig = null;
 let cachedSigningSecret = null;
@@ -34,6 +38,66 @@ function createToken(input) {
     .digest("base64url");
 
   return `${encodedPayload}.${signature}`;
+}
+
+function decodePayload(encoded) {
+  try {
+    const decoded = Buffer.from(encoded, "base64url").toString("utf8");
+    const parsed = JSON.parse(decoded);
+
+    if (
+      typeof parsed.sub !== "string" ||
+      typeof parsed.eventId !== "string" ||
+      typeof parsed.faceId !== "string" ||
+      (parsed.action !== "gallery" && parsed.action !== "unsubscribe") ||
+      typeof parsed.exp !== "number"
+    ) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function verifyToken(token, expectedAction) {
+  const [encodedPayload, signature] = String(token || "").split(".");
+  if (!encodedPayload || !signature) {
+    return null;
+  }
+
+  const expectedSignature = createHmac("sha256", cachedSigningSecret)
+    .update(encodedPayload)
+    .digest("base64url");
+
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (
+    signatureBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(signatureBuffer, expectedBuffer)
+  ) {
+    return null;
+  }
+
+  const payload = decodePayload(encodedPayload);
+  if (!payload || payload.action !== expectedAction) {
+    return null;
+  }
+
+  if (payload.exp <= Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  return payload;
+}
+
+function getEventPhotosBucketName() {
+  if (!env.eventPhotosBucketName) {
+    throw new Error("FACE_LOCATOR_EVENT_PHOTOS_BUCKET is required.");
+  }
+
+  return env.eventPhotosBucketName;
 }
 
 function buildEmailBody(input) {
@@ -71,6 +135,75 @@ ${galleryUrl}
 
 If you no longer want emails for this event, unsubscribe here:
 ${unsubscribeUrl}`,
+  };
+}
+
+async function buildGalleryPageData(client, payload) {
+  const attendeeRes = await client.query(
+    `
+      SELECT a.name AS "attendeeName"
+      FROM attendees a
+      WHERE a.id = $1
+      LIMIT 1
+    `,
+    [payload.sub],
+  );
+
+  const attendee = attendeeRes.rows[0];
+  if (!attendee) {
+    return null;
+  }
+
+  const photoRes = await client.query(
+    `
+      SELECT DISTINCT ep.object_key AS "objectKey"
+      FROM photo_face_matches m
+      JOIN event_photos ep ON ep.id = m.event_photo_id
+      JOIN face_enrollments fe ON fe.id = m.face_enrollment_id
+      WHERE ep.event_id = $1
+        AND m.attendee_id = $2
+        AND fe.rekognition_face_id = $3
+        AND ep.deleted_at IS NULL
+      ORDER BY ep.object_key DESC
+    `,
+    [payload.eventId, payload.sub, payload.faceId],
+  );
+
+  const photoUrls = await Promise.all(
+    photoRes.rows.map(async (row) =>
+      getSignedUrl(
+        s3Client,
+        new GetObjectCommand({
+          Bucket: getEventPhotosBucketName(),
+          Key: row.objectKey,
+        }),
+        {
+          expiresIn: 15 * 60,
+        },
+      ),
+    ),
+  );
+
+  return {
+    attendeeName: attendee.attendeeName,
+    photoUrls,
+  };
+}
+
+async function unsubscribeFromMatchedPhotos(client, payload) {
+  await client.query(
+    `
+      UPDATE event_attendees
+      SET photo_notifications_unsubscribed_at = COALESCE(photo_notifications_unsubscribed_at, now()),
+          updated_at = now()
+      WHERE event_id = $1
+        AND attendee_id = $2
+    `,
+    [payload.eventId, payload.sub],
+  );
+
+  return {
+    unsubscribed: true,
   };
 }
 
@@ -378,6 +511,52 @@ async function handler(event = {}) {
   await getSigningSecret();
 
   return withDatabase(async (client) => {
+    if (event.operation === "getGalleryPageData") {
+      const payload = event.input || {};
+      const token = String(payload.token || "").trim();
+      const tokenPayload = verifyToken(token, "gallery");
+
+      if (
+        !tokenPayload ||
+        (typeof payload.eventId === "string" && payload.eventId.trim() && tokenPayload.eventId !== payload.eventId.trim()) ||
+        (typeof payload.faceId === "string" && payload.faceId.trim() && tokenPayload.faceId !== payload.faceId.trim())
+      ) {
+        return {
+          statusCode: 404,
+          errorMessage: "Invalid link.",
+        };
+      }
+
+      const galleryData = await buildGalleryPageData(client, tokenPayload);
+      if (!galleryData) {
+        return {
+          statusCode: 404,
+          errorMessage: "Gallery not found.",
+        };
+      }
+
+      return galleryData;
+    }
+
+    if (event.operation === "unsubscribeFromMatchedPhotos") {
+      const payload = event.input || {};
+      const token = String(payload.token || "").trim();
+      const tokenPayload = verifyToken(token, "unsubscribe");
+
+      if (
+        !tokenPayload ||
+        (typeof payload.eventId === "string" && payload.eventId.trim() && tokenPayload.eventId !== payload.eventId.trim()) ||
+        (typeof payload.faceId === "string" && payload.faceId.trim() && tokenPayload.faceId !== payload.faceId.trim())
+      ) {
+        return {
+          statusCode: 404,
+          errorMessage: "Invalid link.",
+        };
+      }
+
+      return unsubscribeFromMatchedPhotos(client, tokenPayload);
+    }
+
     if (event.operation === "sendSingleNotification") {
       const payload = event.input || {};
       const attendeeId = String(payload.attendeeId || "").trim();

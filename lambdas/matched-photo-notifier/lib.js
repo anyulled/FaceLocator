@@ -6,6 +6,7 @@ function getRequiredEnv(env) {
     "DATABASE_SECRET_NAME",
     "SES_FROM_EMAIL",
     "MATCH_LINK_SIGNING_SECRET_ARN",
+    "FACE_LOCATOR_EVENT_PHOTOS_BUCKET",
   ];
 
   const missing = requiredKeys.filter((key) => !env[key]);
@@ -25,6 +26,7 @@ function getRequiredEnv(env) {
     databaseSecretArn: env.DATABASE_SECRET_ARN || null,
     sesFromEmail: env.SES_FROM_EMAIL,
     signingSecretArn: env.MATCH_LINK_SIGNING_SECRET_ARN,
+    eventPhotosBucketName: env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET,
     linkTtlDays,
     logLevel: env.LOG_LEVEL || "info",
   };

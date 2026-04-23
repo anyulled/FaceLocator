@@ -14,6 +14,7 @@ describe("matched photo notifier helpers", () => {
       DATABASE_SECRET_NAME: "db-secret",
       SES_FROM_EMAIL: "noreply@example.com",
       MATCH_LINK_SIGNING_SECRET_ARN: "arn:aws:secretsmanager:eu-west-1:123:secret:match",
+      FACE_LOCATOR_EVENT_PHOTOS_BUCKET: "event-photos",
     });
 
     expect(env.linkTtlDays).toBe(30);

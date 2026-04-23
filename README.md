@@ -19,6 +19,7 @@ This README is meant to help both humans and AI agents understand the codebase q
 - Tracks registration status through `UPLOAD_PENDING`, `PROCESSING`, `ENROLLED`, `FAILED`, and `CANCELLED`
 - Exposes admin pages for event and photo management
 - Routes public registration and admin reads through explicit backend modes so the app can run in mock mode or through VPC-attached Lambdas when the database is private
+- Routes magic-link gallery and unsubscribe pages through the matched-photo-notifier Lambda when the database is private
 - Keeps the AWS-backed pieces behind explicit boundaries so the app can still run in mock mode
 
 ## System Landscape
@@ -37,6 +38,7 @@ flowchart LR
   upload[Upload gateway]
   attendeeLambda[Attendee registration Lambda]
   adminReadLambda[Admin read Lambda]
+  matchedNotifierLambda[Matched photo notifier Lambda]
   db[(PostgreSQL-compatible DB)]
   selfies[(S3 selfies bucket)]
   photos[(S3 event photos bucket)]
@@ -57,6 +59,7 @@ flowchart LR
   api --> upload
   api --> attendeeLambda
   api --> adminReadLambda
+  api --> matchedNotifierLambda
   repo --> db
   upload --> selfies
   attendeeLambda --> db
@@ -71,11 +74,13 @@ flowchart LR
   app --> cloudwatch
   attendeeLambda --> cloudwatch
   adminReadLambda --> cloudwatch
+  matchedNotifierLambda --> cloudwatch
   lambda1 --> cloudwatch
   lambda2 --> cloudwatch
   app --> secrets
   attendeeLambda --> secrets
   adminReadLambda --> secrets
+  matchedNotifierLambda --> secrets
   lambda1 --> secrets
   lambda2 --> secrets
 ```
@@ -110,8 +115,10 @@ flowchart LR
     routes["Route handlers"]
     publicBackend["Public registration backend"]
     adminBackend["Admin read backend"]
+    notificationBackend["Notification backend"]
     attendeeLib["Attendee orchestration"]
     adminLib["Admin/event logic"]
+    notificationLib["Magic-link gallery logic"]
     eventQueries["Event queries"]
   end
 
@@ -122,6 +129,7 @@ flowchart LR
     lambdaEnroll["Selfie enrollment Lambda"]
     lambdaAttendee["Attendee registration Lambda"]
     lambdaAdmin["Admin read Lambda"]
+    lambdaNotifier["Matched photo notifier Lambda"]
     lambdaPhotos["Event photo worker Lambda"]
     rekognition["Rekognition"]
     secrets["Secrets Manager"]
@@ -132,17 +140,23 @@ flowchart LR
   adminPage --> routes
   routes --> publicBackend
   routes --> adminBackend
+  routes --> notificationBackend
   routes --> attendeeLib
   routes --> adminLib
+  routes --> notificationLib
   routes --> eventQueries
   attendeeLib --> db
   attendeeLib --> s3Selfies
   publicBackend --> lambdaAttendee
   adminBackend --> lambdaAdmin
+  notificationBackend --> lambdaNotifier
   lambdaAttendee --> db
   lambdaAdmin --> db
+  lambdaNotifier --> db
   adminLib --> db
   adminLib --> s3Photos
+  notificationLib --> db
+  notificationLib --> s3Photos
   lambdaEnroll --> s3Selfies
   lambdaEnroll --> rekognition
   lambdaEnroll --> db
@@ -224,6 +238,34 @@ sequenceDiagram
   API-->>UI: Event listing and photo data
 ```
 
+## Magic Link Flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor A as Attendee
+  participant P as Magic-link page
+  participant R as /api/notifications/unsubscribe
+  participant B as Notification backend
+  participant L as Matched photo notifier Lambda
+  participant DB as Database
+  participant S3 as Event photos bucket
+
+  A->>P: Open gallery link from email
+  P->>B: Request gallery data with token
+  B->>L: Invoke getGalleryPageData
+  L->>DB: Verify token and load match rows
+  L->>S3: Presign matched photo URLs
+  L-->>B: Attendee name and photo URLs
+  B-->>P: Render gallery
+  A->>R: Click unsubscribe link
+  R->>B: Request unsubscribe with token
+  B->>L: Invoke unsubscribeFromMatchedPhotos
+  L->>DB: Mark notifications unsubscribed
+  L-->>B: Success
+  B-->>R: 200 text response
+```
+
 ## Enrollment State Machine
 
 ```mermaid
@@ -269,6 +311,7 @@ flowchart TB
     lambdaSelfie["Selfie enrollment Lambda"]
     lambdaAttendee["Attendee registration Lambda"]
     lambdaAdmin["Admin read Lambda"]
+    lambdaNotifier["Matched photo notifier Lambda"]
     lambdaPhoto["Event photo worker Lambda"]
     rekognition["Rekognition collection"]
     rds[(PostgreSQL-compatible DB)]
@@ -287,6 +330,7 @@ flowchart TB
   apiRoutes --> cognito
   apiRoutes --> lambdaAttendee
   apiRoutes --> lambdaAdmin
+  apiRoutes --> lambdaNotifier
   lambdaSelfie --> s3Selfies
   lambdaSelfie --> rekognition
   lambdaSelfie --> rds
@@ -298,11 +342,13 @@ flowchart TB
   nextServer --> secrets
   lambdaAttendee --> secrets
   lambdaAdmin --> secrets
+  lambdaNotifier --> secrets
   lambdaSelfie --> secrets
   lambdaPhoto --> secrets
   nextServer --> logs
   lambdaAttendee --> logs
   lambdaAdmin --> logs
+  lambdaNotifier --> logs
   lambdaSelfie --> logs
   lambdaPhoto --> logs
 ```
@@ -381,11 +427,11 @@ The most important runtime variables are:
 - `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME`
 - `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
 - `AWS_REGION`
-- `MATCH_LINK_SIGNING_SECRET`
-- `MATCH_LINK_TTL_DAYS`
 - `SES_FROM_EMAIL`
 
 If AWS upload variables are omitted, the app remains in mock-backed mode so local development stays simple.
+
+The public magic-link gallery and unsubscribe flows are Lambda-backed in production, so the hosted Next.js runtime does not need direct database access or the match-link signing secret.
 
 ## AWS POC Boundaries
 

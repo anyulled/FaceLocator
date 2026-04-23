@@ -89,3 +89,21 @@ export async function getMatchedGalleryData(input: {
     photoUrls,
   };
 }
+
+export async function unsubscribeFromMatchedPhotoNotifications(input: {
+  eventId: string;
+  attendeeId: string;
+}) {
+  const pool = await getDatabasePool();
+
+  await pool.query(
+    `
+      UPDATE event_attendees
+      SET photo_notifications_unsubscribed_at = COALESCE(photo_notifications_unsubscribed_at, now()),
+          updated_at = now()
+      WHERE event_id = $1
+        AND attendee_id = $2
+    `,
+    [input.eventId, input.attendeeId],
+  );
+}

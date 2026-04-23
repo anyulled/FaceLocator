@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getDatabasePool } from "@/lib/aws/database";
-import { verifySignedNotificationToken } from "@/lib/notifications/token";
+import {
+  unsubscribeFromMatchedPhotoNotificationsViaBackend,
+} from "@/lib/notifications/backend";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -13,22 +14,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid link." }, { status: 404 });
   }
 
-  const payload = verifySignedNotificationToken(token, "unsubscribe");
-  if (!payload || payload.eventId !== eventId || payload.faceId !== faceId) {
+  const unsubscribed = await unsubscribeFromMatchedPhotoNotificationsViaBackend({
+    eventId,
+    faceId,
+    token,
+  });
+
+  if (!unsubscribed) {
     return NextResponse.json({ error: "Invalid link." }, { status: 404 });
   }
-
-  const pool = await getDatabasePool();
-  await pool.query(
-    `
-      UPDATE event_attendees
-      SET photo_notifications_unsubscribed_at = COALESCE(photo_notifications_unsubscribed_at, now()),
-          updated_at = now()
-      WHERE event_id = $1
-        AND attendee_id = $2
-    `,
-    [payload.eventId, payload.sub],
-  );
 
   return new NextResponse("You have been unsubscribed from this event's match emails.", {
     status: 200,

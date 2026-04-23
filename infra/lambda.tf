@@ -178,12 +178,13 @@ resource "aws_lambda_function" "matched_photo_notifier" {
 
   environment {
     variables = {
-      LOG_LEVEL                     = "info"
-      DATABASE_SECRET_NAME          = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN           = aws_secretsmanager_secret.database.arn
-      MATCH_LINK_SIGNING_SECRET_ARN = aws_secretsmanager_secret.match_link_signing.arn
-      MATCH_LINK_TTL_DAYS           = tostring(var.match_link_ttl_days)
-      SES_FROM_EMAIL                = var.ses_from_email
+      LOG_LEVEL                        = "info"
+      DATABASE_SECRET_NAME             = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN              = aws_secretsmanager_secret.database.arn
+      MATCH_LINK_SIGNING_SECRET_ARN    = aws_secretsmanager_secret.match_link_signing.arn
+      FACE_LOCATOR_EVENT_PHOTOS_BUCKET = aws_s3_bucket.event_photos.bucket
+      MATCH_LINK_TTL_DAYS              = tostring(var.match_link_ttl_days)
+      SES_FROM_EMAIL                   = var.ses_from_email
     }
   }
 

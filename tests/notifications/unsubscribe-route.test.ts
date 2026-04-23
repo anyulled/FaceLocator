@@ -1,22 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const poolQueryMock = vi.fn();
+const unsubscribeMock = vi.fn();
 
-vi.mock("@/lib/aws/database", () => ({
-  getDatabasePool: vi.fn(async () => ({
-    query: poolQueryMock,
-  })),
+vi.mock("@/lib/notifications/backend", () => ({
+  unsubscribeFromMatchedPhotoNotificationsViaBackend: (...args: unknown[]) =>
+    unsubscribeMock(...args),
 }));
 
-import { createSignedNotificationToken } from "@/lib/notifications/token";
 import { GET } from "@/app/api/notifications/unsubscribe/route";
 
 describe("unsubscribe route", () => {
   beforeEach(() => {
-    process.env.MATCH_LINK_SIGNING_SECRET = "test-signing-secret";
-    process.env.MATCH_LINK_TTL_DAYS = "30";
-    poolQueryMock.mockReset();
-    poolQueryMock.mockResolvedValue({ rows: [] });
+    unsubscribeMock.mockReset();
   });
 
   it("returns 404 when token is missing", async () => {
@@ -30,27 +25,21 @@ describe("unsubscribe route", () => {
   });
 
   it("marks event attendee as unsubscribed when the token is valid", async () => {
-    const token = createSignedNotificationToken({
-      attendeeId: "att_123",
-      eventId: "speaker-session-2026",
-      faceId: "face_abc",
-      action: "unsubscribe",
-    });
+    unsubscribeMock.mockResolvedValue(true);
 
     const response = await GET(
       new Request(
-        `http://localhost/api/notifications/unsubscribe?eventId=speaker-session-2026&faceId=face_abc&token=${encodeURIComponent(
-          token,
-        )}`,
+        "http://localhost/api/notifications/unsubscribe?eventId=speaker-session-2026&faceId=face_abc&token=valid",
       ),
     );
 
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("unsubscribed");
-    expect(poolQueryMock).toHaveBeenCalledTimes(1);
-    expect(poolQueryMock.mock.calls[0][1]).toEqual([
-      "speaker-session-2026",
-      "att_123",
-    ]);
+    expect(unsubscribeMock).toHaveBeenCalledTimes(1);
+    expect(unsubscribeMock.mock.calls[0][0]).toEqual({
+      eventId: "speaker-session-2026",
+      faceId: "face_abc",
+      token: "valid",
+    });
   });
 });

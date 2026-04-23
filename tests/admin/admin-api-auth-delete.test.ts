@@ -5,6 +5,7 @@ import { POST as createEvent } from "@/app/api/admin/events/route";
 import { GET as listEventPhotos } from "@/app/api/admin/events/[eventSlug]/photos/route";
 import { POST as presignPhotoUpload } from "@/app/api/admin/events/[eventSlug]/photos/presign/route";
 import { POST as reprocessPhotos } from "@/app/api/admin/events/[eventSlug]/photos/reprocess/route";
+import { POST as notifyPhotoMatch } from "@/app/api/admin/events/[eventSlug]/photos/notify/route";
 import { POST as deletePhotosBatch } from "@/app/api/admin/events/[eventSlug]/photos/delete/route";
 import { DELETE as deleteSinglePhoto } from "@/app/api/admin/events/[eventSlug]/photos/[photoId]/route";
 import {
@@ -17,6 +18,7 @@ import {
   getAdminEventPhotosPageViaBackend,
   listAdminEventsViaBackend,
   reprocessAdminEventPhotosViaBackend,
+  sendMatchedPhotoNotificationViaBackend,
 } from "@/lib/admin/events/backend";
 import { isAuthorizedAdminRequest, resolveAdminIdentity } from "@/lib/admin/auth";
 
@@ -33,6 +35,7 @@ vi.mock("@/lib/admin/events/backend", () => ({
   getAdminReadBackendMode: vi.fn(() => "direct"),
   createAdminEventPhotoUploadViaBackend: vi.fn(),
   reprocessAdminEventPhotosViaBackend: vi.fn(),
+  sendMatchedPhotoNotificationViaBackend: vi.fn(),
 }));
 
 vi.mock("@/lib/admin/events/repository", () => ({
@@ -47,6 +50,7 @@ const mockedListAdminEvents = vi.mocked(listAdminEventsViaBackend);
 const mockedCreateAdminEvent = vi.mocked(createAdminEventViaBackend);
 const mockedListAdminEventPhotos = vi.mocked(getAdminEventPhotosPageViaBackend);
 const mockedReprocessAdminEventPhotos = vi.mocked(reprocessAdminEventPhotosViaBackend);
+const mockedSendMatchedPhotoNotification = vi.mocked(sendMatchedPhotoNotificationViaBackend);
 const mockedCreateAdminEventPhotoUpload = vi.mocked(createAdminEventPhotoUpload);
 const mockedDeleteAdminEventPhoto = vi.mocked(deleteAdminEventPhoto);
 const mockedDeleteAdminEventPhotosBatch = vi.mocked(deleteAdminEventPhotosBatch);
@@ -184,6 +188,20 @@ describe("admin api auth and delete behavior", () => {
         endsAt: "2026-01-01T12:00:00.000Z",
       },
       photos: [],
+      faceMatchSummary: {
+        totalMatchedFaces: 1,
+        matchedFaces: [
+          {
+            attendeeId: "attendee-1",
+            attendeeName: "Alice",
+            attendeeEmail: "alice@example.com",
+            faceEnrollmentId: "enrollment-1",
+            faceId: "face-1",
+            matchedPhotoCount: 2,
+            lastMatchedAt: "2026-01-01T11:00:00.000Z",
+          },
+        ],
+      },
       page: 1,
       pageSize: 30,
       totalCount: 0,
@@ -208,6 +226,20 @@ describe("admin api auth and delete behavior", () => {
         endsAt: "2026-01-01T12:00:00.000Z",
       },
       photos: [],
+      faceMatchSummary: {
+        totalMatchedFaces: 1,
+        matchedFaces: [
+          {
+            attendeeId: "attendee-1",
+            attendeeName: "Alice",
+            attendeeEmail: "alice@example.com",
+            faceEnrollmentId: "enrollment-1",
+            faceId: "face-1",
+            matchedPhotoCount: 2,
+            lastMatchedAt: "2026-01-01T11:00:00.000Z",
+          },
+        ],
+      },
       page: 1,
       pageSize: 30,
       totalCount: 0,
@@ -219,6 +251,10 @@ describe("admin api auth and delete behavior", () => {
     mockedListAdminEventPhotos.mockResolvedValue({
       event: null,
       photos: [],
+      faceMatchSummary: {
+        totalMatchedFaces: 0,
+        matchedFaces: [],
+      },
       page: 1,
       pageSize: 30,
       totalCount: 0,
@@ -452,6 +488,89 @@ describe("admin api auth and delete behavior", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: "Event not found" });
+  });
+
+  it("rejects unauthorized manual notification requests", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue(null);
+
+    const response = await notifyPhotoMatch(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attendeeId: "attendee-1" }),
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+    expect(mockedSendMatchedPhotoNotification).not.toHaveBeenCalled();
+  });
+
+  it("validates attendee id for manual notification requests", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue({
+      sub: "admin-user-1",
+      tokenUse: "access",
+      groups: ["admin"],
+      username: "ops@example.com",
+    });
+
+    const response = await notifyPhotoMatch(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attendeeId: "" }),
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "attendeeId is required" });
+    expect(mockedSendMatchedPhotoNotification).not.toHaveBeenCalled();
+  });
+
+  it("sends manual matched-photo notification for an attendee", async () => {
+    mockedResolveAdminIdentity.mockResolvedValue({
+      sub: "admin-user-1",
+      tokenUse: "access",
+      groups: ["admin"],
+      username: "ops@example.com",
+    });
+    mockedSendMatchedPhotoNotification.mockResolvedValue({
+      scanned: 1,
+      sent: 1,
+      skipped: 0,
+      failed: 0,
+    });
+
+    const response = await notifyPhotoMatch(
+      makeNextRequest("http://localhost/api/admin/events/demo/photos/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attendeeId: "attendee-1" }),
+      }) as never,
+      {
+        params: Promise.resolve({ eventSlug: "demo" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      scanned: 1,
+      sent: 1,
+      skipped: 0,
+      failed: 0,
+      message: "Notification email sent",
+    });
+    expect(mockedSendMatchedPhotoNotification).toHaveBeenCalledWith({
+      eventSlug: "demo",
+      attendeeId: "attendee-1",
+      forceResend: true,
+    });
   });
 
   it("rejects idempotency-key reuse with a different payload", async () => {

@@ -25,6 +25,10 @@ export default async function AdminEventPhotosPage({
   let photosPage: Awaited<ReturnType<typeof loadAdminEventPhotosPage>> = {
     event: null,
     photos: [],
+    faceMatchSummary: {
+      totalMatchedFaces: 0,
+      matchedFaces: [],
+    },
     page,
     pageSize,
     totalCount: 0,
@@ -133,7 +137,11 @@ export default async function AdminEventPhotosPage({
           </p>
         </header>
 
-        <PhotosManager eventSlug={eventSlug} initialPhotos={photosPage.photos} />
+        <PhotosManager
+          eventSlug={eventSlug}
+          initialPhotos={photosPage.photos}
+          initialFaceMatchSummary={photosPage.faceMatchSummary}
+        />
 
         <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <p style={{ color: "var(--muted)" }}>

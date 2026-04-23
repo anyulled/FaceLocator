@@ -31,6 +31,31 @@ const samplePhoto = {
   previewUrl: null,
 };
 
+const sampleFaceMatchSummary = {
+  totalMatchedFaces: 1,
+  matchedFaces: [
+    {
+      attendeeId: "attendee-1",
+      attendeeName: "Test User",
+      attendeeEmail: "test@example.com",
+      faceEnrollmentId: "enrollment-1",
+      faceId: "face-1",
+      matchedPhotoCount: 3,
+      lastMatchedAt: "2027-04-01T09:00:00.000Z",
+    },
+  ],
+};
+
+function renderManager() {
+  render(
+    <PhotosManager
+      eventSlug="devbcn-2027"
+      initialPhotos={[samplePhoto]}
+      initialFaceMatchSummary={sampleFaceMatchSummary}
+    />,
+  );
+}
+
 describe("photos manager", () => {
   beforeEach(() => {
     refreshMock.mockReset();
@@ -40,6 +65,14 @@ describe("photos manager", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("renders event-level matched faces summary below action buttons", () => {
+    renderManager();
+
+    expect(screen.getByText("Matched faces in this event: 1")).toBeTruthy();
+    const item = screen.getByText(/Test User/).closest("li");
+    expect(item?.textContent).toContain("Test User (test@example.com): 3 photos matched");
   });
 
   it("redirects to admin auth when single delete is unauthorized", async () => {
@@ -54,9 +87,62 @@ describe("photos manager", () => {
       }),
     );
 
-    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+    renderManager();
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(redirectToAdminAuthMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("sends an individual email link for a matched attendee", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          scanned: 1,
+          sent: 1,
+          skipped: 0,
+          failed: 0,
+          message: "Notification email sent",
+        }),
+      }),
+    );
+
+    renderManager();
+
+    await user.click(screen.getByRole("button", { name: "Send email link" }));
+
+    expect(fetch).toHaveBeenCalledWith("/api/admin/events/devbcn-2027/photos/notify", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ attendeeId: "attendee-1" }),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Email link sent to Test User.")).toBeTruthy();
+    });
+  });
+
+  it("redirects to admin auth when manual email send is unauthorized", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "Unauthorized" }),
+      }),
+    );
+
+    renderManager();
+    await user.click(screen.getByRole("button", { name: "Send email link" }));
 
     await waitFor(() => {
       expect(redirectToAdminAuthMock).toHaveBeenCalledTimes(1);
@@ -75,7 +161,7 @@ describe("photos manager", () => {
       }),
     );
 
-    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+    renderManager();
 
     await user.click(screen.getByLabelText("Select photo photo-1"));
     await user.click(screen.getByRole("button", { name: "Delete selected (1)" }));
@@ -110,7 +196,7 @@ describe("photos manager", () => {
       ),
     );
 
-    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+    renderManager();
 
     await user.click(screen.getByRole("button", { name: "Reprocess all uploaded photos" }));
 
@@ -141,7 +227,7 @@ describe("photos manager", () => {
       }),
     );
 
-    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+    renderManager();
 
     await user.click(screen.getByRole("button", { name: "Reprocess all uploaded photos" }));
 
@@ -168,7 +254,7 @@ describe("photos manager", () => {
       }),
     );
 
-    render(<PhotosManager eventSlug="devbcn-2027" initialPhotos={[samplePhoto]} />);
+    renderManager();
 
     await user.click(screen.getByRole("button", { name: "Reprocess all uploaded photos" }));
 

@@ -76,8 +76,24 @@ export type AdminEventPhoto = {
   previewUrl: string | null;
 };
 
+export type AdminEventFaceMatch = {
+  attendeeId: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  faceEnrollmentId: string;
+  faceId: string;
+  matchedPhotoCount: number;
+  lastMatchedAt: string;
+};
+
+export type AdminEventFaceMatchSummary = {
+  totalMatchedFaces: number;
+  matchedFaces: AdminEventFaceMatch[];
+};
+
 export type AdminEventPhotosPage = {
   photos: AdminEventPhoto[];
+  faceMatchSummary: AdminEventFaceMatchSummary;
   page: number;
   pageSize: number;
   totalCount: number;

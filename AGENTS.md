@@ -184,6 +184,7 @@ Do not start at step 4. That was the wrong ordering previously.
 - After resolving an issue, think through how to prevent the same class of failure from recurring, not only the exact error that was reported.
 - Consider adjacent inputs and flows that use the same boundary: different event slugs, browsers, origins, permissions, schemas, buckets, Lambdas, and deployment environments.
 - Add or recommend the smallest durable prevention that fits the risk: validation, tests, schema guards, Terraform assertions, runbook updates, clearer logging, or production verification steps.
+- Once the root cause is confirmed, add a focused unit test that reproduces the failure mode or the closest deterministic equivalent before closing the issue.
 - If prevention requires broader product or infrastructure scope than the immediate fix, call that out explicitly instead of silently expanding the change.
 - Include the prevention check in the final report so the user can see whether the fix is narrow, generalized, or intentionally deferred.
 
@@ -199,6 +200,8 @@ Do not start at step 4. That was the wrong ordering previously.
   - status code
   - troubleshooting hint
 - Do not hide the underlying error. Summarize it and preserve the raw error object when possible.
+- While troubleshooting, inspect the current error handling and logging first and look for the smallest improvement that would make the next failure easier to diagnose.
+- If the logs are vague, lossy, or missing an important field, prefer a focused logging improvement as part of the fix instead of leaving the ambiguity in place.
 
 ## Packaging And Runbook
 

@@ -360,7 +360,7 @@ async function getAdminEventPhotosPage(input) {
             current_face.id AS "faceEnrollmentId",
             current_face.rekognition_face_id AS "faceId",
             COUNT(DISTINCT m.event_photo_id)::int AS "matchedPhotoCount",
-            MAX(ep.uploaded_at) AS "lastMatchedAt"
+            COALESCE(MAX(m.created_at), MAX(ep.uploaded_at), MAX(ep.created_at)) AS "lastMatchedAt"
           FROM event_attendees ea
           JOIN attendees a
             ON a.id = ea.attendee_id
@@ -382,6 +382,7 @@ async function getAdminEventPhotosPage(input) {
            AND ep.event_id = ea.event_id
            AND ep.deleted_at IS NULL
           WHERE ea.event_id = $1
+            AND a.email IS NOT NULL
           GROUP BY
             ea.attendee_id,
             a.name,
@@ -390,7 +391,7 @@ async function getAdminEventPhotosPage(input) {
             current_face.rekognition_face_id
           ORDER BY
             COUNT(DISTINCT m.event_photo_id) DESC,
-            MAX(ep.uploaded_at) DESC,
+            COALESCE(MAX(m.created_at), MAX(ep.uploaded_at), MAX(ep.created_at)) DESC,
             ea.attendee_id ASC
         `,
         [event.id],
@@ -417,7 +418,7 @@ async function getAdminEventPhotosPage(input) {
       faceEnrollmentId: row.faceEnrollmentId,
       faceId: row.faceId,
       matchedPhotoCount: Number(row.matchedPhotoCount),
-      lastMatchedAt: row.lastMatchedAt || new Date(0).toISOString(),
+      lastMatchedAt: row.lastMatchedAt || new Date().toISOString(),
     }));
 
     return {

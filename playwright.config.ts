@@ -5,7 +5,9 @@ import path from 'path';
 // Read from .env.local
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'https://face-locator-enrollment.localhost';
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ||
+  (process.env.CI ? 'http://127.0.0.1:3000' : 'https://face-locator-enrollment.localhost');
 const shouldStartLocalServer = !process.env.PLAYWRIGHT_BASE_URL;
 
 export default defineConfig({
@@ -31,7 +33,9 @@ export default defineConfig({
 
   webServer: shouldStartLocalServer
     ? {
-        command: 'pnpm run dev',
+        command: process.env.CI
+          ? 'pnpm exec next dev --hostname 127.0.0.1 --port 3000'
+          : 'pnpm run dev',
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         ignoreHTTPSErrors: true,

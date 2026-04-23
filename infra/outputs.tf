@@ -8,11 +8,6 @@ output "event_photos_bucket_name" {
   value       = aws_s3_bucket.event_photos.bucket
 }
 
-output "event_logos_bucket_name" {
-  description = "Public S3 bucket used for event logo uploads."
-  value       = aws_s3_bucket.event_logos.bucket
-}
-
 output "rekognition_collection_id" {
   description = "Rekognition collection id for attendee face enrollment."
   value       = aws_rekognition_collection.attendee_faces.collection_id

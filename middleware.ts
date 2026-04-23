@@ -6,6 +6,7 @@ import { isCognitoAdminAuthConfigured } from "@/lib/admin/auth";
 const ADMIN_LOGIN_PATH = "/admin/login";
 const ADMIN_LOGIN_API_PATH = "/api/admin/login";
 const ADMIN_CALLBACK_API_PATH = "/api/admin/callback";
+const ADMIN_TOKEN_CALLBACK_API_PATH = "/api/admin/token-callback";
 const ADMIN_LOGOUT_API_PATH = "/api/admin/logout";
 
 function isAdminPath(pathname: string) {
@@ -54,6 +55,7 @@ export async function middleware(request: NextRequest) {
     pathname === ADMIN_LOGIN_PATH ||
     pathname === ADMIN_LOGIN_API_PATH ||
     pathname === ADMIN_CALLBACK_API_PATH ||
+    pathname === ADMIN_TOKEN_CALLBACK_API_PATH ||
     pathname === ADMIN_LOGOUT_API_PATH
   ) {
     return NextResponse.next();

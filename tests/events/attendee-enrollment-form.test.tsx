@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -96,9 +96,43 @@ describe("attendee enrollment form", () => {
     );
 
     const file = new File(["binary"], "selfie.jpg", { type: "image/jpeg" });
-    const fileInput = screen.getByLabelText(/selfie upload/i);
+    const fileInput = screen.getByLabelText(/selfie upload/i, { selector: "input" });
 
     await user.upload(fileInput, file);
+
+    expect(createObjectURLMock).toHaveBeenCalledWith(file);
+    expect(screen.getByAltText("Selected selfie preview").getAttribute("src")).toBe(
+      "blob:preview",
+    );
+  });
+
+  it("accepts a dropped selfie and opens the camera-friendly file picker", async () => {
+    const file = new File(["binary"], "selfie.jpg", { type: "image/jpeg" });
+
+    render(
+      <AttendeeEnrollmentForm
+        eventSlug="speaker-session-2026"
+        eventTitle="Speaker Session 2026"
+      />,
+    );
+
+    expect(
+      screen.getByLabelText(/selfie upload/i, { selector: "input" }).getAttribute("capture"),
+    ).toBe("environment");
+
+    const dropzone = screen.getByTestId("selfie-dropzone");
+    fireEvent.dragEnter(dropzone);
+    fireEvent.dragOver(dropzone, {
+      dataTransfer: {
+        files: [file],
+        dropEffect: "copy",
+      },
+    });
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [file],
+      },
+    });
 
     expect(createObjectURLMock).toHaveBeenCalledWith(file);
     expect(screen.getByAltText("Selected selfie preview").getAttribute("src")).toBe(
@@ -120,7 +154,7 @@ describe("attendee enrollment form", () => {
       />,
     );
 
-    const fileInput = screen.getByLabelText(/selfie upload/i);
+    const fileInput = screen.getByLabelText(/selfie upload/i, { selector: "input" });
     await user.upload(fileInput, new File(["one"], "first.jpg", { type: "image/jpeg" }));
     await user.upload(fileInput, new File(["two"], "second.jpg", { type: "image/jpeg" }));
 
@@ -178,7 +212,7 @@ describe("attendee enrollment form", () => {
     await user.click(screen.getByLabelText(/i consent to facelocator/i));
 
     const file = new File(["binary"], "selfie.jpg", { type: "image/jpeg" });
-    await user.upload(screen.getByLabelText(/selfie upload/i), file);
+    await user.upload(screen.getByLabelText(/selfie upload/i, { selector: "input" }), file);
 
     const submitButton = screen.getByRole("button", { name: /register my selfie/i });
     await user.click(submitButton);
@@ -220,7 +254,7 @@ describe("attendee enrollment form", () => {
     await user.type(screen.getByLabelText(/email address/i), "jane@example.com");
     await user.click(screen.getByLabelText(/i consent to facelocator/i));
     await user.upload(
-      screen.getByLabelText(/selfie upload/i),
+      screen.getByLabelText(/selfie upload/i, { selector: "input" }),
       new File(["binary"], "selfie.jpg", { type: "image/jpeg" }),
     );
 

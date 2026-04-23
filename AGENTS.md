@@ -9,7 +9,62 @@ This repository is a POC with a narrow production boundary. Future agents should
 - Use `apply_patch` for edits.
 - Prefer `rg` / `rg --files` for discovery.
 - Keep changes small and traceable. If a fix spans app, lambda, and Terraform, update all three together or do not merge the partial change.
-- Ignore `.codex/` and other local workspace artifacts. They are not part of the product repo.
+- Keep `.codex/` and other local workspace artifacts out of git. They are not part of the product repo.
+- If you change the request flow, backend boundary, or infrastructure shape, update `README.md`, the architecture diagrams, and the matching docs in the same change.
+
+## Spawn Strategy
+
+Use an inverse pyramid: start with the cheapest model that can plausibly do the work, then move up only when the task is genuinely demanding.
+
+### Tier 0: Orchestrator
+
+- Default the main agent to the cheapest available model for coordination, triage, and incremental edits.
+- Use this tier for simple changes, ordinary bug fixes, routine refactors, file discovery, and implementation sequencing.
+- Keep reasoning effort low unless the task clearly needs deeper synthesis.
+
+### Tier 1: Cheap Specialists
+
+- Spawn one or more cheap models when the work can be isolated by domain, file set, or language.
+- Use these agents for narrow implementation slices, local debugging, log inspection, test analysis, and report generation.
+- Prefer parallel cheap agents for frontend, backend, desktop, infrastructure, and language-specific subtasks when their outputs do not depend on each other.
+- Set reasoning effort to low for straightforward execution and medium only when the subtask has moderate ambiguity.
+
+### Tier 2: Mid-Tier Integration
+
+- Use a stronger model when the task crosses boundaries and requires stitching together multiple domains, but is not yet a full architecture or planning problem.
+- This tier is appropriate for integration fixes, contract alignment, cross-file refactors, and troubleshooting where multiple clues must be reconciled.
+- Set reasoning effort to medium by default.
+
+### Tier 3: High-Capability Planning
+
+- Reserve the most capable and expensive model for planning, design, optimization, architecture decisions, complex troubleshooting, and tasks with high ambiguity or high blast radius.
+- Use it when the cost of a wrong assumption is higher than the cost of the model.
+- Set reasoning effort to high or xhigh only for these demanding tasks.
+
+### Verification Agent
+
+- Spawn a verification-focused agent at the end of substantial work to confirm the requirements are met and the solution is practical, minimal, and not overengineered.
+- Prefer a cheap or mid-tier model for verification unless the verification itself is complex or architecture-sensitive.
+- The verification agent should validate behavior, edge cases, and regression risk, then report any remaining gaps before finalizing.
+
+### Delegation Rules
+
+- Default to cheap models for implementation and troubleshooting orchestration.
+- Spawn as many cheap agents as needed when tasks split cleanly across frontend, backend, desktop, infrastructure, or different languages.
+- Escalate only the smallest task that actually needs more capability; do not upgrade the whole workflow by default.
+- When spawning, set reasoning mode explicitly and conservatively:
+  - `low` for bounded execution and narrow investigation
+  - `medium` for moderate ambiguity or cross-file coordination
+  - `high` or `xhigh` only for hard planning, optimization, or deep debugging
+- Keep the central agent in control of sequencing, integration, and final decisions.
+
+## Feature And Specification Intake
+
+- For a new feature, specification, or implementation request, ask clarifying questions until you understand roughly 90% of the needed behavior before editing.
+- Clarify the user journey, inputs, outputs, error states, permissions, persistence, deployment target, and verification expectations when they are relevant.
+- Prefer a small number of high-signal questions over a long questionnaire. Continue only when the remaining unknowns are low-risk or explicitly accepted by the user.
+- Do not fill major product gaps with assumptions. If an assumption is necessary, state it clearly before implementing and keep the design conservative.
+- Avoid overengineering. Fit the solution to the confirmed scope and the existing architecture.
 
 ## Current Architecture
 
@@ -123,6 +178,14 @@ Use this order:
    - Check VPC config, security groups, subnet routing, and secret access.
 
 Do not start at step 4. That was the wrong ordering previously.
+
+## After Troubleshooting
+
+- After resolving an issue, think through how to prevent the same class of failure from recurring, not only the exact error that was reported.
+- Consider adjacent inputs and flows that use the same boundary: different event slugs, browsers, origins, permissions, schemas, buckets, Lambdas, and deployment environments.
+- Add or recommend the smallest durable prevention that fits the risk: validation, tests, schema guards, Terraform assertions, runbook updates, clearer logging, or production verification steps.
+- If prevention requires broader product or infrastructure scope than the immediate fix, call that out explicitly instead of silently expanding the change.
+- Include the prevention check in the final report so the user can see whether the fix is narrow, generalized, or intentionally deferred.
 
 ## Working With Logs
 

@@ -18,6 +18,7 @@ This README is meant to help both humans and AI agents understand the codebase q
 - Issues upload instructions through a gateway abstraction
 - Tracks registration status through `UPLOAD_PENDING`, `PROCESSING`, `ENROLLED`, `FAILED`, and `CANCELLED`
 - Exposes admin pages for event and photo management
+- Routes public registration and admin reads through explicit backend modes so the app can run in mock mode or through VPC-attached Lambdas when the database is private
 - Keeps the AWS-backed pieces behind explicit boundaries so the app can still run in mock mode
 
 ## System Landscape
@@ -29,10 +30,13 @@ flowchart LR
   operator[AWS operator]
 
   app[FaceLocator Next.js app]
-  admin[Admin UI]
+  publicPage[Public registration page]
+  adminPage[Admin UI]
   api[Route handlers]
   repo[Attendee repository]
   upload[Upload gateway]
+  attendeeLambda[Attendee registration Lambda]
+  adminReadLambda[Admin read Lambda]
   db[(PostgreSQL-compatible DB)]
   selfies[(S3 selfies bucket)]
   photos[(S3 event photos bucket)]
@@ -44,24 +48,34 @@ flowchart LR
   secrets[Secrets Manager]
 
   attendee --> app
-  organizer --> admin
+  organizer --> adminPage
   operator --> app
+  app --> publicPage
+  app --> adminPage
   app --> api
   api --> repo
   api --> upload
+  api --> attendeeLambda
+  api --> adminReadLambda
   repo --> db
   upload --> selfies
+  attendeeLambda --> db
+  adminReadLambda --> db
   lambda1 --> selfies
   lambda1 --> rek
   lambda1 --> db
   lambda2 --> photos
   lambda2 --> rek
   lambda2 --> db
-  admin --> cognito
+  adminPage --> cognito
   app --> cloudwatch
+  attendeeLambda --> cloudwatch
+  adminReadLambda --> cloudwatch
   lambda1 --> cloudwatch
   lambda2 --> cloudwatch
   app --> secrets
+  attendeeLambda --> secrets
+  adminReadLambda --> secrets
   lambda1 --> secrets
   lambda2 --> secrets
 ```
@@ -94,6 +108,8 @@ flowchart LR
 
   subgraph NextJS["Next.js app"]
     routes["Route handlers"]
+    publicBackend["Public registration backend"]
+    adminBackend["Admin read backend"]
     attendeeLib["Attendee orchestration"]
     adminLib["Admin/event logic"]
     eventQueries["Event queries"]
@@ -104,6 +120,8 @@ flowchart LR
     s3Selfies[(Selfies bucket)]
     s3Photos[(Event photos bucket)]
     lambdaEnroll["Selfie enrollment Lambda"]
+    lambdaAttendee["Attendee registration Lambda"]
+    lambdaAdmin["Admin read Lambda"]
     lambdaPhotos["Event photo worker Lambda"]
     rekognition["Rekognition"]
     secrets["Secrets Manager"]
@@ -112,11 +130,17 @@ flowchart LR
 
   publicPage --> routes
   adminPage --> routes
+  routes --> publicBackend
+  routes --> adminBackend
   routes --> attendeeLib
   routes --> adminLib
   routes --> eventQueries
   attendeeLib --> db
   attendeeLib --> s3Selfies
+  publicBackend --> lambdaAttendee
+  adminBackend --> lambdaAdmin
+  lambdaAttendee --> db
+  lambdaAdmin --> db
   adminLib --> db
   adminLib --> s3Photos
   lambdaEnroll --> s3Selfies
@@ -141,8 +165,10 @@ sequenceDiagram
   actor A as Attendee
   participant P as Public page
   participant R as /api/attendees/register
+  participant B as Backend mode
   participant G as Upload gateway
   participant D as Repository
+  participant L as Attendee registration Lambda
   participant U as Selfie bucket
   participant C as /api/attendees/register/complete
   participant S as /api/attendees/register/status/{id}
@@ -150,10 +176,20 @@ sequenceDiagram
   A->>P: Open event registration page
   A->>P: Fill form and choose selfie
   P->>R: POST registration intent
-  R->>D: validate event and create registration
-  D->>G: create upload instructions
-  G-->>D: presigned PUT details
-  D-->>R: registrationId + upload instructions
+  R->>B: resolve public registration backend
+  alt lambda mode
+    B->>L: create registration intent
+    L->>D: validate event and create registration
+    D->>G: create upload instructions
+    G-->>D: presigned PUT details
+    D-->>L: registrationId + upload instructions
+    L-->>R: registrationId + upload instructions
+  else mock or direct mode
+    B->>D: validate event and create registration
+    D->>G: create upload instructions
+    G-->>D: presigned PUT details
+    D-->>R: registrationId + upload instructions
+  end
   R-->>P: upload instructions
   P->>U: PUT selfie file
   P->>C: POST upload completion
@@ -174,6 +210,7 @@ sequenceDiagram
   participant UI as Admin UI
   participant AUTH as Cognito auth
   participant API as Admin route handlers
+  participant L as Admin read Lambda
   participant DB as Database
   participant S3 as Event photos bucket
 
@@ -181,7 +218,8 @@ sequenceDiagram
   UI->>AUTH: Authenticate with hosted UI
   AUTH-->>UI: Tokens / session
   UI->>API: Load events and photos
-  API->>DB: Query event and photo records
+  API->>L: Resolve admin read backend
+  L->>DB: Query event and photo records
   API->>S3: Create signed preview URLs when needed
   API-->>UI: Event listing and photo data
 ```
@@ -227,7 +265,10 @@ flowchart TB
   subgraph AWS["AWS POC"]
     s3Selfies[(Selfies S3 bucket)]
     s3EventPhotos[(Event photos S3 bucket)]
+    s3EventLogos[(Event logos S3 bucket)]
     lambdaSelfie["Selfie enrollment Lambda"]
+    lambdaAttendee["Attendee registration Lambda"]
+    lambdaAdmin["Admin read Lambda"]
     lambdaPhoto["Event photo worker Lambda"]
     rekognition["Rekognition collection"]
     rds[(PostgreSQL-compatible DB)]
@@ -242,17 +283,26 @@ flowchart TB
   nextServer --> apiRoutes
   apiRoutes --> rds
   apiRoutes --> s3Selfies
+  apiRoutes --> s3EventLogos
   apiRoutes --> cognito
+  apiRoutes --> lambdaAttendee
+  apiRoutes --> lambdaAdmin
   lambdaSelfie --> s3Selfies
   lambdaSelfie --> rekognition
   lambdaSelfie --> rds
+  lambdaAttendee --> rds
+  lambdaAdmin --> rds
   lambdaPhoto --> s3EventPhotos
   lambdaPhoto --> rekognition
   lambdaPhoto --> rds
   nextServer --> secrets
+  lambdaAttendee --> secrets
+  lambdaAdmin --> secrets
   lambdaSelfie --> secrets
   lambdaPhoto --> secrets
   nextServer --> logs
+  lambdaAttendee --> logs
+  lambdaAdmin --> logs
   lambdaSelfie --> logs
   lambdaPhoto --> logs
 ```
@@ -319,11 +369,17 @@ The most important runtime variables are:
 
 - `FACE_LOCATOR_REPOSITORY_TYPE`
 - `FACE_LOCATOR_AWS_UPLOAD_MODE`
+- `ADMIN_READ_BACKEND`
+- `PUBLIC_REGISTRATION_BACKEND`
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
+- `FACE_LOCATOR_EVENT_LOGOS_BUCKET`
 - `FACE_LOCATOR_PUBLIC_BASE_URL`
 - `FACE_LOCATOR_DATABASE_SECRET_NAME`
 - `FACE_LOCATOR_DATABASE_SECRET_ARN`
+- `FACE_LOCATOR_ADMIN_EVENTS_READ_LAMBDA_NAME`
+- `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME`
+- `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
 - `AWS_REGION`
 - `MATCH_LINK_SIGNING_SECRET`
 - `MATCH_LINK_TTL_DAYS`
@@ -372,6 +428,7 @@ That split is the main thing contributors should preserve when adding new behavi
 - Keep AWS-specific logic behind the boundary modules instead of spreading it through UI code
 - Prefer explicit contracts and deterministic state transitions over hidden side effects
 - Update the relevant docs when the architecture or operational path changes
+- Keep the README architecture diagrams aligned with the actual runtime paths, especially when backend modes or Lambda boundaries change
 
 ### For AI agents
 

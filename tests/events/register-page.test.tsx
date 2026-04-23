@@ -41,10 +41,13 @@ describe("event registration page", () => {
     const markup = renderToStaticMarkup(element);
 
     expect(markup).toContain("Event registration");
-    expect(markup).toContain("DevBcn event logo");
+    expect(markup).toContain("/event-default-logo.svg");
+    expect(markup).toContain("DevBcn 2026 event logo");
     expect(markup).toContain("DevBcn 2026");
     expect(markup).toContain("World Trade Center, Barcelona");
     expect(markup).toContain("June 16-17, 2026");
+    expect(markup).toContain("Scan this QR code to open the registration page on your phone.");
+    expect(markup).toContain("http://localhost:3000/events/speaker-session-2026/register");
     expect(formMock).toHaveBeenCalledWith(
       {
         eventSlug: "speaker-session-2026",

@@ -33,10 +33,12 @@ Set these on the Amplify app or production branch:
 - `FACE_LOCATOR_REPOSITORY_TYPE=postgres`
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
+- `FACE_LOCATOR_EVENT_LOGOS_BUCKET`
 - `ADMIN_READ_BACKEND=lambda`
 - `FACE_LOCATOR_ADMIN_EVENTS_READ_LAMBDA_NAME`
 - `PUBLIC_REGISTRATION_BACKEND=lambda`
 - `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME`
+- `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME` or `MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
 
 ### Per-tenant Cognito admin variables (runbook)
@@ -137,11 +139,12 @@ This role needs:
 
 - `lambda:InvokeFunction` on the admin read Lambda
 - `lambda:InvokeFunction` on the attendee registration Lambda
+- `lambda:InvokeFunction` on the matched photo notifier Lambda
 - `secretsmanager:GetSecretValue` on the database secret used by the hosted app
 - S3 permissions required by the Next.js presign boundary for selfie uploads
 - any KMS permissions only if the selected secret or bucket policy requires a customer-managed key
 
-Terraform exports the invoke policies as `nextjs_admin_events_read_invoke_policy_arn` and `nextjs_attendee_registration_invoke_policy_arn`; attach those policies to the Amplify compute role alongside `nextjs_presign_policy_arn`.
+Terraform exports the invoke policies as `nextjs_admin_events_read_invoke_policy_arn`, `nextjs_attendee_registration_invoke_policy_arn`, and `nextjs_matched_photo_notifier_invoke_policy_arn`; attach those policies to the Amplify compute role alongside `nextjs_presign_policy_arn`.
 
 ## GitHub repository configuration
 
@@ -151,6 +154,7 @@ Configure these repository-level values:
 - Variable: `AWS_REGION=eu-west-1`
 - Variable: `FACE_LOCATOR_SELFIES_BUCKET=face-locator-poc-selfies`
 - Variable: `FACE_LOCATOR_EVENT_PHOTOS_BUCKET=face-locator-poc-event-photos`
+- Variable: `FACE_LOCATOR_EVENT_LOGOS_BUCKET=face-locator-poc-event-logos`
 - Variable: `AMPLIFY_APP_ID=<app-id>`
 - Variable: `AMPLIFY_PRODUCTION_BRANCH=main`
 

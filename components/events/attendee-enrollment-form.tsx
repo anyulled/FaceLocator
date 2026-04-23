@@ -3,8 +3,8 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import React from "react";
-import type { CSSProperties, FormEvent } from "react";
-import { useEffect, useState } from "react";
+import type { CSSProperties, DragEvent, FormEvent, KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AttendeeEnrollmentStatus } from "@/components/events/attendee-enrollment-status";
 import { completeRegistration, createRegistrationIntent, getRegistrationStatus, uploadSelfie } from "@/lib/attendees/client";
@@ -48,6 +48,8 @@ export function AttendeeEnrollmentForm({
     initialRegistrationId,
   );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [isDragActive, setIsDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     trackEnrollmentEvent("enrollment_form_viewed", { eventSlug });
@@ -149,6 +151,45 @@ export function AttendeeEnrollmentForm({
     setSelectedFile(file);
     setPreviewUrl(nextPreviewUrl);
     trackEnrollmentEvent("enrollment_file_selected", { eventSlug });
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function openFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  function handleDropZoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openFilePicker();
+    }
+  }
+
+  function handleDropZoneDragEnter() {
+    setIsDragActive(true);
+  }
+
+  function handleDropZoneDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setIsDragActive(true);
+  }
+
+  function handleDropZoneDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+
+    setIsDragActive(false);
+  }
+
+  function handleDropZoneDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragActive(false);
+    handleSelectedFile(event.dataTransfer.files?.[0] ?? null);
   }
 
   async function handleSubmit(formDataEvent: FormEvent<HTMLFormElement>) {
@@ -319,19 +360,47 @@ export function AttendeeEnrollmentForm({
         <label htmlFor="selfie" style={{ fontWeight: 600 }}>
           Selfie upload
         </label>
-        <input
-          id="selfie"
-          name="selfie"
-          type="file"
-          accept={SELFIE_FILE_ACCEPT}
-          multiple={false}
-          onChange={(changeEvent) => {
-            handleSelectedFile(changeEvent.target.files?.[0] ?? null);
-          }}
-          style={inputStyles}
-          aria-invalid={fieldErrors.selfie ? "true" : "false"}
-          aria-describedby={fieldErrors.selfie ? "selfie-error" : "selfie-help"}
-        />
+        <div
+          data-testid="selfie-dropzone"
+          role="button"
+          tabIndex={0}
+          onClick={openFilePicker}
+          onKeyDown={handleDropZoneKeyDown}
+          onDragEnter={handleDropZoneDragEnter}
+          onDragOver={handleDropZoneDragOver}
+          onDragLeave={handleDropZoneDragLeave}
+          onDrop={handleDropZoneDrop}
+          aria-label="Selfie upload dropzone"
+          style={dropzoneStyles(isDragActive)}
+        >
+          <input
+            ref={fileInputRef}
+            id="selfie"
+            name="selfie"
+            type="file"
+            accept={SELFIE_FILE_ACCEPT}
+            capture="environment"
+            multiple={false}
+            onChange={(changeEvent) => {
+              handleSelectedFile(changeEvent.target.files?.[0] ?? null);
+            }}
+            style={hiddenInputStyles}
+            aria-invalid={fieldErrors.selfie ? "true" : "false"}
+            aria-describedby={fieldErrors.selfie ? "selfie-error" : "selfie-help"}
+          />
+          <div style={{ display: "grid", gap: "0.6rem" }}>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: "1rem" }}>
+              Drag and drop a selfie here, or tap to choose a file.
+            </p>
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.95rem", lineHeight: 1.7 }}>
+              On mobile browsers, the file picker can open your camera so you can capture a new
+              selfie instead of uploading an existing photo.
+            </p>
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.9rem" }}>
+              Accepted formats: JPEG, PNG, and WEBP.
+            </p>
+          </div>
+        </div>
         {previewUrl ? (
           <figure
             style={{
@@ -461,7 +530,32 @@ const inputStyles: CSSProperties = {
   font: "inherit",
 };
 
+const hiddenInputStyles: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
+function dropzoneStyles(isActive: boolean): CSSProperties {
+  return {
+    position: "relative",
+    border: `1px dashed ${isActive ? "var(--accent-strong)" : "var(--border)"}`,
+    borderRadius: "1rem",
+    padding: "1rem",
+    background: isActive ? "rgba(191, 79, 53, 0.08)" : "rgba(255, 255, 255, 0.82)",
+    cursor: "pointer",
+    transition: "border-color 120ms ease, background 120ms ease",
+  };
+}
+
 const errorStyles: CSSProperties = {
   color: "var(--danger)",
   fontSize: "0.92rem",
+  margin: 0,
 };

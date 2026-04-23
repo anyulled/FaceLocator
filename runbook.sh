@@ -15,6 +15,8 @@ INVOKE_NOTIFIER="${INVOKE_NOTIFIER:-false}"
 TAIL_LOGS="${TAIL_LOGS:-false}"
 ADMIN_READ_BACKEND="${ADMIN_READ_BACKEND:-lambda}"
 ADMIN_READ_LAMBDA_NAME="${ADMIN_READ_LAMBDA_NAME:-face-locator-${TF_ENVIRONMENT}-admin-events-read}"
+PUBLIC_REGISTRATION_BACKEND="${PUBLIC_REGISTRATION_BACKEND:-lambda}"
+ATTENDEE_REGISTRATION_LAMBDA_NAME="${ATTENDEE_REGISTRATION_LAMBDA_NAME:-face-locator-${TF_ENVIRONMENT}-attendee-registration}"
 
 NOTIFIER_FUNCTION_NAME="${NOTIFIER_FUNCTION_NAME:-face-locator-${TF_ENVIRONMENT}-matched-photo-notifier}"
 NOTIFIER_LOG_GROUP="${NOTIFIER_LOG_GROUP:-/aws/lambda/${NOTIFIER_FUNCTION_NAME}}"
@@ -46,6 +48,7 @@ echo "  AWS_REGION=${AWS_REGION}"
 echo "  TF_ENVIRONMENT=${TF_ENVIRONMENT}"
 echo "  EVENT_SLUG=${EVENT_SLUG}"
 echo "  ADMIN_READ_BACKEND=${ADMIN_READ_BACKEND}"
+echo "  PUBLIC_REGISTRATION_BACKEND=${PUBLIC_REGISTRATION_BACKEND}"
 
 run aws sts get-caller-identity
 
@@ -56,6 +59,7 @@ required_env=(
   SES_FROM_EMAIL
   FACE_LOCATOR_EVENT_PHOTOS_BUCKET
   ADMIN_READ_BACKEND
+  PUBLIC_REGISTRATION_BACKEND
 )
 for v in "${required_env[@]}"; do
   if [[ -z "${!v:-}" ]]; then
@@ -121,6 +125,10 @@ run aws scheduler list-schedules --name-prefix "${SCHEDULER_PREFIX}"
 
 if [[ "${ADMIN_READ_BACKEND}" == "lambda" ]]; then
   run aws lambda get-function --function-name "${ADMIN_READ_LAMBDA_NAME}"
+fi
+
+if [[ "${PUBLIC_REGISTRATION_BACKEND}" == "lambda" ]]; then
+  run aws lambda get-function --function-name "${ATTENDEE_REGISTRATION_LAMBDA_NAME}"
 fi
 
 if [[ "${INVOKE_NOTIFIER}" == "true" ]]; then

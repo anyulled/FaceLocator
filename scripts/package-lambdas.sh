@@ -33,6 +33,7 @@ package_lambda_if_present() {
 }
 
 package_lambda "${ROOT_DIR}/lambdas/selfie-enrollment"
+package_lambda "${ROOT_DIR}/lambdas/attendee-registration"
 package_lambda "${ROOT_DIR}/lambdas/admin-read"
 package_lambda "${ROOT_DIR}/lambdas/event-photo-worker"
 package_lambda "${ROOT_DIR}/lambdas/matched-photo-notifier"

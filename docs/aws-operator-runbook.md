@@ -67,6 +67,7 @@ Operational notes:
 ## Logs and inspection
 
 - Selfie worker log group: `/aws/lambda/<project>-<env>-selfie-enrollment`
+- Attendee registration log group: `/aws/lambda/<project>-<env>-attendee-registration`
 - Event-photo worker log group: `/aws/lambda/<project>-<env>-event-photo-worker`
 - Inspect bucket objects with `aws s3 ls s3://<bucket>/events/<eventId>/`.
 

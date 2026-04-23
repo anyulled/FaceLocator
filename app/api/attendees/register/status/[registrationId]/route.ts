@@ -1,4 +1,8 @@
 import {
+  getPublicRegistrationBackendMode,
+  getRegistrationStatusViaBackend,
+} from "@/lib/attendees/backend";
+import {
   errorResponseWithCorrelationId,
   getRequestCorrelationId,
   jsonWithCorrelationId,
@@ -21,7 +25,9 @@ export async function GET(
 
   try {
     const { registrationId } = await context.params;
-    const response = await getAttendeeRepository().getRegistrationStatus(registrationId);
+    const response = getPublicRegistrationBackendMode() === "lambda"
+      ? await getRegistrationStatusViaBackend(registrationId)
+      : await getAttendeeRepository().getRegistrationStatus(registrationId);
     logRouteInfo("registration_status_read", {
       correlationId,
       registrationId,

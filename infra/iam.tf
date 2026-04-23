@@ -79,6 +79,26 @@ resource "aws_iam_role_policy_attachment" "nextjs_admin_events_read_invoke" {
   policy_arn = aws_iam_policy.nextjs_admin_events_read_invoke.arn
 }
 
+data "aws_iam_policy_document" "nextjs_attendee_registration_invoke" {
+  statement {
+    sid       = "AllowInvokeAttendeeRegistrationLambda"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.attendee_registration.arn]
+  }
+}
+
+resource "aws_iam_policy" "nextjs_attendee_registration_invoke" {
+  name        = "${local.name_prefix}-nextjs-attendee-registration-invoke"
+  description = "Least-privilege Lambda invoke permission for the Next.js public registration flow."
+  policy      = data.aws_iam_policy_document.nextjs_attendee_registration_invoke.json
+}
+
+resource "aws_iam_role_policy_attachment" "nextjs_attendee_registration_invoke" {
+  count      = length(data.aws_iam_role.nextjs_runtime) > 0 ? 1 : 0
+  role       = data.aws_iam_role.nextjs_runtime[0].name
+  policy_arn = aws_iam_policy.nextjs_attendee_registration_invoke.arn
+}
+
 resource "aws_iam_role" "selfie_enrollment_lambda" {
   name               = "${local.lambda_names.selfie_enrollment}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
@@ -130,6 +150,55 @@ resource "aws_iam_role_policy" "selfie_enrollment_lambda" {
 
 resource "aws_iam_role_policy_attachment" "selfie_enrollment_vpc_access" {
   role       = aws_iam_role.selfie_enrollment_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role" "attendee_registration_lambda" {
+  name               = "${local.lambda_names.attendee_registration}-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+data "aws_iam_policy_document" "attendee_registration_lambda" {
+  statement {
+    sid       = "AllowCreateLogGroup"
+    actions   = ["logs:CreateLogGroup"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowWriteAttendeeRegistrationLogs"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.attendee_registration.arn}:*"]
+  }
+
+  statement {
+    sid       = "AllowReadDatabaseSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.database.arn]
+  }
+
+  statement {
+    sid = "AllowPresignSelfieUploads"
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:PutObject",
+      "s3:PutObjectTagging",
+    ]
+    resources = ["${aws_s3_bucket.selfies.arn}/events/*/attendees/*/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "attendee_registration_lambda" {
+  name   = "${local.lambda_names.attendee_registration}-policy"
+  role   = aws_iam_role.attendee_registration_lambda.id
+  policy = data.aws_iam_policy_document.attendee_registration_lambda.json
+}
+
+resource "aws_iam_role_policy_attachment" "attendee_registration_vpc_access" {
+  role       = aws_iam_role.attendee_registration_lambda.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 

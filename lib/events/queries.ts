@@ -1,4 +1,8 @@
 import type { EnrollmentEventSummary } from "@/lib/attendees/contracts";
+import {
+  getPublicEventBySlugViaBackend,
+  getPublicRegistrationBackendMode,
+} from "@/lib/attendees/backend";
 import { getDatabasePool } from "@/lib/aws/database";
 import { describeDatabaseError } from "@/lib/aws/database-errors";
 
@@ -56,6 +60,11 @@ export async function getEventBySlug(slug: string): Promise<EnrollmentEventSumma
   const normalizedSlug = slug.trim().toLowerCase();
   if (!normalizedSlug) {
     return null;
+  }
+
+  if (process.env.NODE_ENV !== "test" && getPublicRegistrationBackendMode() === "lambda") {
+    const result = await getPublicEventBySlugViaBackend(normalizedSlug);
+    return result.event;
   }
 
   if (process.env.NODE_ENV !== "test") {

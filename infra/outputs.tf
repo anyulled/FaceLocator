@@ -28,6 +28,11 @@ output "admin_events_read_lambda_name" {
   value       = aws_lambda_function.admin_events_read.function_name
 }
 
+output "attendee_registration_lambda_name" {
+  description = "Public attendee registration Lambda function name."
+  value       = aws_lambda_function.attendee_registration.function_name
+}
+
 output "admin_events_read_lambda_arn" {
   description = "Admin events read Lambda function ARN."
   value       = aws_lambda_function.admin_events_read.arn
@@ -51,6 +56,11 @@ output "nextjs_presign_policy_arn" {
 output "nextjs_admin_events_read_invoke_policy_arn" {
   description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the admin events read Lambda."
   value       = aws_iam_policy.nextjs_admin_events_read_invoke.arn
+}
+
+output "nextjs_attendee_registration_invoke_policy_arn" {
+  description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the public registration Lambda."
+  value       = aws_iam_policy.nextjs_attendee_registration_invoke.arn
 }
 
 output "match_link_signing_secret_name" {

@@ -1,5 +1,9 @@
 import { createApiError } from "@/lib/attendees/errors";
 import {
+  createRegistrationIntentViaBackend,
+  getPublicRegistrationBackendMode,
+} from "@/lib/attendees/backend";
+import {
   errorResponseWithCorrelationId,
   getRequestCorrelationId,
   jsonWithCorrelationId,
@@ -31,6 +35,18 @@ export async function POST(request: Request) {
         "RATE_LIMITED",
         "Too many enrollment attempts. Please try again shortly.",
       );
+    }
+
+    if (getPublicRegistrationBackendMode() === "lambda") {
+      const response = await createRegistrationIntentViaBackend(payload);
+
+      logRouteInfo("registration_intent_created", {
+        correlationId,
+        eventSlug: payload.eventSlug,
+        registrationId: response.registrationId,
+      });
+
+      return jsonWithCorrelationId(response, correlationId);
     }
 
     const event = await getEventBySlug(payload.eventSlug);

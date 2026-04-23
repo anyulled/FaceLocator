@@ -32,7 +32,15 @@ export function getPublicRegistrationBackendMode(): PublicRegistrationBackendMod
     "FACE_LOCATOR_PUBLIC_REGISTRATION_BACKEND",
     "ATTENDEE_REGISTRATION_BACKEND",
   );
-  return mode === "lambda" ? "lambda" : "direct";
+  if (mode === "direct") {
+    return "direct";
+  }
+
+  if (mode === "lambda" || process.env.FACE_LOCATOR_REPOSITORY_TYPE === "postgres") {
+    return "lambda";
+  }
+
+  return "direct";
 }
 
 export function getAttendeeRegistrationLambdaName() {

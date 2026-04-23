@@ -33,6 +33,8 @@ const samplePhoto = {
 
 const sampleFaceMatchSummary = {
   totalMatchedFaces: 1,
+  totalRegisteredSelfies: 4,
+  totalAssociatedUsers: 5,
   matchedFaces: [
     {
       attendeeId: "attendee-1",
@@ -71,6 +73,8 @@ describe("photos manager", () => {
     renderManager();
 
     expect(screen.getByText("Matched faces in this event: 1")).toBeTruthy();
+    expect(screen.getByText("Selfies registered: 4")).toBeTruthy();
+    expect(screen.getByText("Users associated with event: 5")).toBeTruthy();
     const item = screen.getByText(/Test User/).closest("li");
     expect(item?.textContent).toContain("Test User (test@example.com): 3 photos matched");
   });

@@ -27,6 +27,8 @@ export default async function AdminEventPhotosPage({
     photos: [],
     faceMatchSummary: {
       totalMatchedFaces: 0,
+      totalRegisteredSelfies: 0,
+      totalAssociatedUsers: 0,
       matchedFaces: [],
     },
     page,
@@ -143,6 +145,8 @@ export default async function AdminEventPhotosPage({
           initialFaceMatchSummary={
             photosPage.faceMatchSummary ?? {
               totalMatchedFaces: 0,
+              totalRegisteredSelfies: 0,
+              totalAssociatedUsers: 0,
               matchedFaces: [],
             }
           }

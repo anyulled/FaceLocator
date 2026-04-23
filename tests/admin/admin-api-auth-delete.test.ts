@@ -190,6 +190,8 @@ describe("admin api auth and delete behavior", () => {
       photos: [],
       faceMatchSummary: {
         totalMatchedFaces: 1,
+        totalRegisteredSelfies: 2,
+        totalAssociatedUsers: 3,
         matchedFaces: [
           {
             attendeeId: "attendee-1",
@@ -228,6 +230,8 @@ describe("admin api auth and delete behavior", () => {
       photos: [],
       faceMatchSummary: {
         totalMatchedFaces: 1,
+        totalRegisteredSelfies: 2,
+        totalAssociatedUsers: 3,
         matchedFaces: [
           {
             attendeeId: "attendee-1",
@@ -253,6 +257,8 @@ describe("admin api auth and delete behavior", () => {
       photos: [],
       faceMatchSummary: {
         totalMatchedFaces: 0,
+        totalRegisteredSelfies: 0,
+        totalAssociatedUsers: 0,
         matchedFaces: [],
       },
       page: 1,

@@ -368,6 +368,8 @@ export async function listAdminEventPhotos(input: {
           photos: [],
           faceMatchSummary: {
             totalMatchedFaces: 0,
+            totalRegisteredSelfies: 0,
+            totalAssociatedUsers: 0,
             matchedFaces: [],
           },
           page: input.page,
@@ -378,7 +380,7 @@ export async function listAdminEventPhotos(input: {
 
       const offset = (input.page - 1) * input.pageSize;
 
-      const [rowsRes, totalRes, faceMatchesRes] = await Promise.all([
+      const [rowsRes, totalRes, faceMatchesRes, eventStatsRes] = await Promise.all([
         pool.query<PhotoRow>(
           `
             SELECT
@@ -452,6 +454,28 @@ export async function listAdminEventPhotos(input: {
           `,
           [event.id],
         ),
+        pool.query<{
+          totalRegisteredSelfies: string;
+          totalAssociatedUsers: string;
+        }>(
+          `
+            SELECT
+              (
+                SELECT COUNT(*)::text
+                FROM face_enrollments fe
+                WHERE fe.event_id = $1
+                  AND fe.deleted_at IS NULL
+                  AND fe.status IN ('pending', 'processing', 'enrolled')
+              ) AS "totalRegisteredSelfies",
+              (
+                SELECT COUNT(*)::text
+                FROM event_attendees ea
+                WHERE ea.event_id = $1
+                  AND ea.withdrawal_at IS NULL
+              ) AS "totalAssociatedUsers"
+          `,
+          [event.id],
+        ),
       ]);
 
       const s3Client = getS3Client();
@@ -481,6 +505,8 @@ export async function listAdminEventPhotos(input: {
         photos,
         faceMatchSummary: {
           totalMatchedFaces: matchedFaces.length,
+          totalRegisteredSelfies: Number(eventStatsRes.rows[0]?.totalRegisteredSelfies ?? "0"),
+          totalAssociatedUsers: Number(eventStatsRes.rows[0]?.totalAssociatedUsers ?? "0"),
           matchedFaces,
         },
         page: input.page,

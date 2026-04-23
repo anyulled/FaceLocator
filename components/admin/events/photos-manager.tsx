@@ -32,6 +32,8 @@ export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummar
   const [photos, setPhotos] = useState(initialPhotos);
   const faceMatchSummary = initialFaceMatchSummary ?? {
     totalMatchedFaces: 0,
+    totalRegisteredSelfies: 0,
+    totalAssociatedUsers: 0,
     matchedFaces: [],
   };
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -349,6 +351,12 @@ export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummar
       >
         <p style={{ margin: 0, fontWeight: 700 }}>
           Matched faces in this event: {faceMatchSummary.totalMatchedFaces}
+        </p>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          Selfies registered: {faceMatchSummary.totalRegisteredSelfies}
+        </p>
+        <p style={{ margin: 0, color: "var(--muted)" }}>
+          Users associated with event: {faceMatchSummary.totalAssociatedUsers}
         </p>
 
         {faceMatchSummary.matchedFaces.length === 0 ? (

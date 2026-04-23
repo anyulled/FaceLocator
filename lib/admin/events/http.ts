@@ -155,6 +155,8 @@ export async function loadAdminEventPhotosPage(input: {
     }>;
     faceMatchSummary: {
       totalMatchedFaces: number;
+      totalRegisteredSelfies: number;
+      totalAssociatedUsers: number;
       matchedFaces: Array<{
         attendeeId: string;
         attendeeName: string;

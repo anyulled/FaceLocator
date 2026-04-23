@@ -88,6 +88,8 @@ export type AdminEventFaceMatch = {
 
 export type AdminEventFaceMatchSummary = {
   totalMatchedFaces: number;
+  totalRegisteredSelfies: number;
+  totalAssociatedUsers: number;
   matchedFaces: AdminEventFaceMatch[];
 };
 

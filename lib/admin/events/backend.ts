@@ -42,6 +42,8 @@ let lambdaClient: LambdaClient | null = null;
 let s3Client: S3Client | null = null;
 const EMPTY_FACE_MATCH_SUMMARY: AdminEventPhotosPage["faceMatchSummary"] = {
   totalMatchedFaces: 0,
+  totalRegisteredSelfies: 0,
+  totalAssociatedUsers: 0,
   matchedFaces: [],
 };
 
@@ -294,12 +296,24 @@ export async function getAdminEventPhotosPageViaBackend(input: {
       typeof totalMatchedFacesRaw === "number" && Number.isFinite(totalMatchedFacesRaw)
         ? totalMatchedFacesRaw
         : matchedFaces.length;
+    const totalRegisteredSelfiesRaw = summaryRecord?.totalRegisteredSelfies;
+    const totalRegisteredSelfies =
+      typeof totalRegisteredSelfiesRaw === "number" && Number.isFinite(totalRegisteredSelfiesRaw)
+        ? totalRegisteredSelfiesRaw
+        : 0;
+    const totalAssociatedUsersRaw = summaryRecord?.totalAssociatedUsers;
+    const totalAssociatedUsers =
+      typeof totalAssociatedUsersRaw === "number" && Number.isFinite(totalAssociatedUsersRaw)
+        ? totalAssociatedUsersRaw
+        : 0;
 
     return {
       ...payload,
       faceMatchSummary: {
         ...EMPTY_FACE_MATCH_SUMMARY,
         totalMatchedFaces,
+        totalRegisteredSelfies,
+        totalAssociatedUsers,
         matchedFaces,
       },
     };
@@ -340,6 +354,8 @@ export async function getAdminEventPhotosPageViaBackend(input: {
       photos: [],
       faceMatchSummary: {
         totalMatchedFaces: 0,
+        totalRegisteredSelfies: 0,
+        totalAssociatedUsers: 0,
         matchedFaces: [],
       },
       page: input.page,
@@ -349,7 +365,7 @@ export async function getAdminEventPhotosPageViaBackend(input: {
   }
 
   const offset = (input.page - 1) * input.pageSize;
-  const [rowsRes, totalRes, faceMatchesRes] = await Promise.all([
+  const [rowsRes, totalRes, faceMatchesRes, eventStatsRes] = await Promise.all([
     pool.query<{
       id: string;
       eventId: string;
@@ -438,6 +454,28 @@ export async function getAdminEventPhotosPageViaBackend(input: {
       `,
       [event.id],
     ),
+    pool.query<{
+      totalRegisteredSelfies: string;
+      totalAssociatedUsers: string;
+    }>(
+      `
+        SELECT
+          (
+            SELECT COUNT(*)::text
+            FROM face_enrollments fe
+            WHERE fe.event_id = $1
+              AND fe.deleted_at IS NULL
+              AND fe.status IN ('pending', 'processing', 'enrolled')
+          ) AS "totalRegisteredSelfies",
+          (
+            SELECT COUNT(*)::text
+            FROM event_attendees ea
+            WHERE ea.event_id = $1
+              AND ea.withdrawal_at IS NULL
+          ) AS "totalAssociatedUsers"
+      `,
+      [event.id],
+    ),
   ]);
 
   const matchedFaces: AdminEventFaceMatch[] = faceMatchesRes.rows.map((row) => ({
@@ -474,6 +512,8 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     ),
     faceMatchSummary: {
       totalMatchedFaces: matchedFaces.length,
+      totalRegisteredSelfies: Number(eventStatsRes.rows[0]?.totalRegisteredSelfies ?? "0"),
+      totalAssociatedUsers: Number(eventStatsRes.rows[0]?.totalAssociatedUsers ?? "0"),
       matchedFaces,
     },
     page: input.page,

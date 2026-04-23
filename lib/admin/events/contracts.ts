@@ -8,6 +8,7 @@ export type CreateEventInput = {
   description: string;
   startsAt: string;
   endsAt: string;
+  logoObjectKey?: string;
 };
 
 export type PaginationQuery = {
@@ -61,6 +62,7 @@ export type AdminEventSummary = {
   description: string;
   startsAt: string;
   endsAt: string;
+  logoObjectKey?: string;
   photoCount: number;
 };
 
@@ -137,6 +139,11 @@ export function parseCreateEventInput(payload: unknown): ValidationResult<Create
   const description = String(candidate.description || "").trim();
   const startsAt = String(candidate.startsAt || "").trim();
   const endsAt = String(candidate.endsAt || "").trim();
+  const logoObjectKeyRaw = candidate.logoObjectKey;
+  const logoObjectKey =
+    typeof logoObjectKeyRaw === "string" && logoObjectKeyRaw.trim().length > 0
+      ? logoObjectKeyRaw.trim()
+      : undefined;
 
   if (title.length < 2 || title.length > 140) {
     return { success: false, error: "Title must be between 2 and 140 characters" };
@@ -171,6 +178,7 @@ export function parseCreateEventInput(payload: unknown): ValidationResult<Create
       description,
       startsAt,
       endsAt,
+      logoObjectKey,
     },
   };
 }

@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
-import { getDatabasePool } from "@/lib/aws/database";
 import type { Pool } from "pg";
 import { join } from "path";
 import {
+  checkLiveE2EPrerequisites,
   createAwsClients,
   deleteFaceIfPresent,
   deleteS3ObjectIfPresent,
@@ -16,7 +16,8 @@ import {
 
 test.describe("Browser E2E AWS Integration", () => {
   const { s3, rekognition } = createAwsClients();
-  let pool: Pool;
+  let pool: Pool | null = null;
+  let skipReason = "";
   const collectionId = getRekognitionCollectionId();
   const selfiesBucketName = getSelfiesBucketName();
   
@@ -27,10 +28,22 @@ test.describe("Browser E2E AWS Integration", () => {
   let faceId: string | undefined;
 
   test.beforeAll(async () => {
-    pool = await getDatabasePool();
+    const prerequisites = await checkLiveE2EPrerequisites({ requireDatabase: true });
+    if (!prerequisites.ok) {
+      skipReason = prerequisites.reason;
+      console.warn(skipReason);
+      return;
+    }
+
+    const dbPool = prerequisites.pool;
+    pool = dbPool;
   });
 
   test.afterAll(async () => {
+    if (!pool) {
+      return;
+    }
+
     // Cleanup any created AWS resources
     if (objectKey) {
       await deleteS3ObjectIfPresent({
@@ -49,7 +62,8 @@ test.describe("Browser E2E AWS Integration", () => {
     }
 
     if (registrationId) {
-      await pool.query(`DELETE FROM face_enrollments WHERE registration_id = $1`, [registrationId]).catch(console.error);
+      await pool.query(`DELETE FROM face_enrollments WHERE registration_id = $1`, [registrationId])
+        .catch(console.error);
     }
 
     if (attendeeId) {
@@ -60,6 +74,12 @@ test.describe("Browser E2E AWS Integration", () => {
   });
 
   test('should complete the full enrollment lifecycle via UI', async ({ page }) => {
+    test.skip(Boolean(skipReason), skipReason);
+    if (!pool) {
+      test.fail(true, "Database pool should be available for live browser assertions.");
+      return;
+    }
+
     // Navigate to the registration page
     await page.goto(`/events/${E2E_EVENT_ID}/register`);
 

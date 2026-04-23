@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getDatabasePool } from "@/lib/aws/database";
 import type { Pool } from "pg";
 import { join } from "path";
 import { readFileSync } from "fs";
 import {
+  checkLiveE2EPrerequisites,
   createAwsClients,
   deleteFaceIfPresent,
   deleteS3ObjectIfPresent,
@@ -18,7 +18,8 @@ import {
 
 test.describe("Event Photo Processing E2E", () => {
   const { s3, rekognition } = createAwsClients();
-  let pool: Pool;
+  let pool: Pool | null = null;
+  let skipReason = "";
   const collectionId = getRekognitionCollectionId();
   const selfiesBucketName = getSelfiesBucketName();
   const eventPhotosBucketName = getEventPhotosBucketName();
@@ -33,16 +34,28 @@ test.describe("Event Photo Processing E2E", () => {
   const eventPhotoKeys: string[] = [];
 
   test.beforeAll(async () => {
-    pool = await getDatabasePool();
+    const prerequisites = await checkLiveE2EPrerequisites({ requireDatabase: true });
+    if (!prerequisites.ok) {
+      skipReason = prerequisites.reason;
+      console.warn(skipReason);
+      return;
+    }
+
+    const dbPool = prerequisites.pool;
+    pool = dbPool;
 
     // 1. Ensure the event exists in the database
-    await pool.query(
+    await dbPool.query(
       `INSERT INTO events (id, slug, title) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`,
       [E2E_EVENT_ID, E2E_EVENT_ID, "Speaker Session 2026"]
     );
   });
 
   test.afterAll(async () => {
+    if (!pool) {
+      return;
+    }
+
     for (const key of eventPhotoKeys) {
       await deleteS3ObjectIfPresent({
         s3,
@@ -81,6 +94,12 @@ test.describe("Event Photo Processing E2E", () => {
   });
 
   test('should enroll an attendee and then find them in multiple event photos', async ({ page }) => {
+    test.skip(Boolean(skipReason), skipReason);
+    if (!pool) {
+      test.fail(true, "Database pool should be available for live event-processing assertions.");
+      return;
+    }
+
     test.setTimeout(90000);
 
     // --- STEP 1: ENROLLMENT (Prerequisite) ---

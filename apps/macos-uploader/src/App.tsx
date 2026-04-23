@@ -57,7 +57,7 @@ const DEFAULT_BACKEND_BASE_URL = "https://main.d1lne42ooc3wfs.amplifyapp.com";
 const BACKEND_BASE_URL = importMetaEnv?.VITE_FACE_LOCATOR_BASE_URL || DEFAULT_BACKEND_BASE_URL;
 
 function statusLabel(status: ItemStatus) {
-  return status.replaceAll("_", " ");
+  return status.replace(/_/g, " ");
 }
 
 function countByStatus(items: UploadItemState[], statuses: ItemStatus[]) {

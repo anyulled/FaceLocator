@@ -74,22 +74,10 @@ export async function POST(
         const command = new PutObjectCommand({
           Bucket: getEventPhotosBucketName(),
           Key: objectKey,
-          ContentType: parsed.data.contentType,
-          Metadata: {
-            "event-id": event.id,
-            "photo-id": photoId,
-            "uploaded-by": actor.sub,
-          },
         });
 
         const url = await getSignedUrl(getS3Client(), command, {
           expiresIn: PHOTO_UPLOAD_TTL_SECONDS,
-          signableHeaders: new Set([
-            "content-type",
-            "x-amz-meta-event-id",
-            "x-amz-meta-photo-id",
-            "x-amz-meta-uploaded-by",
-          ]),
         });
 
         return {
@@ -105,12 +93,7 @@ export async function POST(
           upload: {
             method: "PUT",
             url,
-            headers: {
-              "Content-Type": parsed.data.contentType,
-              "x-amz-meta-event-id": event.id,
-              "x-amz-meta-photo-id": photoId,
-              "x-amz-meta-uploaded-by": actor.sub,
-            },
+            headers: {},
             objectKey,
             expiresAt: new Date(Date.now() + PHOTO_UPLOAD_TTL_SECONDS * 1000).toISOString(),
           },

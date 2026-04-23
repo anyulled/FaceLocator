@@ -30,6 +30,7 @@ Use staged migration through `database_network_migration_phase` in `infra/terraf
 4. `cutover_private_subnet_group` (or `private`): attempts to move the DB instance to the custom private DB subnet group.
 
 Important AWS constraint:
+
 - Existing RDS instances in the `default` DB subnet group can fail `ModifyDBInstance` with `InvalidVPCNetworkStateFault` when switching to another subnet group in the same VPC.
 - If this happens, keep `cutover_private_endpoint` (private-only endpoint) as the secure steady state, or perform a replacement migration (snapshot/restore into a new DB instance attached to the target subnet group) and cut over application secrets.
 

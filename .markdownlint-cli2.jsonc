@@ -1,0 +1,16 @@
+{
+  "globs": [
+    "README.md",
+    "AGENTS.md",
+    "docs/**/*.md"
+  ],
+  "ignores": [
+    "node_modules",
+    "build",
+    "dist"
+  ],
+  "config": {
+    "MD013": false,
+    "MD033": false
+  }
+}

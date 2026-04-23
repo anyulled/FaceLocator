@@ -7,6 +7,7 @@
 3. Run `terraform -chdir=infra plan` with the intended profile and variables.
 
 Observable outcome:
+
 - Terraform resolves all providers, validates the graph, and shows the expected buckets, roles, secret, Rekognition collection, and Lambda resources.
 
 ## Selfie flow
@@ -16,6 +17,7 @@ Observable outcome:
 3. Inspect the selfie Lambda CloudWatch log group.
 
 Observable outcome:
+
 - A log entry includes the object key, event id, attendee id, and `outcome: "enrolled"` or a clear failure.
 
 ## Event-photo flow
@@ -25,6 +27,7 @@ Observable outcome:
 3. Inspect the event-photo worker CloudWatch log group.
 
 Observable outcome:
+
 - A log entry includes the object key, event id, photo id, and `outcome: "ready_for_matching"` or `outcome: "matches_found"`.
 
 ## Retention and IAM
@@ -38,6 +41,7 @@ Observable outcome:
 7. Confirm the Amplify runtime role is trusted by `amplify.amazonaws.com` only.
 
 Observable outcome:
+
 - Lifecycle and least-privilege decisions are visible and auditable without secret values being exposed.
 
 ## Production deployment verification
@@ -48,4 +52,5 @@ Observable outcome:
 4. Confirm the GitHub smoke workflow can assume the OIDC role without using static AWS keys.
 
 Observable outcome:
+
 - The hosted app is reachable, the deployed commit is identifiable, and the deploy-time and runtime IAM boundaries remain separate.

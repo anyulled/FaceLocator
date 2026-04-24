@@ -99,6 +99,7 @@ export default async function MatchedGalleryPage({
               width={1200}
               height={900}
               sizes="(max-width: 768px) 100vw, 33vw"
+              unoptimized
               style={{
                 width: "100%",
                 height: "auto",

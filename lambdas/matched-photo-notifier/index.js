@@ -3,7 +3,7 @@
 
 const { createHmac } = require("node:crypto");
 const { timingSafeEqual } = require("node:crypto");
-const { GetObjectCommand, S3Client } = require("@aws-sdk/client-s3");
+const { GetObjectCommand, HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
 const { GetSecretValueCommand, SecretsManagerClient } = require("@aws-sdk/client-secrets-manager");
 const { SendEmailCommand, SESv2Client } = require("@aws-sdk/client-sesv2");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
@@ -170,21 +170,34 @@ async function buildGalleryPageData(client, payload) {
     [payload.eventId, payload.sub, payload.faceId],
   );
 
-  const photoUrls = await Promise.all(
-    photoRes.rows.map(async (row) =>
-      getSignedUrl(
-        s3Client,
-        new GetObjectCommand({
-          Bucket: getEventPhotosBucketName(),
-          Key: row.objectKey,
-          ResponseContentType: PHOTO_RESPONSE_CONTENT_TYPE,
-        }),
-        {
-          expiresIn: 15 * 60,
-        },
-      ),
-    ),
-  );
+  const photoUrls = (
+    await Promise.all(
+      photoRes.rows.map(async (row) => {
+        try {
+          await s3Client.send(
+            new HeadObjectCommand({
+              Bucket: getEventPhotosBucketName(),
+              Key: row.objectKey,
+            }),
+          );
+
+          return await getSignedUrl(
+            s3Client,
+            new GetObjectCommand({
+              Bucket: getEventPhotosBucketName(),
+              Key: row.objectKey,
+              ResponseContentType: PHOTO_RESPONSE_CONTENT_TYPE,
+            }),
+            {
+              expiresIn: 15 * 60,
+            },
+          );
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((url) => url !== null);
 
   return {
     attendeeName: attendee.attendeeName,

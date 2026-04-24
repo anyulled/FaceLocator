@@ -42,6 +42,7 @@ Set these on the Amplify app or production branch:
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
 
 The hosted runtime delegates magic-link gallery rendering and notification opt-out through the matched-photo notifier Lambda, so the app does not need direct private DB access for those routes.
+If `MATCH_LINK_BACKEND` is omitted in production, the app still prefers the Lambda path; set `MATCH_LINK_BACKEND=direct` only for local troubleshooting.
 
 ### Per-tenant Cognito admin variables (runbook)
 

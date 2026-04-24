@@ -92,7 +92,15 @@ function logMatchedPhotoLambdaIssue(input: {
 
 export function getMatchedPhotoBackendMode(): MatchedPhotoBackendMode {
   const mode = readEnv("MATCH_LINK_BACKEND", "FACE_LOCATOR_MATCH_LINK_BACKEND");
-  if (mode === "lambda" || process.env.FACE_LOCATOR_REPOSITORY_TYPE === "postgres") {
+  if (mode === "direct") {
+    return "direct";
+  }
+
+  if (
+    mode === "lambda" ||
+    process.env.FACE_LOCATOR_REPOSITORY_TYPE === "postgres" ||
+    process.env.NODE_ENV === "production"
+  ) {
     return "lambda";
   }
 

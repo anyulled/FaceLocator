@@ -432,6 +432,7 @@ The most important runtime variables are:
 If AWS upload variables are omitted, the app remains in mock-backed mode so local development stays simple.
 
 The public magic-link gallery and unsubscribe flows are Lambda-backed in production, so the hosted Next.js runtime does not need direct database access or the match-link signing secret.
+If `MATCH_LINK_BACKEND` is not set explicitly, the hosted production runtime still prefers the Lambda path; use `MATCH_LINK_BACKEND=direct` only for local debugging.
 
 ## AWS POC Boundaries
 

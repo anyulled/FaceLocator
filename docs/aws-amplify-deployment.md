@@ -149,6 +149,8 @@ This role needs:
 
 Terraform exports the invoke policies as `nextjs_admin_events_read_invoke_policy_arn`, `nextjs_attendee_registration_invoke_policy_arn`, and `nextjs_matched_photo_notifier_invoke_policy_arn`; attach those policies to the Amplify compute role alongside `nextjs_presign_policy_arn`.
 
+The matched-photo-notifier Lambda execution role also needs `s3:GetObject` on `events/matched/*` in the event photos bucket. The gallery page receives presigned URLs from that Lambda, but S3 evaluates the signer role permissions when those URLs are used.
+
 ## GitHub repository configuration
 
 Configure these repository-level values:

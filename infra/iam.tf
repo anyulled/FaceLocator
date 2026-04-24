@@ -367,6 +367,14 @@ data "aws_iam_policy_document" "matched_photo_notifier_lambda" {
   }
 
   statement {
+    sid = "AllowReadMatchedEventPhotoObjects"
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = ["${aws_s3_bucket.event_photos.arn}/events/matched/*"]
+  }
+
+  statement {
     sid = "AllowSesSendEmail"
     actions = [
       "ses:SendEmail",

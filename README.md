@@ -64,6 +64,7 @@ flowchart LR
   upload --> selfies
   attendeeLambda --> db
   adminReadLambda --> db
+  matchedNotifierLambda --> photos
   lambda1 --> selfies
   lambda1 --> rek
   lambda1 --> db
@@ -153,6 +154,7 @@ flowchart LR
   lambdaAttendee --> db
   lambdaAdmin --> db
   lambdaNotifier --> db
+  lambdaNotifier --> s3Photos
   adminLib --> db
   adminLib --> s3Photos
   notificationLib --> db
@@ -336,6 +338,7 @@ flowchart TB
   lambdaSelfie --> rds
   lambdaAttendee --> rds
   lambdaAdmin --> rds
+  lambdaNotifier --> s3EventPhotos
   lambdaPhoto --> s3EventPhotos
   lambdaPhoto --> rekognition
   lambdaPhoto --> rds

@@ -70,7 +70,9 @@ Operational notes:
 - Selfie worker log group: `/aws/lambda/<project>-<env>-selfie-enrollment`
 - Attendee registration log group: `/aws/lambda/<project>-<env>-attendee-registration`
 - Event-photo worker log group: `/aws/lambda/<project>-<env>-event-photo-worker`
+- Matched-photo notifier log group: `/aws/lambda/<project>-<env>-matched-photo-notifier`
 - Inspect bucket objects with `aws s3 ls s3://<bucket>/events/<eventId>/`.
+- If magic-link gallery images return 403, compare the direct S3 presigned URL with the `/_next/image` URL. If direct S3 returns `AccessDenied` for the matched-photo-notifier role, apply Terraform so that role has `s3:GetObject` on `events/matched/*`.
 
 ## Data removal
 

@@ -1,9 +1,11 @@
 import React from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 
 import { AttendeeEnrollmentForm } from "@/components/events/attendee-enrollment-form";
 import { getEventRegistrationPageData } from "@/lib/events/queries";
+import { titleFromSlug } from "@/lib/page-metadata";
 
 type EventRegistrationPageProps = {
   params: Promise<{
@@ -13,6 +15,28 @@ type EventRegistrationPageProps = {
     registrationId?: string;
   }>;
 };
+
+export async function generateMetadata({
+  params,
+}: Pick<EventRegistrationPageProps, "params">): Promise<Metadata> {
+  const { eventSlug } = await params;
+  const fallbackTitle = titleFromSlug(eventSlug);
+
+  try {
+    const event = await getEventRegistrationPageData(eventSlug);
+    const eventTitle = event?.title ?? fallbackTitle;
+
+    return {
+      title: `${eventTitle} selfie registration`,
+      description: `Register your selfie for ${eventTitle} so FaceLocator can match you to event photos.`,
+    };
+  } catch {
+    return {
+      title: `${fallbackTitle} selfie registration`,
+      description: "Register your selfie so FaceLocator can match you to event photos.",
+    };
+  }
+}
 
 export default async function EventRegistrationPage({
   params,

@@ -1,7 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import styles from "./page.module.css";
 
 import { getFeaturedEventSlug } from "@/lib/events/queries";
+
+export const metadata: Metadata = {
+  title: "Instant Event Photo Discovery",
+  description: "Private face-based matching that helps attendees find their event photos in seconds.",
+};
 
 const proofLogos = ["Aperture House", "EventFrame", "Summit Pixel", "VenueLens", "Northlight Media"];
 

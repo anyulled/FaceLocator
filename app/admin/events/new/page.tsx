@@ -1,7 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { CreateEventForm } from "@/components/admin/events/create-event-form";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
+
+export const metadata: Metadata = {
+  title: "Create admin event",
+  description: "Create a new FaceLocator event for attendee registration and photo matching.",
+};
 
 export default async function NewAdminEventPage() {
   await requireAdminPageAccess("/admin/events/new");

@@ -1,5 +1,11 @@
 import React from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Photo link unavailable",
+  description: "The requested FaceLocator matched photo link is unavailable or expired.",
+};
 
 export default function MatchedGalleryNotFound() {
   return (

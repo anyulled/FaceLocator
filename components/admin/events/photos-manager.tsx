@@ -285,6 +285,21 @@ export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummar
   return (
     <div style={{ display: "grid", gap: "1rem" }}>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+        <a
+          href={`/events/${eventSlug}/register`}
+          style={{
+            border: "1px solid var(--border)",
+            borderRadius: "999px",
+            padding: "0.65rem 1rem",
+            background: "var(--surface-strong)",
+            color: "var(--foreground)",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          Selfie register page
+        </a>
+
         <button
           type="button"
           disabled={isReprocessingAll || isBatchDeleting || busyPhotoId !== null}

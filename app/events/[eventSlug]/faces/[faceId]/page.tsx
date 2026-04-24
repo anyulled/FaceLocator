@@ -1,8 +1,10 @@
 import React from "react";
 import Image from "next/image";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getMatchedGalleryDataViaBackend } from "@/lib/notifications/backend";
+import { titleFromSlug } from "@/lib/page-metadata";
 
 type MatchedGalleryPageProps = {
   params: Promise<{
@@ -13,6 +15,18 @@ type MatchedGalleryPageProps = {
     token?: string;
   }>;
 };
+
+export async function generateMetadata({
+  params,
+}: Pick<MatchedGalleryPageProps, "params">): Promise<Metadata> {
+  const { eventSlug } = await params;
+  const eventTitle = titleFromSlug(eventSlug);
+
+  return {
+    title: `${eventTitle} matched photos`,
+    description: `View your matched photos from ${eventTitle}.`,
+  };
+}
 
 export default async function MatchedGalleryPage({
   params,

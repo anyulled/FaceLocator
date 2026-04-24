@@ -1,8 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 
 import { AdminRouteError, loadAdminEventsPage } from "@/lib/admin/events/http";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
+
+export const metadata: Metadata = {
+  title: "Admin events",
+  description: "Review and manage FaceLocator events and their photo galleries.",
+};
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
 

@@ -1,17 +1,34 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PhotosManager } from "@/components/admin/events/photos-manager";
 import { AdminRouteError, loadAdminEventPhotosPage } from "@/lib/admin/events/http";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
+import { titleFromSlug } from "@/lib/page-metadata";
 
 type SearchParams = Promise<{ page?: string; pageSize?: string }>;
+type AdminEventPhotosPageParams = Promise<{ eventSlug: string }>;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: AdminEventPhotosPageParams;
+}): Promise<Metadata> {
+  const { eventSlug } = await params;
+  const eventTitle = titleFromSlug(eventSlug);
+
+  return {
+    title: `${eventTitle} photos`,
+    description: `Manage uploaded photos and matched faces for ${eventTitle}.`,
+  };
+}
 
 export default async function AdminEventPhotosPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ eventSlug: string }>;
+  params: AdminEventPhotosPageParams;
   searchParams: SearchParams;
 }) {
   const { eventSlug } = await params;

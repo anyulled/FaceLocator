@@ -75,6 +75,9 @@ describe("photos manager", () => {
     expect(screen.getByText("Matched faces in this event: 1")).toBeTruthy();
     expect(screen.getByText("Selfies registered: 4")).toBeTruthy();
     expect(screen.getByText("Users associated with event: 5")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Selfie register page" }).getAttribute("href")).toBe(
+      "/events/devbcn-2027/register",
+    );
     const item = screen.getByText(/Test User/).closest("li");
     expect(item?.textContent).toContain("Test User (test@example.com): 3 photos matched");
   });

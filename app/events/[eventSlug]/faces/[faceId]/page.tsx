@@ -78,11 +78,13 @@ export default async function MatchedGalleryPage({
           }}
         >
           {galleryData.photoUrls.map((photoUrl) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               key={photoUrl}
               src={photoUrl}
               alt=""
+              width={1200}
+              height={900}
+              sizes="(max-width: 768px) 100vw, 33vw"
               style={{
                 width: "100%",
                 height: "auto",

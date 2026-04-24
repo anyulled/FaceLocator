@@ -417,8 +417,8 @@ export async function listAdminEventPhotos(input: {
               ea.attendee_id AS "attendeeId",
               a.name AS "attendeeName",
               a.email AS "attendeeEmail",
-              current_face.id AS "faceEnrollmentId",
-              current_face.rekognition_face_id AS "faceId",
+              latest_face.id AS "faceEnrollmentId",
+              latest_face.rekognition_face_id AS "faceId",
               COUNT(DISTINCT m.event_photo_id)::int AS "matchedPhotoCount",
               COALESCE(MAX(m.created_at), MAX(ep.uploaded_at), MAX(ep.created_at)) AS "lastMatchedAt"
             FROM event_attendees ea
@@ -433,10 +433,9 @@ export async function listAdminEventPhotos(input: {
                 AND fe.rekognition_face_id IS NOT NULL
               ORDER BY COALESCE(fe.enrolled_at, fe.created_at) DESC
               LIMIT 1
-            ) current_face ON true
+            ) latest_face ON true
             JOIN photo_face_matches m
               ON m.attendee_id = ea.attendee_id
-             AND m.face_enrollment_id = current_face.id
             JOIN event_photos ep
               ON ep.id = m.event_photo_id
              AND ep.event_id = ea.event_id
@@ -447,8 +446,8 @@ export async function listAdminEventPhotos(input: {
               ea.attendee_id,
               a.name,
               a.email,
-              current_face.id,
-              current_face.rekognition_face_id
+              latest_face.id,
+              latest_face.rekognition_face_id
             ORDER BY
               COUNT(DISTINCT m.event_photo_id) DESC,
               COALESCE(MAX(m.created_at), MAX(ep.uploaded_at), MAX(ep.created_at)) DESC,

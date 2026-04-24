@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { isUnauthorizedAdminStatus, redirectToAdminAuth } from "@/lib/admin/client";
@@ -416,10 +417,12 @@ export function PhotosManager({ eventSlug, initialPhotos, initialFaceMatchSummar
             }}
           >
             {photo.previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={photo.previewUrl}
                 alt=""
+                width={800}
+                height={600}
+                sizes="(max-width: 768px) 100vw, 220px"
                 style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block" }}
               />
             ) : (

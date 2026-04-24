@@ -12,6 +12,7 @@ type GalleryIdentityRow = {
 };
 
 const PHOTO_URL_TTL_SECONDS = 15 * 60;
+const PHOTO_RESPONSE_CONTENT_TYPE = "image/jpeg";
 
 function getEventPhotosBucketName() {
   const bucketName = process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET;
@@ -74,6 +75,7 @@ export async function getMatchedGalleryData(input: {
         new GetObjectCommand({
           Bucket: bucketName,
           Key: row.objectKey,
+          ResponseContentType: PHOTO_RESPONSE_CONTENT_TYPE,
         }),
         {
           expiresIn: PHOTO_URL_TTL_SECONDS,

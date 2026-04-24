@@ -15,6 +15,7 @@ const env = getRequiredEnv(process.env);
 const secretsClient = new SecretsManagerClient({ region: env.awsRegion });
 const sesClient = new SESv2Client({ region: env.awsRegion });
 const s3Client = new S3Client({ region: env.awsRegion });
+const PHOTO_RESPONSE_CONTENT_TYPE = "image/jpeg";
 
 let cachedDatabaseConfig = null;
 let cachedSigningSecret = null;
@@ -176,6 +177,7 @@ async function buildGalleryPageData(client, payload) {
         new GetObjectCommand({
           Bucket: getEventPhotosBucketName(),
           Key: row.objectKey,
+          ResponseContentType: PHOTO_RESPONSE_CONTENT_TYPE,
         }),
         {
           expiresIn: 15 * 60,

@@ -19,6 +19,7 @@ import { ensureAdminEventsSchema } from "@/lib/admin/events/schema";
 import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
+const PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE = "image/jpeg";
 const PHOTO_UPLOAD_TTL_SECONDS = 60 * 10;
 
 type DeleteAuditResult = PhotoDeleteResult["status"];
@@ -339,6 +340,7 @@ async function buildPreviewUrl(s3Client: S3Client, objectKey: string) {
       new GetObjectCommand({
         Bucket: bucketName,
         Key: objectKey,
+        ResponseContentType: PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE,
       }),
       { expiresIn: PHOTO_PREVIEW_TTL_SECONDS },
     );

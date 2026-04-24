@@ -8,6 +8,7 @@ const { Client } = require("pg");
 const { getDatabaseConfig, getRequiredEnv } = require("./lib");
 
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
+const PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE = "image/jpeg";
 const env = getRequiredEnv(process.env);
 const s3Client = new S3Client({ region: env.awsRegion });
 
@@ -158,6 +159,7 @@ async function buildPreviewUrl(objectKey) {
       new GetObjectCommand({
         Bucket: env.eventPhotosBucketName,
         Key: objectKey,
+        ResponseContentType: PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE,
       }),
       { expiresIn: PHOTO_PREVIEW_TTL_SECONDS },
     );

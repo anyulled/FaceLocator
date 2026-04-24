@@ -37,6 +37,7 @@ type AdminReadBackendErrorDetails = {
 const DEFAULT_ADMIN_READ_LAMBDA_NAME = "face-locator-poc-admin-events-read";
 const DEFAULT_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME = "face-locator-poc-matched-photo-notifier";
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
+const PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE = "image/jpeg";
 
 let lambdaClient: LambdaClient | null = null;
 let s3Client: S3Client | null = null;
@@ -134,6 +135,7 @@ async function buildPreviewUrl(objectKey: string) {
       new GetObjectCommand({
         Bucket: getEventPhotosBucketName(),
         Key: objectKey,
+        ResponseContentType: PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE,
       }),
       { expiresIn: PHOTO_PREVIEW_TTL_SECONDS },
     );

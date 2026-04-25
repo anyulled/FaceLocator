@@ -8,6 +8,7 @@ This repository is a POC with a narrow production boundary. Future agents should
 - Do not revert user changes unless explicitly asked.
 - Use `apply_patch` for edits.
 - Prefer `rg` / `rg --files` for discovery.
+- Do not suggest `aws sso login` as the account does not use SSO. Prefer long-lived IAM keys or environment variables as configured in the environment.
 - Keep changes small and traceable. If a fix spans app, lambda, and Terraform, update all three together or do not merge the partial change.
 - Keep `.codex/` and other local workspace artifacts out of git. They are not part of the product repo.
 - If you change the request flow, backend boundary, or infrastructure shape, update `README.md`, the architecture diagrams, and the matching docs in the same change.

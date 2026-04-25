@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as listSelfies } from "@/app/api/admin/events/[eventSlug]/selfies/route";
+import { DELETE as deleteAttendee } from "@/app/api/admin/events/[eventSlug]/selfies/[registrationId]/route";
 import type { NextRequest } from "next/server";
 import { resolveAdminIdentity } from "@/lib/admin/auth";
 import { checkLiveE2EPrerequisites } from "../e2e/aws-test-helpers";

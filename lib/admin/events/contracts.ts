@@ -101,6 +101,40 @@ export type AdminEventPhotosPage = {
   totalCount: number;
 };
 
+export type AdminEventSelfie = {
+  registrationId: string | null;
+  attendeeId: string;
+  name: string | null;
+  email: string | null;
+  status: string | null;
+  selfieObjectKey: string | null;
+  previewUrl: string | null;
+  enrolledAt: string | null;
+};
+
+export type AdminEventSelfiesPage = {
+  event?: {
+    id: string;
+    slug: string;
+    title: string;
+    venue: string;
+    description: string;
+    startsAt: string;
+    endsAt: string;
+    logoObjectKey?: string;
+  } | null;
+  selfies: AdminEventSelfie[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type SelfieDeleteResult = {
+  registrationId: string;
+  status: "deleted" | "not_found" | "failed";
+  message?: string;
+};
+
 export type PhotoDeleteResult = {
   photoId: string;
   status: "deleted" | "not_found" | "failed";

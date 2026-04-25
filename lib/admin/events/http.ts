@@ -172,3 +172,40 @@ export async function loadAdminEventPhotosPage(input: {
     totalCount: number;
   }>(`/api/admin/events/${encodeURIComponent(input.eventSlug)}/photos?${searchParams.toString()}`);
 }
+
+export async function loadAdminEventSelfiesPage(input: {
+  eventSlug: string;
+  page: number;
+  pageSize: number;
+}) {
+  const searchParams = new URLSearchParams({
+    page: String(input.page),
+    pageSize: String(input.pageSize),
+  });
+
+  return fetchAdminRouteJson<{
+    event: {
+      id: string;
+      slug: string;
+      title: string;
+      venue: string;
+      description: string;
+      startsAt: string;
+      endsAt: string;
+      logoObjectKey?: string;
+    } | null;
+    selfies: Array<{
+      attendeeId: string;
+      name: string | null;
+      email: string | null;
+      registrationId: string | null;
+      status: string | null;
+      selfieObjectKey: string | null;
+      previewUrl: string | null;
+      enrolledAt: string | null;
+    }>;
+    page: number;
+    pageSize: number;
+    totalCount: number;
+  }>(`/api/admin/events/${encodeURIComponent(input.eventSlug)}/selfies?${searchParams.toString()}`);
+}

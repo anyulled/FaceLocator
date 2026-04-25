@@ -3,11 +3,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PhotosManager } from "@/components/admin/events/photos-manager";
-import { AdminRouteError, loadAdminEventPhotosPage } from "@/lib/admin/events/http";
+import { SelfiesManager } from "@/components/admin/events/selfies-manager";
+import { AdminRouteError, loadAdminEventPhotosPage, loadAdminEventSelfiesPage } from "@/lib/admin/events/http";
 import { requireAdminPageAccess } from "@/lib/admin/page-auth";
 import { titleFromSlug } from "@/lib/page-metadata";
 
-type SearchParams = Promise<{ page?: string; pageSize?: string }>;
+type SearchParams = Promise<{ page?: string; pageSize?: string; tab?: string }>;
 type AdminEventPhotosPageParams = Promise<{ eventSlug: string }>;
 
 export async function generateMetadata({
@@ -19,8 +20,8 @@ export async function generateMetadata({
   const eventTitle = titleFromSlug(eventSlug);
 
   return {
-    title: `${eventTitle} photos`,
-    description: `Manage uploaded photos and matched faces for ${eventTitle}.`,
+    title: `${eventTitle} management`,
+    description: `Manage uploaded photos, matched faces, and selfies for ${eventTitle}.`,
   };
 }
 
@@ -38,27 +39,26 @@ export default async function AdminEventPhotosPage({
   const routePath = `/admin/events/${eventSlug}/photos`;
   await requireAdminPageAccess(routePath);
 
-  let event: Awaited<ReturnType<typeof loadAdminEventPhotosPage>>["event"] = null;
-  let photosPage: Awaited<ReturnType<typeof loadAdminEventPhotosPage>> = {
-    event: null,
-    photos: [],
-    faceMatchSummary: {
-      totalMatchedFaces: 0,
-      totalRegisteredSelfies: 0,
-      totalAssociatedUsers: 0,
-      matchedFaces: [],
-    },
-    page,
-    pageSize,
-    totalCount: 0,
-  };
+  const tab = query.tab === "selfies" ? "selfies" : "photos";
+
+  let event: NonNullable<Awaited<ReturnType<typeof loadAdminEventPhotosPage>>["event"]> | null = null;
+  let photosPage: Awaited<ReturnType<typeof loadAdminEventPhotosPage>> | null = null;
+  let selfiesPage: Awaited<ReturnType<typeof loadAdminEventSelfiesPage>> | null = null;
+  let totalCount = 0;
   let loadError = false;
   let loadErrorMessage = "Please retry in a few seconds.";
   let requestId: string | undefined;
 
   try {
-    photosPage = await loadAdminEventPhotosPage({ eventSlug, page, pageSize });
-    event = photosPage.event;
+    if (tab === "selfies") {
+      selfiesPage = await loadAdminEventSelfiesPage({ eventSlug, page, pageSize });
+      event = selfiesPage.event ?? null;
+      totalCount = selfiesPage.totalCount;
+    } else {
+      photosPage = await loadAdminEventPhotosPage({ eventSlug, page, pageSize });
+      event = photosPage.event ?? null;
+      totalCount = photosPage.totalCount;
+    }
   } catch (error) {
     if (error instanceof AdminRouteError && error.status === 404) {
       notFound();
@@ -138,8 +138,8 @@ export default async function AdminEventPhotosPage({
   }
 
   const hasPrevious = page > 1;
-  const hasNext = page * pageSize < photosPage.totalCount;
-  const totalPages = Math.max(1, Math.ceil(photosPage.totalCount / pageSize));
+  const hasNext = page * pageSize < totalCount;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const pageLinks = getVisiblePages(page, totalPages);
 
   return (
@@ -152,22 +152,58 @@ export default async function AdminEventPhotosPage({
 
           <h1 style={{ fontSize: "2rem" }}>{event.title}</h1>
           <p style={{ color: "var(--muted)" }}>
-            {event.slug} · {event.venue} · {photosPage.totalCount} photo(s)
+            {event.slug} · {event.venue}
           </p>
         </header>
 
-        <PhotosManager
-          eventSlug={eventSlug}
-          initialPhotos={photosPage.photos}
-          initialFaceMatchSummary={
-            photosPage.faceMatchSummary ?? {
-              totalMatchedFaces: 0,
-              totalRegisteredSelfies: 0,
-              totalAssociatedUsers: 0,
-              matchedFaces: [],
+        <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--border)", marginBottom: "1rem" }}>
+          <Link
+            href={`/admin/events/${eventSlug}/photos?tab=photos`}
+            style={{
+              padding: "0.5rem 1rem",
+              borderBottom: tab === "photos" ? "2px solid var(--accent-strong)" : "2px solid transparent",
+              fontWeight: tab === "photos" ? 700 : 500,
+              color: tab === "photos" ? "var(--foreground)" : "var(--muted)",
+              textDecoration: "none",
+            }}
+          >
+            Photos
+          </Link>
+          <Link
+            href={`/admin/events/${eventSlug}/photos?tab=selfies`}
+            style={{
+              padding: "0.5rem 1rem",
+              borderBottom: tab === "selfies" ? "2px solid var(--accent-strong)" : "2px solid transparent",
+              fontWeight: tab === "selfies" ? 700 : 500,
+              color: tab === "selfies" ? "var(--foreground)" : "var(--muted)",
+              textDecoration: "none",
+            }}
+          >
+            Selfies & Attendees
+          </Link>
+        </div>
+
+        {tab === "photos" && photosPage && (
+          <PhotosManager
+            eventSlug={eventSlug}
+            initialPhotos={photosPage.photos}
+            initialFaceMatchSummary={
+              photosPage.faceMatchSummary ?? {
+                totalMatchedFaces: 0,
+                totalRegisteredSelfies: 0,
+                totalAssociatedUsers: 0,
+                matchedFaces: [],
+              }
             }
-          }
-        />
+          />
+        )}
+
+        {tab === "selfies" && selfiesPage && (
+          <SelfiesManager
+            eventSlug={eventSlug}
+            initialSelfies={selfiesPage.selfies}
+          />
+        )}
 
         <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <p style={{ color: "var(--muted)" }}>
@@ -177,7 +213,7 @@ export default async function AdminEventPhotosPage({
           <div style={{ display: "flex", gap: "0.8rem", alignItems: "center", flexWrap: "wrap" }}>
             <Link
               aria-disabled={!hasPrevious}
-              href={hasPrevious ? `/admin/events/${eventSlug}/photos?page=${page - 1}&pageSize=${pageSize}` : "#"}
+              href={hasPrevious ? `/admin/events/${eventSlug}/photos?tab=${tab}&page=${page - 1}&pageSize=${pageSize}` : "#"}
               style={{
                 opacity: hasPrevious ? 1 : 0.5,
                 pointerEvents: hasPrevious ? "auto" : "none",
@@ -190,7 +226,7 @@ export default async function AdminEventPhotosPage({
               {pageLinks.map((pageLink) => (
                 <Link
                   key={pageLink}
-                  href={`/admin/events/${eventSlug}/photos?page=${pageLink}&pageSize=${pageSize}`}
+                  href={`/admin/events/${eventSlug}/photos?tab=${tab}&page=${pageLink}&pageSize=${pageSize}`}
                   aria-current={pageLink === page ? "page" : undefined}
                   style={{
                     border: pageLink === page ? "1px solid var(--accent-strong)" : "1px solid var(--border)",
@@ -207,7 +243,7 @@ export default async function AdminEventPhotosPage({
 
             <Link
               aria-disabled={!hasNext}
-              href={hasNext ? `/admin/events/${eventSlug}/photos?page=${page + 1}&pageSize=${pageSize}` : "#"}
+              href={hasNext ? `/admin/events/${eventSlug}/photos?tab=${tab}&page=${page + 1}&pageSize=${pageSize}` : "#"}
               style={{
                 opacity: hasNext ? 1 : 0.5,
                 pointerEvents: hasNext ? "auto" : "none",

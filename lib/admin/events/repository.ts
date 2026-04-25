@@ -9,11 +9,13 @@ import type {
   AdminEventFaceMatch,
   AdminEventPhoto,
   AdminEventPhotosPage,
+  AdminEventSelfiesPage,
   AdminEventSummary,
   AdminPhotoPresignResponse,
   BatchDeleteSummary,
   CreateEventInput,
   PhotoDeleteResult,
+  SelfieDeleteResult,
 } from "@/lib/admin/events/contracts";
 import { ensureAdminEventsSchema } from "@/lib/admin/events/schema";
 import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
@@ -826,6 +828,193 @@ export async function deleteAdminEventPhotosBatch(input: {
       }
 
       return summary;
+    },
+  });
+}
+
+export async function listAdminEventSelfies(input: {
+  eventSlug: string;
+  page: number;
+  pageSize: number;
+}): Promise<AdminEventSelfiesPage> {
+  return runDatabaseOperation({
+    operation: "admin.listAdminEventSelfies",
+    label: "listing admin event selfies",
+    context: adminDatabaseContext({
+      eventSlug: input.eventSlug,
+      page: input.page,
+      pageSize: input.pageSize,
+    }),
+    handler: async () => {
+      const pool = await getDatabasePool();
+      const event = await getAdminEventHeader(input.eventSlug);
+      if (!event) {
+        return {
+          selfies: [],
+          page: input.page,
+          pageSize: input.pageSize,
+          totalCount: 0,
+        };
+      }
+
+      const offset = (input.page - 1) * input.pageSize;
+
+      const [rowsRes, totalRes] = await Promise.all([
+        pool.query<{
+          attendeeId: string;
+          name: string | null;
+          email: string | null;
+          registrationId: string | null;
+          status: string | null;
+          selfieObjectKey: string | null;
+          enrolledAt: string | null;
+        }>(
+          `
+            SELECT 
+              ea.attendee_id AS "attendeeId",
+              a.name,
+              a.email,
+              fe.registration_id AS "registrationId",
+              fe.status,
+              fe.selfie_object_key AS "selfieObjectKey",
+              fe.enrolled_at AS "enrolledAt"
+            FROM event_attendees ea
+            JOIN attendees a ON a.id = ea.attendee_id
+            LEFT JOIN face_enrollments fe 
+              ON fe.event_id = ea.event_id 
+             AND fe.attendee_id = ea.attendee_id 
+             AND fe.deleted_at IS NULL
+            WHERE ea.event_id = $1
+              AND ea.withdrawal_at IS NULL
+            ORDER BY ea.created_at DESC
+            LIMIT $2 OFFSET $3
+          `,
+          [event.id, input.pageSize, offset],
+        ),
+        pool.query<{ total: string }>(
+          `
+            SELECT COUNT(*)::text AS total
+            FROM event_attendees ea
+            WHERE ea.event_id = $1
+              AND ea.withdrawal_at IS NULL
+          `,
+          [event.id],
+        ),
+      ]);
+
+      const s3Client = getS3Client();
+      const selfies = await Promise.all(
+        rowsRes.rows.map(async (row) => ({
+          attendeeId: row.attendeeId,
+          name: row.name,
+          email: row.email,
+          registrationId: row.registrationId,
+          status: row.status,
+          selfieObjectKey: row.selfieObjectKey,
+          previewUrl: row.selfieObjectKey ? await buildPreviewUrl(s3Client, row.selfieObjectKey) : null,
+          enrolledAt: row.enrolledAt ? new Date(row.enrolledAt).toISOString() : null,
+        }))
+      );
+
+      return {
+        event: {
+          id: event.id,
+          slug: event.slug,
+          title: event.title,
+          venue: event.venue ?? "",
+          description: event.description ?? "",
+          startsAt: event.startsAt ?? new Date(0).toISOString(),
+          endsAt: event.endsAt ?? event.startsAt ?? new Date(0).toISOString(),
+          logoObjectKey: event.logoObjectKey ?? undefined,
+        },
+        selfies,
+        page: input.page,
+        pageSize: input.pageSize,
+        totalCount: Number(totalRes.rows[0]?.total ?? "0"),
+      };
+    },
+  });
+}
+
+export async function deleteAdminEventSelfie(input: {
+  eventSlug: string;
+  registrationId: string;
+  actorSub: string;
+  requestId?: string;
+}): Promise<SelfieDeleteResult> {
+  return runDatabaseOperation({
+    operation: "admin.deleteAdminEventSelfie",
+    label: "deleting an admin event selfie",
+    context: adminDatabaseContext({
+      eventSlug: input.eventSlug,
+      registrationId: input.registrationId,
+      actorSub: input.actorSub,
+      requestId: input.requestId ?? null,
+    }),
+    handler: async () => {
+      const pool = await getDatabasePool();
+      const client = await pool.connect();
+
+      try {
+        await client.query("BEGIN");
+
+        const rowRes = await client.query<{ objectKey: string, eventId: string, attendeeId: string }>(
+          `
+            SELECT 
+              fe.selfie_object_key AS "objectKey",
+              fe.event_id AS "eventId",
+              fe.attendee_id AS "attendeeId"
+            FROM face_enrollments fe
+            JOIN events e ON e.id = fe.event_id
+            WHERE e.slug = $1
+              AND fe.registration_id = $2
+              AND fe.deleted_at IS NULL
+            FOR UPDATE
+          `,
+          [input.eventSlug, input.registrationId],
+        );
+
+        const row = rowRes.rows[0];
+        if (!row) {
+          await client.query("COMMIT");
+          return { registrationId: input.registrationId, status: "not_found" };
+        }
+
+        try {
+          if (row.objectKey) {
+            await deleteObjectFromS3(row.objectKey);
+          }
+        } catch (error) {
+          await client.query("COMMIT");
+          const message = error instanceof Error ? error.message : "S3 delete failed";
+          return {
+            registrationId: input.registrationId,
+            status: "failed",
+            message,
+          };
+        }
+
+        await client.query(`DELETE FROM face_enrollments WHERE registration_id = $1 AND event_id = $2`, [input.registrationId, row.eventId]);
+        await client.query(`DELETE FROM event_attendees WHERE event_id = $1 AND attendee_id = $2`, [row.eventId, row.attendeeId]);
+        
+        await client.query("COMMIT");
+
+        return {
+          registrationId: input.registrationId,
+          status: "deleted",
+        };
+      } catch (error) {
+        await client.query("ROLLBACK");
+
+        const message = error instanceof Error ? error.message : "Delete failed";
+        return {
+          registrationId: input.registrationId,
+          status: "failed",
+          message,
+        };
+      } finally {
+        client.release();
+      }
     },
   });
 }

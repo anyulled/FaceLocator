@@ -468,6 +468,106 @@ async function getAdminEventPhotosPage(input) {
   });
 }
 
+async function getAdminEventSelfiesPage(input) {
+  return withDatabase(async (client) => {
+    const eventRes = await client.query(
+      `
+        SELECT
+          e.id,
+          e.slug,
+          e.title,
+          e.venue,
+          e.description,
+          e.scheduled_at AS "startsAt",
+          e.ends_at AS "endsAt",
+          e.logo_object_key AS "logoObjectKey"
+        FROM events e
+        WHERE e.slug = $1
+        LIMIT 1
+      `,
+      [input.eventSlug],
+    );
+
+    const event = eventRes.rows[0];
+    if (!event) {
+      return {
+        selfies: [],
+        page: input.page,
+        pageSize: input.pageSize,
+        totalCount: 0,
+      };
+    }
+
+    const offset = (input.page - 1) * input.pageSize;
+
+    const [rowsRes, totalRes] = await Promise.all([
+      client.query(
+        `
+          SELECT 
+            ea.attendee_id AS "attendeeId",
+            a.name,
+            a.email,
+            fe.registration_id AS "registrationId",
+            fe.status,
+            fe.selfie_object_key AS "selfieObjectKey",
+            fe.enrolled_at AS "enrolledAt"
+          FROM event_attendees ea
+          JOIN attendees a ON a.id = ea.attendee_id
+          LEFT JOIN face_enrollments fe 
+            ON fe.event_id = ea.event_id 
+           AND fe.attendee_id = ea.attendee_id 
+           AND fe.deleted_at IS NULL
+          WHERE ea.event_id = $1
+            AND ea.withdrawal_at IS NULL
+          ORDER BY ea.created_at DESC
+          LIMIT $2 OFFSET $3
+        `,
+        [event.id, input.pageSize, offset],
+      ),
+      client.query(
+        `
+          SELECT COUNT(*)::text AS total
+          FROM event_attendees ea
+          WHERE ea.event_id = $1
+            AND ea.withdrawal_at IS NULL
+        `,
+        [event.id],
+      ),
+    ]);
+
+    const selfies = [];
+    for (const row of rowsRes.rows) {
+      selfies.push({
+        attendeeId: row.attendeeId,
+        name: row.name,
+        email: row.email,
+        registrationId: row.registrationId,
+        status: row.status,
+        selfieObjectKey: row.selfieObjectKey,
+        previewUrl: row.selfieObjectKey ? await buildPreviewUrl(row.selfieObjectKey) : null,
+        enrolledAt: row.enrolledAt ? (row.enrolledAt instanceof Date ? row.enrolledAt.toISOString() : new Date(row.enrolledAt).toISOString()) : null,
+      });
+    }
+
+    return {
+      event: {
+        id: event.id,
+        slug: event.slug,
+        title: event.title,
+        venue: event.venue || "",
+        description: event.description || "",
+        startsAt: event.startsAt || new Date(0).toISOString(),
+        endsAt: event.endsAt || event.startsAt || new Date(0).toISOString(),
+        logoObjectKey: event.logoObjectKey || undefined,
+      },
+      selfies,
+      page: input.page,
+      pageSize: input.pageSize,
+      totalCount: Number(totalRes.rows[0]?.total || "0"),
+    };
+  });
+}
+
 function getObjectKeyExtension(objectKey) {
   const match = String(objectKey || "").match(/\.([a-z0-9]+)$/i);
   return (match && match[1] ? String(match[1]).toLowerCase() : "") || "jpg";
@@ -584,6 +684,10 @@ async function handler(event) {
 
     if (payload.operation === "getAdminEventPhotosPage") {
       return await getAdminEventPhotosPage(payload.input);
+    }
+
+    if (payload.operation === "getAdminEventSelfiesPage") {
+      return await getAdminEventSelfiesPage(payload.input);
     }
 
     if (payload.operation === "reprocessAdminEventPhotos") {

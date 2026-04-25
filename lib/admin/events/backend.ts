@@ -15,6 +15,7 @@ import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 import type {
   AdminEventFaceMatch,
   AdminEventPhotosPage,
+  AdminEventSelfiesPage,
   AdminEventSummary,
   CreateEventInput,
 } from "@/lib/admin/events/contracts";
@@ -234,6 +235,19 @@ export async function createAdminEventViaBackend(input: CreateEventInput): Promi
 
   const { createAdminEvent } = await import("@/lib/admin/events/repository");
   return createAdminEvent(input);
+}
+
+export async function getAdminEventSelfiesPageViaBackend(input: {
+  eventSlug: string;
+  page: number;
+  pageSize: number;
+}): Promise<AdminEventSelfiesPage> {
+  if (getAdminReadBackendMode() === "lambda") {
+    return invokeAdminReadLambda<AdminEventSelfiesPage>("getAdminEventSelfiesPage", input);
+  }
+
+  const { listAdminEventSelfies } = await import("@/lib/admin/events/repository");
+  return listAdminEventSelfies(input);
 }
 
 export async function getAdminEventPhotosPageViaBackend(input: {

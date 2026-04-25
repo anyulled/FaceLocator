@@ -1,0 +1,27 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowSelfieUploads",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObjectTagging",
+                "s3:PutObject",
+                "s3:AbortMultipartUpload",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::face-locator-poc-selfies/events/*/attendees/*/*"
+        },
+        {
+            "Sid": "AllowEventPhotoUploads",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObjectTagging",
+                "s3:PutObject",
+                "s3:AbortMultipartUpload",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::face-locator-poc-event-photos/events/pending/*"
+        }
+    ]
+}

@@ -2,13 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 import { parsePaginationQuery } from "@/lib/admin/events/contracts";
-import {
-  AdminReadBackendError,
-  getAdminEventSelfiesPageViaBackend,
-  getAdminReadBackendMode,
-} from "@/lib/admin/events/backend";
+import { getAdminEventSelfiesPageViaBackend } from "@/lib/admin/events/backend";
 import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
-import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
+import { buildAdminErrorResponse, extractRequestId } from "@/lib/admin/events/route-utils";
 
 export async function GET(
   request: NextRequest,
@@ -37,42 +33,14 @@ export async function GET(
 
     return NextResponse.json(selfiesPage);
   } catch (error) {
-    const requestId = request.headers.get("x-amz-cf-id") ?? request.headers.get("x-amzn-requestid") ?? request.headers.get("x-correlation-id") ?? null;
-    const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;
-    const backendError = error instanceof AdminReadBackendError ? error : null;
-    console.error(
-      JSON.stringify({
-        scope: "admin-event-selfies-api",
-        level: "error",
-        message: "Failed to load admin event selfies",
-        operation: "getAdminEventSelfiesPage",
-        backendMode: getAdminReadBackendMode(),
-        statusCode: databaseError?.status ?? backendError?.statusCode ?? 503,
-        troubleshootingHint: databaseError?.message ?? backendError?.message ?? "Check database connectivity and Lambda invocation permission.",
-        requestPath: request.nextUrl.pathname,
-        requestId,
-        eventSlug,
-        page: parsed.data.page,
-        pageSize: parsed.data.pageSize,
-        database: databaseError,
-        backend: backendError
-          ? {
-              message: backendError.message,
-              statusCode: backendError.statusCode,
-              details: backendError.details,
-            }
-          : null,
-        error: error instanceof Error
-          ? { name: error.name, message: error.message, stack: error.stack }
-          : { message: String(error) },
-      }),
-    );
-    return NextResponse.json(
-      {
-        error: databaseError?.message ?? backendError?.message ?? "Failed to load selfies",
-        requestId,
-      },
-      { status: databaseError?.status ?? backendError?.statusCode ?? 503 },
-    );
+    return buildAdminErrorResponse({
+      error,
+      scope: "admin-event-selfies-api",
+      requestPath: request.nextUrl.pathname,
+      requestId: extractRequestId(request.headers),
+      defaultMessage: "Failed to load selfies",
+      defaultStatus: 503,
+      context: { eventSlug, page: parsed.data.page, pageSize: parsed.data.pageSize },
+    });
   }
 }

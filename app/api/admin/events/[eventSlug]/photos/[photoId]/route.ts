@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 import { deleteAdminEventPhoto } from "@/lib/admin/events/repository";
 import { resolveAdminIdentity } from "@/lib/admin/auth";
-import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
+import { buildAdminErrorResponse, extractRequestId } from "@/lib/admin/events/route-utils";
 
 export async function DELETE(
   request: NextRequest,
@@ -28,29 +28,14 @@ export async function DELETE(
 
     return NextResponse.json(result);
   } catch (error) {
-    const requestId = request.headers.get("x-amz-cf-id") ?? request.headers.get("x-amzn-requestid") ?? request.headers.get("x-correlation-id") ?? null;
-    const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;
-    console.error(
-      JSON.stringify({
-        scope: "admin-delete-photo-api",
-        level: "error",
-        message: "Failed to delete admin event photo",
-        requestPath: request.nextUrl.pathname,
-        requestId,
-        eventSlug,
-        photoId,
-        database: databaseError,
-        error: error instanceof Error
-          ? { name: error.name, message: error.message, stack: error.stack }
-          : { message: String(error) },
-      }),
-    );
-    return NextResponse.json(
-      {
-        error: databaseError?.message ?? "Failed to delete photo",
-        requestId,
-      },
-      { status: databaseError?.status ?? 500 },
-    );
+    return buildAdminErrorResponse({
+      error,
+      scope: "admin-delete-photo-api",
+      requestPath: request.nextUrl.pathname,
+      requestId: extractRequestId(request.headers),
+      defaultMessage: "Failed to delete photo",
+      defaultStatus: 500,
+      context: { eventSlug, photoId },
+    });
   }
 }

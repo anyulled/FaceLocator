@@ -4,14 +4,14 @@ import { randomUUID } from "node:crypto";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import { extractRequestId, resolveAdminIdentity } from "@/lib/admin/auth";
+import { extractRequestId as extractAuthRequestId, resolveAdminIdentity } from "@/lib/admin/auth";
 import { parseAdminPhotoPresignInput } from "@/lib/admin/events/contracts";
 import {
   getAdminEventPhotosPageViaBackend,
   getAdminReadBackendMode,
 } from "@/lib/admin/events/backend";
 import { createAdminEventPhotoUpload } from "@/lib/admin/events/repository";
-import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
+import { buildAdminErrorResponse } from "@/lib/admin/events/route-utils";
 import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 
 const PHOTO_UPLOAD_TTL_SECONDS = 60 * 10;
@@ -111,29 +111,14 @@ export async function POST(
 
     return NextResponse.json(upload);
   } catch (error) {
-    const requestId = extractRequestId(request.headers) ?? null;
-    const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;
-    console.error(
-      JSON.stringify({
-        scope: "admin-photo-presign-api",
-        level: "error",
-        message: "Failed to create admin photo upload contract",
-        requestPath: request.nextUrl.pathname,
-        requestId,
-        eventSlug,
-        actorSub: actor.sub,
-        database: databaseError,
-        error: error instanceof Error
-          ? { name: error.name, message: error.message, stack: error.stack }
-          : { message: String(error) },
-      }),
-    );
-    return NextResponse.json(
-      {
-        error: databaseError?.message ?? "Failed to create upload contract",
-        requestId,
-      },
-      { status: databaseError?.status ?? 500 },
-    );
+    return buildAdminErrorResponse({
+      error,
+      scope: "admin-photo-presign-api",
+      requestPath: request.nextUrl.pathname,
+      requestId: extractAuthRequestId(request.headers) ?? null,
+      defaultMessage: "Failed to create upload contract",
+      defaultStatus: 500,
+      context: { eventSlug, actorSub: actor.sub },
+    });
   }
 }

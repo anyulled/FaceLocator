@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { extractRequestId, resolveAdminIdentity } from "@/lib/admin/auth";
-import {
-  AdminReadBackendError,
-  sendMatchedPhotoNotificationViaBackend,
-} from "@/lib/admin/events/backend";
-import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
+import { extractRequestId as extractAuthRequestId, resolveAdminIdentity } from "@/lib/admin/auth";
+import { sendMatchedPhotoNotificationViaBackend } from "@/lib/admin/events/backend";
+import { buildAdminErrorResponse } from "@/lib/admin/events/route-utils";
 
 export async function POST(
   request: NextRequest,
@@ -71,45 +68,14 @@ export async function POST(
       { status: 409 },
     );
   } catch (error) {
-    const requestId = extractRequestId(request.headers) ?? null;
-    const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;
-    const backendError = error instanceof AdminReadBackendError ? error : null;
-
-    console.error(
-      JSON.stringify({
-        scope: "admin-photos-notify-api",
-        level: "error",
-        message: "Failed to send matched-photo notification",
-        requestPath: request.nextUrl.pathname,
-        requestId,
-        eventSlug,
-        attendeeId,
-        actorSub: actor.sub,
-        operation: "sendSingleNotification",
-        backendMode: backendError?.details.backend ?? null,
-        troubleshootingHint:
-          "Check notifier Lambda invoke permission, SES sender verification, and candidate match availability.",
-        database: databaseError,
-        backend: backendError
-          ? {
-              message: backendError.message,
-              statusCode: backendError.statusCode,
-              details: backendError.details,
-            }
-          : null,
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message, stack: error.stack }
-            : { message: String(error) },
-      }),
-    );
-
-    return NextResponse.json(
-      {
-        error: databaseError?.message ?? backendError?.message ?? "Failed to send notification",
-        requestId,
-      },
-      { status: databaseError?.status ?? backendError?.statusCode ?? 500 },
-    );
+    return buildAdminErrorResponse({
+      error,
+      scope: "admin-photos-notify-api",
+      requestPath: request.nextUrl.pathname,
+      requestId: extractAuthRequestId(request.headers) ?? null,
+      defaultMessage: "Failed to send notification",
+      defaultStatus: 500,
+      context: { eventSlug, attendeeId, actorSub: actor.sub },
+    });
   }
 }

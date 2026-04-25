@@ -27,26 +27,31 @@ export function SelfiesManager({ eventSlug, initialSelfies }: Props) {
     setBusyRegistrationId(registrationId);
     setStatusMessage(null);
 
-    const response = await fetch(`/api/admin/events/${eventSlug}/selfies/${registrationId}`, {
-      method: "DELETE",
-    });
+    try {
+      const response = await fetch(`/api/admin/events/${eventSlug}/selfies/${registrationId}`, {
+        method: "DELETE",
+      });
 
-    if (isUnauthorizedAdminStatus(response.status)) {
-      redirectToAdminAuth();
-      return;
-    }
+      if (isUnauthorizedAdminStatus(response.status)) {
+        redirectToAdminAuth();
+        return;
+      }
 
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || payload?.status === "failed") {
-      setStatusMessage(payload?.message || "Failed to delete selfie");
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.status === "failed") {
+        setStatusMessage(payload?.message || "Failed to delete selfie");
+        return;
+      }
+
+      setSelfies((prev) => prev.filter((selfie) => selfie.registrationId !== registrationId));
+      setStatusMessage(`Selfie registration ${registrationId} deleted.`);
+      router.refresh();
+    } catch (error) {
+      console.error("Delete failed", error);
+      setStatusMessage("A network error occurred while deleting the selfie.");
+    } finally {
       setBusyRegistrationId(null);
-      return;
     }
-
-    setSelfies((prev) => prev.filter((selfie) => selfie.registrationId !== registrationId));
-    setStatusMessage(`Selfie registration ${registrationId} deleted.`);
-    setBusyRegistrationId(null);
-    router.refresh();
   };
 
   if (selfies.length === 0) {
@@ -86,7 +91,7 @@ export function SelfiesManager({ eventSlug, initialSelfies }: Props) {
             {selfie.previewUrl ? (
               <Image
                 src={selfie.previewUrl}
-                alt=""
+                alt={selfie.name ? `Selfie of ${selfie.name}` : "Attendee selfie"}
                 width={800}
                 height={600}
                 sizes="(max-width: 768px) 100vw, 220px"

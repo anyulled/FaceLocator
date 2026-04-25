@@ -491,6 +491,7 @@ async function getAdminEventSelfiesPage(input) {
     const event = eventRes.rows[0];
     if (!event) {
       return {
+        event: null,
         selfies: [],
         page: input.page,
         pageSize: input.pageSize,
@@ -513,10 +514,15 @@ async function getAdminEventSelfiesPage(input) {
             fe.enrolled_at AS "enrolledAt"
           FROM event_attendees ea
           JOIN attendees a ON a.id = ea.attendee_id
-          LEFT JOIN face_enrollments fe 
-            ON fe.event_id = ea.event_id 
-           AND fe.attendee_id = ea.attendee_id 
-           AND fe.deleted_at IS NULL
+          LEFT JOIN LATERAL (
+            SELECT registration_id, status, selfie_object_key, enrolled_at
+            FROM face_enrollments
+            WHERE event_id = ea.event_id 
+              AND attendee_id = ea.attendee_id 
+              AND deleted_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+          ) fe ON true
           WHERE ea.event_id = $1
             AND ea.withdrawal_at IS NULL
           ORDER BY ea.created_at DESC

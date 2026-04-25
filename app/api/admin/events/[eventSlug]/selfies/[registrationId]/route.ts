@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { deleteAdminEventSelfie } from "@/lib/admin/events/repository";
+import { deleteAdminEventAttendee } from "@/lib/admin/events/repository";
 import { resolveAdminIdentity } from "@/lib/admin/auth";
 import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
 
@@ -16,13 +16,27 @@ export async function DELETE(
 
   const { eventSlug, registrationId } = await context.params;
   try {
-    const result = await deleteAdminEventSelfie({
+    const result = await deleteAdminEventAttendee({
       eventSlug,
       registrationId,
       actorSub: actor.sub,
     });
 
     if (result.status === "failed") {
+      const requestId = request.headers.get("x-amz-cf-id") ?? request.headers.get("x-amzn-requestid") ?? request.headers.get("x-correlation-id") ?? null;
+      console.error(
+        JSON.stringify({
+          scope: "admin-delete-selfie-api",
+          level: "error",
+          message: "Delete operation failed in repository",
+          requestPath: request.nextUrl.pathname,
+          requestId,
+          eventSlug,
+          registrationId,
+          resultStatus: result.status,
+          resultError: result.message,
+        }),
+      );
       return NextResponse.json(result, { status: 500 });
     }
 

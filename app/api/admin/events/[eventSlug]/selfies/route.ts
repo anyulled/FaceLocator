@@ -5,6 +5,7 @@ import { parsePaginationQuery } from "@/lib/admin/events/contracts";
 import {
   AdminReadBackendError,
   getAdminEventSelfiesPageViaBackend,
+  getAdminReadBackendMode,
 } from "@/lib/admin/events/backend";
 import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
 import { describeDatabaseError, isDatabaseErrorLike } from "@/lib/aws/database-errors";
@@ -46,6 +47,10 @@ export async function GET(
         scope: "admin-event-selfies-api",
         level: "error",
         message: "Failed to load admin event selfies",
+        operation: "getAdminEventSelfiesPage",
+        backendMode: getAdminReadBackendMode(),
+        statusCode: databaseError?.status ?? backendError?.statusCode ?? 503,
+        troubleshootingHint: databaseError?.message ?? backendError?.message ?? "Check database connectivity and Lambda invocation permission.",
         requestPath: request.nextUrl.pathname,
         requestId,
         eventSlug,

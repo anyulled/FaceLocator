@@ -936,15 +936,15 @@ export async function listAdminEventSelfies(input: {
   });
 }
 
-export async function deleteAdminEventSelfie(input: {
+export async function deleteAdminEventAttendee(input: {
   eventSlug: string;
   registrationId: string;
   actorSub: string;
   requestId?: string;
 }): Promise<SelfieDeleteResult> {
   return runDatabaseOperation({
-    operation: "admin.deleteAdminEventSelfie",
-    label: "deleting an admin event selfie",
+    operation: "admin.deleteAdminEventAttendee",
+    label: "deleting an admin event attendee registration",
     context: adminDatabaseContext({
       eventSlug: input.eventSlug,
       registrationId: input.registrationId,
@@ -954,6 +954,7 @@ export async function deleteAdminEventSelfie(input: {
     handler: async () => {
       const pool = await getDatabasePool();
       const client = await pool.connect();
+      const requestId = input.requestId ?? randomUUID();
 
       try {
         await client.query("BEGIN");
@@ -977,6 +978,13 @@ export async function deleteAdminEventSelfie(input: {
         const row = rowRes.rows[0];
         if (!row) {
           await client.query("COMMIT");
+          await insertDeleteAudit({
+            actorSub: input.actorSub,
+            eventSlug: input.eventSlug,
+            photoId: input.registrationId,
+            result: "not_found",
+            requestId,
+          });
           return { registrationId: input.registrationId, status: "not_found" };
         }
 
@@ -987,6 +995,14 @@ export async function deleteAdminEventSelfie(input: {
         } catch (error) {
           await client.query("COMMIT");
           const message = error instanceof Error ? error.message : "S3 delete failed";
+          await insertDeleteAudit({
+            actorSub: input.actorSub,
+            eventSlug: input.eventSlug,
+            photoId: input.registrationId,
+            result: "failed",
+            requestId,
+            errorMessage: message,
+          });
           return {
             registrationId: input.registrationId,
             status: "failed",
@@ -999,6 +1015,14 @@ export async function deleteAdminEventSelfie(input: {
         
         await client.query("COMMIT");
 
+        await insertDeleteAudit({
+          actorSub: input.actorSub,
+          eventSlug: input.eventSlug,
+          photoId: input.registrationId,
+          result: "deleted",
+          requestId,
+        });
+
         return {
           registrationId: input.registrationId,
           status: "deleted",
@@ -1007,6 +1031,15 @@ export async function deleteAdminEventSelfie(input: {
         await client.query("ROLLBACK");
 
         const message = error instanceof Error ? error.message : "Delete failed";
+        await insertDeleteAudit({
+          actorSub: input.actorSub,
+          eventSlug: input.eventSlug,
+          photoId: input.registrationId,
+          result: "failed",
+          requestId,
+          errorMessage: message,
+        });
+
         return {
           registrationId: input.registrationId,
           status: "failed",

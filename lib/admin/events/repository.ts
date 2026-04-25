@@ -45,6 +45,15 @@ function getEventPhotosBucketName() {
   return bucket;
 }
 
+function getSelfiesBucketName() {
+  const bucket = process.env.FACE_LOCATOR_SELFIES_BUCKET;
+  if (!bucket) {
+    throw new Error("FACE_LOCATOR_SELFIES_BUCKET is required");
+  }
+
+  return bucket;
+}
+
 function getS3Client() {
   return new S3Client({ region: process.env.AWS_REGION || "eu-west-1" });
 }
@@ -520,13 +529,13 @@ export async function listAdminEventPhotos(input: {
   });
 }
 
-async function deleteObjectFromS3(objectKey: string) {
-  const bucketName = getEventPhotosBucketName();
+async function deleteObjectFromS3(objectKey: string, bucketName?: string) {
+  const targetBucket = bucketName ?? getEventPhotosBucketName();
   const s3Client = getS3Client();
 
   await s3Client.send(
     new DeleteObjectCommand({
-      Bucket: bucketName,
+      Bucket: targetBucket,
       Key: objectKey,
     }),
   );
@@ -991,7 +1000,7 @@ export async function deleteAdminEventAttendee(input: {
 
         try {
           if (row.objectKey) {
-            await deleteObjectFromS3(row.objectKey);
+            await deleteObjectFromS3(row.objectKey, getSelfiesBucketName());
           }
         } catch (error) {
           await client.query("COMMIT");

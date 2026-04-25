@@ -27,6 +27,7 @@ data "aws_iam_policy_document" "nextjs_presign" {
       "s3:AbortMultipartUpload",
       "s3:PutObject",
       "s3:PutObjectTagging",
+      "s3:DeleteObject",
     ]
     resources = ["${aws_s3_bucket.selfies.arn}/events/*/attendees/*/*"]
   }
@@ -37,6 +38,7 @@ data "aws_iam_policy_document" "nextjs_presign" {
       "s3:AbortMultipartUpload",
       "s3:PutObject",
       "s3:PutObjectTagging",
+      "s3:DeleteObject",
     ]
     resources = ["${aws_s3_bucket.event_photos.arn}/events/pending/*"]
   }

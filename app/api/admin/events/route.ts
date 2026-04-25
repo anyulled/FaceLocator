@@ -1,30 +1,27 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
-import { parseCreateEventInput, parsePaginationQuery } from "@/lib/admin/events/contracts";
+import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
 import {
   AdminReadBackendError,
   createAdminEventViaBackend,
   listAdminEventsViaBackend,
 } from "@/lib/admin/events/backend";
-import { isAuthorizedAdminRequest } from "@/lib/admin/auth";
-import { isDatabaseErrorLike } from "@/lib/aws/database-errors";
+import { parseCreateEventInput, parsePaginationQuery } from "@/lib/admin/events/contracts";
 import { buildAdminErrorResponse, extractRequestId } from "@/lib/admin/events/route-utils";
+
+import {
+  MAX_EVENT_LOGO_SIZE_BYTES,
+  parseCreateEventRequest,
+  resolveEventLogoType,
+} from "@/lib/admin/events/form-utils";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
-
-const MAX_EVENT_LOGO_SIZE_BYTES = 1024 * 1024;
-const EVENT_LOGO_TYPE_MAP: Record<string, { extension: string; contentType: string }> = {
-  "image/jpeg": { extension: "jpg", contentType: "image/jpeg" },
-  "image/png": { extension: "png", contentType: "image/png" },
-  "image/svg+xml": { extension: "svg", contentType: "image/svg+xml" },
-};
-const EVENT_LOGO_EXTENSIONS = new Set(["jpg", "jpeg", "png", "svg"]);
 
 let s3Client: S3Client | null = null;
 
@@ -42,89 +39,6 @@ function getS3Client() {
     s3Client = new S3Client({ region: process.env.AWS_REGION || "eu-west-1" });
   }
   return s3Client;
-}
-
-function getFileExtension(fileName: string) {
-  const match = fileName.toLowerCase().trim().match(/\.([a-z0-9]+)$/);
-  return match?.[1] ?? "";
-}
-
-function resolveEventLogoType(file: File) {
-  const extension = getFileExtension(file.name);
-  const normalizedType = file.type.toLowerCase().trim();
-
-  if (normalizedType && EVENT_LOGO_TYPE_MAP[normalizedType]) {
-    const mapped = EVENT_LOGO_TYPE_MAP[normalizedType];
-    if (!extension || EVENT_LOGO_EXTENSIONS.has(extension)) {
-      return mapped;
-    }
-  }
-
-  if (extension === "jpg" || extension === "jpeg") {
-    return EVENT_LOGO_TYPE_MAP["image/jpeg"];
-  }
-  if (extension === "png") {
-    return EVENT_LOGO_TYPE_MAP["image/png"];
-  }
-  if (extension === "svg") {
-    return EVENT_LOGO_TYPE_MAP["image/svg+xml"];
-  }
-
-  return null;
-}
-
-async function parseCreateEventRequest(request: NextRequest): Promise<{
-  payload: unknown;
-  logoFile: File | null;
-}> {
-  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-  const shouldTryFormData = contentType.includes("multipart/form-data") || contentType.length === 0;
-
-  if (shouldTryFormData) {
-    const formData = await request
-      .clone()
-      .formData()
-      .catch(() => null);
-
-    if (formData) {
-      const hasEventFields =
-        formData.has("title") ||
-        formData.has("slug") ||
-        formData.has("venue") ||
-        formData.has("description") ||
-        formData.has("startsAt") ||
-        formData.has("endsAt") ||
-        formData.has("logo");
-
-      if (!hasEventFields) {
-        return {
-          payload: await request.json().catch(() => null),
-          logoFile: null,
-        };
-      }
-
-    const logoEntry = formData.get("logo");
-    const logoFile =
-      logoEntry instanceof File && logoEntry.size > 0 ? logoEntry : null;
-
-      return {
-        payload: {
-          title: String(formData.get("title") ?? ""),
-          slug: String(formData.get("slug") ?? ""),
-          venue: String(formData.get("venue") ?? ""),
-          description: String(formData.get("description") ?? ""),
-          startsAt: String(formData.get("startsAt") ?? ""),
-          endsAt: String(formData.get("endsAt") ?? ""),
-        },
-        logoFile,
-      };
-    }
-  }
-
-  return {
-    payload: await request.json().catch(() => null),
-    logoFile: null,
-  };
 }
 
 async function uploadEventLogo(input: { eventSlug: string; file: File }) {

@@ -64,7 +64,7 @@ function makeRequestWithUrl(url: string, options?: RequestInit) {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(isAuthorizedAdminRequest).mockResolvedValue(true);
-  vi.mocked(resolveAdminIdentity).mockResolvedValue({ sub: "admin-1", email: "admin@example.com" });
+  vi.mocked(resolveAdminIdentity).mockResolvedValue({ sub: "admin-1", username: "admin", tokenUse: "id", groups: ["admin"] });
 });
 
 // --- Photos route (uses isAuthorizedAdminRequest) ---

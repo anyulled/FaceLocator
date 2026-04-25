@@ -17,6 +17,7 @@ import {
   createAdminEventViaBackend,
   getAdminEventPhotosPageViaBackend,
   listAdminEventsViaBackend,
+  createAdminEventPhotoUploadViaBackend,
   reprocessAdminEventPhotosViaBackend,
   sendMatchedPhotoNotificationViaBackend,
 } from "@/lib/admin/events/backend";
@@ -51,7 +52,7 @@ const mockedCreateAdminEvent = vi.mocked(createAdminEventViaBackend);
 const mockedListAdminEventPhotos = vi.mocked(getAdminEventPhotosPageViaBackend);
 const mockedReprocessAdminEventPhotos = vi.mocked(reprocessAdminEventPhotosViaBackend);
 const mockedSendMatchedPhotoNotification = vi.mocked(sendMatchedPhotoNotificationViaBackend);
-const mockedCreateAdminEventPhotoUpload = vi.mocked(createAdminEventPhotoUpload);
+const mockedCreateAdminEventPhotoUploadViaBackend = vi.mocked(createAdminEventPhotoUploadViaBackend);
 const mockedDeleteAdminEventPhoto = vi.mocked(deleteAdminEventPhoto);
 const mockedDeleteAdminEventPhotosBatch = vi.mocked(deleteAdminEventPhotosBatch);
 
@@ -310,7 +311,7 @@ describe("admin api auth and delete behavior", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
-    expect(mockedCreateAdminEventPhotoUpload).not.toHaveBeenCalled();
+    expect(mockedCreateAdminEventPhotoUploadViaBackend).not.toHaveBeenCalled();
   });
 
   it("returns a photo upload contract for authorized admins", async () => {
@@ -320,7 +321,7 @@ describe("admin api auth and delete behavior", () => {
       groups: ["admin"],
       username: "ops@example.com",
     });
-    mockedCreateAdminEventPhotoUpload.mockResolvedValue({
+    mockedCreateAdminEventPhotoUploadViaBackend.mockResolvedValue({
       event: { id: "demo", slug: "demo" },
       photo: {
         photoId: "photo-1",
@@ -360,7 +361,7 @@ describe("admin api auth and delete behavior", () => {
         uploadedBy: "admin-user-1",
       },
     });
-    expect(mockedCreateAdminEventPhotoUpload).toHaveBeenCalledWith({
+    expect(mockedCreateAdminEventPhotoUploadViaBackend).toHaveBeenCalledWith({
       eventSlug: "demo",
       contentType: "image/jpeg",
       uploadedBy: "admin-user-1",

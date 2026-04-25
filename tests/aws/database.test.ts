@@ -16,17 +16,18 @@ vi.mock("@aws-sdk/client-secrets-manager", () => ({
   },
 }));
 
+const { onMock } = vi.hoisted(() => ({ onMock: vi.fn() }));
+
 vi.mock("pg", () => ({
   Pool: class Pool {
     constructor(config: unknown) {
       poolMock(config);
     }
 
-    on() {
-      return undefined;
-    }
+    on = onMock;
   },
 }));
+
 
 describe("database secret resolution", () => {
   beforeEach(() => {
@@ -62,5 +63,46 @@ describe("database secret resolution", () => {
       SecretId: "terraform-secret-name",
     });
     expect(poolMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the fallback secret name when no env is set", async () => {
+    const { getDatabasePool } = await import("@/lib/aws/database");
+    await getDatabasePool();
+    expect(sendMock.mock.calls[0][0].input).toEqual({
+      SecretId: "face-locator-poc-database",
+    });
+  });
+
+  it("throws and logs on secret retrieval failure", async () => {
+    sendMock.mockRejectedValue(new Error("SecretsManager error"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    
+    const { getDatabasePool } = await import("@/lib/aws/database");
+    await expect(getDatabasePool()).rejects.toThrow("Database configuration is unavailable");
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it("handles pool error events", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    
+    const { getDatabasePool } = await import("@/lib/aws/database");
+    await getDatabasePool();
+    
+    expect(onMock).toHaveBeenCalledWith("error", expect.any(Function));
+    const errorHandler = onMock.mock.calls[0]?.[1] as (err: Error) => void;
+    errorHandler(new Error("Pool failure"));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Unexpected PostgreSQL pool error"));
+  });
+
+  it("caches the pool when not in test runtime", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.PLAYWRIGHT_TEST_BASE_URL;
+    delete process.env.TEST_WORKER_INDEX;
+    
+    const { getDatabasePool } = await import("@/lib/aws/database");
+    const pool1 = await getDatabasePool();
+    const pool2 = await getDatabasePool();
+    
+    expect(pool1).toBe(pool2);
   });
 });

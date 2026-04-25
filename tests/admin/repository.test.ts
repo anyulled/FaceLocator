@@ -34,9 +34,6 @@ import { getDatabasePool } from "@/lib/aws/database";
 
 const mockedGetDatabasePool = vi.mocked(getDatabasePool);
 
-function makePool(queryFn: (...args: unknown[]) => unknown) {
-  return { query: vi.fn(queryFn) };
-}
 
 describe("listAdminEvents", () => {
   beforeEach(() => {
@@ -78,9 +75,6 @@ describe("listAdminEvents", () => {
   });
 
   it("returns empty list when no events exist", async () => {
-    const mockPool = makePool(() =>
-      Promise.resolve({ rows: [{ total: "0" }] }),
-    );
     const queryMock = vi.fn()
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ total: "0" }] });

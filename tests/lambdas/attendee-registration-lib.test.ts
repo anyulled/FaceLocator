@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
 
@@ -25,7 +25,7 @@ type RegLib = {
   getDatabaseConfig: (env: { awsRegion: string; databaseSecretId: string }) => Promise<Record<string, unknown>>;
 };
 
-const regLib = () => import("../../../lambdas/attendee-registration/lib.js") as Promise<RegLib>;
+const regLib = () => import("../../lambdas/attendee-registration/lib.js") as Promise<RegLib>;
 
 describe("lambdas/attendee-registration/lib — getRequiredEnv", () => {
   it("returns all env values with defaults", async () => {

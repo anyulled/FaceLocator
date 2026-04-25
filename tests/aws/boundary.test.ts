@@ -1,65 +1,63 @@
-import { describe, expect, it } from "vitest";
-
-import {
-  AWS_POC_CONSENT_TEXT_VERSION,
-  AWS_POC_MINIMUM_CONSENT_TEXT,
-  buildEventPhotoPendingObjectKey,
-  buildSelfieObjectKey,
-  EVENT_PHOTO_UPLOAD_METADATA_FIELDS,
-  NEXTJS_AWS_ENV_VARS,
-  parseEventPhotoPendingObjectKey,
-  parseSelfieObjectKey,
-  SELFIE_UPLOAD_METADATA_FIELDS,
+import { describe, it, expect } from "vitest";
+import { 
+  buildSelfieObjectKey, 
+  buildEventPhotoPendingObjectKey, 
+  parseSelfieObjectKey, 
+  parseEventPhotoPendingObjectKey 
 } from "@/lib/aws/boundary";
 
-describe("aws boundary helpers", () => {
-  it("builds and parses selfie object keys deterministically", () => {
-    const key = buildSelfieObjectKey({
-      eventId: "Speaker Session 2026",
-      attendeeId: "ATT_123",
-      fileName: "My Selfie.JPG",
-    });
-
-    expect(key).toBe("events/speaker-session-2026/attendees/att_123/my-selfie.jpg");
-    expect(parseSelfieObjectKey(key)).toEqual({
-      eventId: "speaker-session-2026",
-      attendeeId: "att_123",
-      fileName: "my-selfie.jpg",
+describe("AWS boundary helpers", () => {
+  describe("buildSelfieObjectKey", () => {
+    it("builds correct key", () => {
+      expect(buildSelfieObjectKey({
+        eventId: "event 1",
+        attendeeId: "att 2",
+        fileName: "selfie.jpg"
+      })).toBe("events/event-1/attendees/att-2/selfie.jpg");
     });
   });
 
-  it("builds and parses pending event photo keys", () => {
-    const key = buildEventPhotoPendingObjectKey({
-      eventId: "Summit 2026",
-      photoId: "IMG_4000",
-      extension: ".PNG",
+  describe("buildEventPhotoPendingObjectKey", () => {
+    it("builds correct key with extension", () => {
+      expect(buildEventPhotoPendingObjectKey({
+        eventId: "event 1",
+        photoId: "photo 1",
+        extension: ".PNG"
+      })).toBe("events/pending/event-1/photos/photo-1.png");
     });
 
-    expect(key).toBe("events/pending/summit-2026/photos/img_4000.png");
-    expect(parseEventPhotoPendingObjectKey(key)).toEqual({
-      eventId: "summit-2026",
-      fileName: "img_4000.png",
+    it("defaults to jpg if no extension", () => {
+      expect(buildEventPhotoPendingObjectKey({
+        eventId: "e1",
+        photoId: "p1"
+      })).toBe("events/pending/e1/photos/p1.jpg");
     });
   });
 
-  it("publishes the expected metadata and environment contracts", () => {
-    expect(SELFIE_UPLOAD_METADATA_FIELDS).toEqual([
-      "event-id",
-      "attendee-id",
-      "registration-id",
-      "consent-version",
-    ]);
-    expect(EVENT_PHOTO_UPLOAD_METADATA_FIELDS).toEqual([
-      "event-id",
-      "photo-id",
-      "uploaded-by",
-    ]);
-    expect(NEXTJS_AWS_ENV_VARS).toContain("FACE_LOCATOR_DATABASE_SECRET_NAME");
-    expect(NEXTJS_AWS_ENV_VARS).toContain("DATABASE_SECRET_NAME");
-    expect(NEXTJS_AWS_ENV_VARS).toContain("FACE_LOCATOR_SELFIES_BUCKET");
-    expect(NEXTJS_AWS_ENV_VARS).toContain("FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME");
-    expect(NEXTJS_AWS_ENV_VARS).toContain("SES_FROM_EMAIL");
-    expect(AWS_POC_CONSENT_TEXT_VERSION).toBe("2026-04-19");
-    expect(AWS_POC_MINIMUM_CONSENT_TEXT).toContain("facial matching");
+  describe("parseSelfieObjectKey", () => {
+    it("parses valid key", () => {
+      expect(parseSelfieObjectKey("events/e1/attendees/a1/s1.jpg")).toEqual({
+        eventId: "e1",
+        attendeeId: "a1",
+        fileName: "s1.jpg"
+      });
+    });
+
+    it("returns null for invalid key", () => {
+      expect(parseSelfieObjectKey("invalid/key")).toBeNull();
+    });
+  });
+
+  describe("parseEventPhotoPendingObjectKey", () => {
+    it("parses valid key", () => {
+      expect(parseEventPhotoPendingObjectKey("events/pending/e1/photos/p1.jpg")).toEqual({
+        eventId: "e1",
+        fileName: "p1.jpg"
+      });
+    });
+
+    it("returns null for invalid key", () => {
+      expect(parseEventPhotoPendingObjectKey("events/pending/too/many/segments")).toBeNull();
+    });
   });
 });

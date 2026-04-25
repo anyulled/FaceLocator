@@ -128,7 +128,15 @@ describe("attendees backend — lambda invocation", () => {
     sendMock.mockResolvedValue({ Payload: encodePayload(intent) });
 
     const { createRegistrationIntentViaBackend } = await import("@/lib/attendees/backend");
-    const result = await createRegistrationIntentViaBackend({ eventSlug: "demo", name: "Alice", email: "alice@example.com", selfie: "key" });
+    const result = await createRegistrationIntentViaBackend({ 
+      eventSlug: "demo", 
+      name: "Alice", 
+      email: "alice@example.com", 
+      contentType: "image/jpeg",
+      fileName: "selfie.jpg",
+      fileSizeBytes: 1024,
+      consentAccepted: true
+    });
     expect(result).toMatchObject({ registrationId: "r1" });
   });
 

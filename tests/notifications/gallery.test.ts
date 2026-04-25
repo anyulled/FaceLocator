@@ -67,4 +67,30 @@ describe("matched gallery data", () => {
     const command = getSignedUrlMock.mock.calls[0]?.[1] as { input?: { ResponseContentType?: string } };
     expect(command.input?.ResponseContentType).toBe("image/jpeg");
   });
+
+  it("returns null if attendee is not found", async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] });
+    const result = await getMatchedGalleryData({
+      eventId: "e1",
+      attendeeId: "a1",
+      faceId: "f1",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("throws if bucket name is missing", async () => {
+    delete process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET;
+    queryMock.mockResolvedValueOnce({ rows: [{ attendeeName: "A" }] });
+    await expect(getMatchedGalleryData({
+      eventId: "e1",
+      attendeeId: "a1",
+      faceId: "f1",
+    })).rejects.toThrow("FACE_LOCATOR_EVENT_PHOTOS_BUCKET is required.");
+  });
+
+  it("unsubscribes from notifications", async () => {
+    const { unsubscribeFromMatchedPhotoNotifications } = await import("@/lib/notifications/gallery");
+    await unsubscribeFromMatchedPhotoNotifications({ eventId: "e1", attendeeId: "a1" });
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("UPDATE event_attendees"), ["e1", "a1"]);
+  });
 });

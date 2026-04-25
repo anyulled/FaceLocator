@@ -1,24 +1,25 @@
 import "server-only";
 
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import {
   CopyObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-import { listAdminEvents } from "@/lib/admin/events/repository";
-import { getDatabasePool } from "@/lib/aws/database";
-import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 import type {
   AdminEventFaceMatch,
   AdminEventPhotosPage,
   AdminEventSelfiesPage,
   AdminEventSummary,
   CreateEventInput,
+  AdminPhotoPresignResponse,
 } from "@/lib/admin/events/contracts";
+import { listAdminEvents } from "@/lib/admin/events/repository";
+import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
+import { getDatabasePool } from "@/lib/aws/database";
 
 type AdminReadBackendMode = "direct" | "lambda";
 export type AdminEventPhotoReprocessSummary = {
@@ -54,11 +55,15 @@ export class AdminReadBackendError extends Error {
 
   public readonly details: AdminReadBackendErrorDetails;
 
-  constructor(message: string, statusCode: number, details: AdminReadBackendErrorDetails) {
+  constructor(message: string, statusCode: number, details?: AdminReadBackendErrorDetails) {
     super(message);
     this.name = "AdminReadBackendError";
     this.statusCode = statusCode;
-    this.details = details;
+    this.details = details ?? {
+      operation: "unknown",
+      backend: "direct",
+      lambdaName: "",
+    };
   }
 }
 
@@ -98,17 +103,13 @@ export function getMatchedPhotoNotifierLambdaName() {
 }
 
 function getLambdaClient() {
-  if (!lambdaClient) {
-    lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || "eu-west-1" });
-  }
+  lambdaClient ??= new LambdaClient({ region: process.env.AWS_REGION || "eu-west-1" });
 
   return lambdaClient;
 }
 
 function getS3Client() {
-  if (!s3Client) {
-    s3Client = new S3Client({ region: process.env.AWS_REGION || "eu-west-1" });
-  }
+  s3Client ??= new S3Client({ region: process.env.AWS_REGION || "eu-west-1" });
 
   return s3Client;
 }
@@ -237,6 +238,19 @@ export async function createAdminEventViaBackend(input: CreateEventInput): Promi
   return createAdminEvent(input);
 }
 
+export async function createAdminEventPhotoUploadViaBackend(input: {
+  eventSlug: string;
+  contentType: string;
+  uploadedBy: string;
+}): Promise<AdminPhotoPresignResponse | null> {
+  if (getAdminReadBackendMode() === "lambda") {
+    return invokeAdminReadLambda("createAdminEventPhotoUpload", input);
+  }
+
+  const { createAdminEventPhotoUpload } = await import("@/lib/admin/events/repository");
+  return createAdminEventPhotoUpload(input);
+}
+
 export async function getAdminEventSelfiesPageViaBackend(input: {
   eventSlug: string;
   page: number;
@@ -293,18 +307,18 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     const matchedFacesRaw = summaryRecord?.matchedFaces;
     const matchedFaces = Array.isArray(matchedFacesRaw)
       ? matchedFacesRaw.filter((row) => row && typeof row === "object").map((row) => {
-          const candidate = row as Record<string, unknown>;
-          const matchedPhotoCountRaw = Number(candidate.matchedPhotoCount ?? 0);
-          return {
-            attendeeId: String(candidate.attendeeId ?? ""),
-            attendeeName: String(candidate.attendeeName ?? "Attendee"),
-            attendeeEmail: String(candidate.attendeeEmail ?? ""),
-            faceEnrollmentId: String(candidate.faceEnrollmentId ?? ""),
-            faceId: String(candidate.faceId ?? ""),
-            matchedPhotoCount: Number.isFinite(matchedPhotoCountRaw) ? matchedPhotoCountRaw : 0,
-            lastMatchedAt: String(candidate.lastMatchedAt ?? new Date().toISOString()),
-          } satisfies AdminEventFaceMatch;
-        })
+        const candidate = row as Record<string, unknown>;
+        const matchedPhotoCountRaw = Number(candidate.matchedPhotoCount ?? 0);
+        return {
+          attendeeId: String(candidate.attendeeId ?? ""),
+          attendeeName: String(candidate.attendeeName ?? "Attendee"),
+          attendeeEmail: String(candidate.attendeeEmail ?? ""),
+          faceEnrollmentId: String(candidate.faceEnrollmentId ?? ""),
+          faceId: String(candidate.faceId ?? ""),
+          matchedPhotoCount: Number.isFinite(matchedPhotoCountRaw) ? matchedPhotoCountRaw : 0,
+          lastMatchedAt: String(candidate.lastMatchedAt ?? new Date().toISOString()),
+        } satisfies AdminEventFaceMatch;
+      })
       : [];
 
     const totalMatchedFacesRaw = summaryRecord?.totalMatchedFaces;
@@ -341,10 +355,10 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     slug: string;
     title: string;
     venue: string | null;
-      description: string | null;
-      startsAt: string | null;
-      endsAt: string | null;
-      logoObjectKey: string | null;
+    description: string | null;
+    startsAt: string | null;
+    endsAt: string | null;
+    logoObjectKey: string | null;
   }>(
     `
       SELECT

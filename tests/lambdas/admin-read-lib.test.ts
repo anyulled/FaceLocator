@@ -1,20 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
-
-vi.mock("@aws-sdk/client-secrets-manager", () => ({
-  GetSecretValueCommand: class {
-    public readonly input: unknown;
-    constructor(input: unknown) { this.input = input; }
-  },
-  SecretsManagerClient: class {
-    public readonly config: unknown;
-    constructor(config: unknown) { this.config = config; }
-    send = sendMock;
-  },
-}));
-
-const adminReadLib = () => import("../../../lambdas/admin-read/lib.js") as Promise<{
+const adminReadLib = () => import("../../lambdas/admin-read/lib.js") as Promise<{
   getRequiredEnv: (env: Record<string, string | undefined>) => {
     awsRegion: string;
     databaseSecretName: string;
@@ -23,7 +9,6 @@ const adminReadLib = () => import("../../../lambdas/admin-read/lib.js") as Promi
     publicBaseUrl: string | null;
     logLevel: string;
   };
-  getDatabaseConfig: (env: { awsRegion: string; databaseSecretName: string; databaseSecretArn: string | null }) => Promise<Record<string, unknown>>;
 }>;
 
 describe("lambdas/admin-read/lib — getRequiredEnv", () => {
@@ -67,5 +52,3 @@ describe("lambdas/admin-read/lib — getRequiredEnv", () => {
     expect(() => getRequiredEnv({ AWS_REGION: "eu-west-1" })).toThrow("DATABASE_SECRET_NAME");
   });
 });
-
-

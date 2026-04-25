@@ -89,7 +89,7 @@ describe("getMatchedGalleryDataViaBackend — direct mode", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("returns gallery data when token is valid", async () => {
-    mockedVerifyToken.mockReturnValue({ sub: "attendee-1", eventId: "event-1", faceId: "face-1", purpose: "gallery" });
+    mockedVerifyToken.mockReturnValue({ sub: "attendee-1", eventId: "event-1", faceId: "face-1", action: "gallery", exp: 0 });
     mockedGetGallery.mockResolvedValue({ attendeeName: "Alice", photoUrls: ["https://cdn/photo.jpg"] });
 
     const { getMatchedGalleryDataViaBackend } = await import("@/lib/notifications/backend");
@@ -114,7 +114,7 @@ describe("getMatchedGalleryDataViaBackend — direct mode", () => {
   });
 
   it("returns null when token eventId doesn't match", async () => {
-    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "other-event", faceId: "face-1", purpose: "gallery" });
+    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "other-event", faceId: "face-1", action: "gallery", exp: 0 });
 
     const { getMatchedGalleryDataViaBackend } = await import("@/lib/notifications/backend");
     const result = await getMatchedGalleryDataViaBackend({
@@ -126,7 +126,7 @@ describe("getMatchedGalleryDataViaBackend — direct mode", () => {
   });
 
   it("returns null and logs on gallery error", async () => {
-    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "event-1", faceId: "face-1", purpose: "gallery" });
+    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "event-1", faceId: "face-1", action: "gallery", exp: 0 });
     mockedGetGallery.mockRejectedValue(new Error("DB error"));
 
     const { getMatchedGalleryDataViaBackend } = await import("@/lib/notifications/backend");
@@ -147,7 +147,7 @@ describe("unsubscribeFromMatchedPhotoNotificationsViaBackend — direct mode", (
   afterEach(() => vi.restoreAllMocks());
 
   it("returns true on successful unsubscribe", async () => {
-    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "e1", faceId: "f1", purpose: "unsubscribe" });
+    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "e1", faceId: "f1", action: "unsubscribe", exp: 0 });
     mockedUnsubscribe.mockResolvedValue(undefined);
 
     const { unsubscribeFromMatchedPhotoNotificationsViaBackend } = await import("@/lib/notifications/backend");
@@ -164,7 +164,7 @@ describe("unsubscribeFromMatchedPhotoNotificationsViaBackend — direct mode", (
   });
 
   it("returns false and logs on error", async () => {
-    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "e1", faceId: "f1", purpose: "unsubscribe" });
+    mockedVerifyToken.mockReturnValue({ sub: "a1", eventId: "e1", faceId: "f1", action: "unsubscribe", exp: 0 });
     mockedUnsubscribe.mockRejectedValue(new Error("DB gone"));
 
     const { unsubscribeFromMatchedPhotoNotificationsViaBackend } = await import("@/lib/notifications/backend");
@@ -198,5 +198,32 @@ describe("unsubscribeFromMatchedPhotoNotificationsViaBackend — lambda mode", (
     const { unsubscribeFromMatchedPhotoNotificationsViaBackend } = await import("@/lib/notifications/backend");
     const result = await unsubscribeFromMatchedPhotoNotificationsViaBackend({ eventId: "e1", faceId: "f1", token: "t" });
     expect(result).toBe(false);
+  });
+
+  it("returns null when lambda throws an error", async () => {
+    sendMock.mockRejectedValue(new Error("Network fail"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { getMatchedGalleryDataViaBackend } = await import("@/lib/notifications/backend");
+    const result = await getMatchedGalleryDataViaBackend({ eventId: "e1", faceId: "f1", token: "t" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when lambda returns FunctionError", async () => {
+    sendMock.mockResolvedValue({ FunctionError: "Unhandled", Payload: encodePayload({ message: "oops" }) });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { getMatchedGalleryDataViaBackend } = await import("@/lib/notifications/backend");
+    const result = await getMatchedGalleryDataViaBackend({ eventId: "e1", faceId: "f1", token: "t" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when lambda returns invalid payload shape", async () => {
+    sendMock.mockResolvedValue({ Payload: encodePayload({ wrong: "shape" }) });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { getMatchedGalleryDataViaBackend } = await import("@/lib/notifications/backend");
+    const result = await getMatchedGalleryDataViaBackend({ eventId: "e1", faceId: "f1", token: "t" });
+    expect(result).toBeNull();
   });
 });

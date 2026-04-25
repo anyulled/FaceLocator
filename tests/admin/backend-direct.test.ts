@@ -2,14 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
 
-import type { CopyObjectCommandInput } from "@aws-sdk/client-s3";
-import { CopyObjectCommand } from "@aws-sdk/client-s3";
 vi.mock("@aws-sdk/client-s3", () => ({
   S3Client: class {
     send = sendMock;
   },
   CopyObjectCommand: class {
-    constructor(public input: CopyObjectCommandInput) {}
+    constructor(public input: unknown) {}
+  },
+  PutObjectCommand: class {
+    constructor(public input: unknown) {}
   },
 }));
 
@@ -28,10 +29,14 @@ vi.mock("@/lib/aws/database", () => ({
 const mockedGetDatabasePool = vi.mocked(getDatabasePool);
 const mockPool = { query: vi.fn() };
 
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+const mockedGetSignedUrl = vi.mocked(getSignedUrl);
+
 describe("admin backend — direct mode implementation", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockedGetDatabasePool.mockResolvedValue(mockPool as unknown as Pool);
+    mockedGetSignedUrl.mockResolvedValue("https://signed.example.com/p1");
     process.env.ADMIN_READ_BACKEND = "direct";
     process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET = "test-bucket";
   });
@@ -110,5 +115,22 @@ describe("admin backend — direct mode implementation", () => {
 
     expect(result?.failed).toBe(1);
     expect(result?.queued).toBe(0);
+  });
+
+  it("createAdminEventPhotoUploadViaBackend returns presign response", async () => {
+    // Ensure all queries in this test return a valid event header
+    mockPool.query.mockImplementation(async () => ({ 
+      rows: [{ id: "e1", slug: "demo", title: "D", venue: "V", description: "D", startsAt: "2026-01-01T10:00:00Z", endsAt: "2026-01-01T11:00:00Z", logoObjectKey: null }] 
+    }));
+    
+    const { createAdminEventPhotoUploadViaBackend } = await import("@/lib/admin/events/backend");
+    const result = await createAdminEventPhotoUploadViaBackend({
+      eventSlug: "demo",
+      contentType: "image/jpeg",
+      uploadedBy: "admin1"
+    });
+    
+    expect(result?.photo.uploadedBy).toBe("admin1");
+    expect(result?.upload.url).toContain("example.com");
   });
 });

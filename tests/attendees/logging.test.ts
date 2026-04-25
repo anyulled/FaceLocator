@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({
-  headers: vi.fn().mockResolvedValue(new Headers()),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  headers: vi.fn().mockResolvedValue(new Headers() as any),
 }));
 
 vi.mock("@/lib/aws/database-errors", () => ({
@@ -52,10 +53,10 @@ describe("logRouteInfo", () => {
 describe("logRouteError", () => {
   it("logs AttendeeApiError with its code", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const err = new AttendeeApiError(404, "NOT_FOUND", "Not found");
+    const err = new AttendeeApiError(404, "REGISTRATION_NOT_FOUND", "Not found");
     logRouteError(err, { correlationId: "c1" });
     const logged = JSON.parse(spy.mock.calls[0]?.[0] as string);
-    expect(logged.code).toBe("NOT_FOUND");
+    expect(logged.code).toBe("REGISTRATION_NOT_FOUND");
     expect(logged.message).toBe("Not found");
     spy.mockRestore();
   });
@@ -102,7 +103,7 @@ describe("jsonWithCorrelationId", () => {
 
 describe("errorResponseWithCorrelationId", () => {
   it("uses AttendeeApiError status", () => {
-    const err = new AttendeeApiError(400, "BAD_REQUEST", "Bad input");
+    const err = new AttendeeApiError(400, "INVALID_EVENT", "Bad input");
     const res = errorResponseWithCorrelationId(err, "corr-1");
     expect(res.status).toBe(400);
     expect(res.headers.get(CORRELATION_HEADER)).toBe("corr-1");

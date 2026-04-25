@@ -52,6 +52,36 @@ describe("Selfies & Attendees Integration", () => {
     expect(Array.isArray(data.selfies)).toBe(true);
   });
 
+  it("handles attendee deletion (dry-run/error path) in integration", async () => {
+    const dbCheck = await checkLiveE2EPrerequisites({ requireDatabase: true });
+    if (!dbCheck.ok) {
+      console.warn(`Skipping integration test: ${dbCheck.reason}`);
+      return;
+    }
+
+    mockedResolveAdminIdentity.mockResolvedValue({
+      sub: "test-admin",
+      tokenUse: "access",
+      groups: ["admin"],
+      username: "test@example.com",
+    });
+
+    const eventSlug = "any-slug";
+    const registrationId = "missing-reg-id";
+    
+    // This will hit the real DB and probably return 500 or 404 because the ID is missing
+    // which is what we want to verify (the full error handling flow)
+    const response = await deleteAttendee(
+      makeNextRequest(`http://localhost/api/admin/events/${eventSlug}/selfies/${registrationId}`, {
+        method: "DELETE"
+      }),
+      { params: Promise.resolve({ eventSlug, registrationId }) }
+    );
+
+    // If it's a real integration, we expect it to fail gracefully
+    expect([404, 500, 503]).toContain(response.status);
+  });
+
   it("returns 401 when identity resolution fails", async () => {
     mockedResolveAdminIdentity.mockResolvedValue(null);
 

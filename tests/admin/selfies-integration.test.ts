@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET as listSelfies } from "@/app/api/admin/events/[eventSlug]/selfies/route";
+import type { NextRequest } from "next/server";
 import { resolveAdminIdentity } from "@/lib/admin/auth";
 import { checkLiveE2EPrerequisites } from "../e2e/aws-test-helpers";
 
@@ -15,7 +16,7 @@ const mockedResolveAdminIdentity = vi.mocked(resolveAdminIdentity);
 function makeNextRequest(url: string, init?: RequestInit) {
   return Object.assign(new Request(url, init), {
     nextUrl: new URL(url),
-  }) as unknown as Request & { nextUrl: URL };
+  }) as unknown as NextRequest;
 }
 
 describe("Selfies & Attendees Integration", () => {

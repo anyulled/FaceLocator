@@ -161,6 +161,17 @@ When touching the hosted admin flow:
 - Verify the production Amplify branch/job, not only local tests.
 - Confirm logs for the exact request id or correlation id reported to the user.
 
+## Robust Testing Strategy
+
+- **Prefer Integration Over Pure Unit Mocks**: When testing repository or API logic, aim to use a real database connection (managed via `checkLiveE2EPrerequisites`) whenever possible. Only mock the boundary (identity resolution, S3) if a live connection is unavailable or the side effect is destructive.
+- **Git Hooks Enforcement**:
+  - `pre-commit`: Runs `lint` and `unit tests`. Fast feedback for the developer.
+  - `pre-push`: Runs `typecheck`, `lint`, `test` (including integration), and `build`. Mandatory gate before code leaves the local machine.
+- **Test File Organization**:
+  - `tests/admin/`: Integration and route tests for the admin dashboard.
+  - `tests/e2e/`: Playwright browser tests for critical user journeys.
+- **Verification First**: Always run the smallest relevant test set before expanding to the full suite.
+
 ## Troubleshooting Pattern
 
 Use this order:

@@ -35,9 +35,7 @@ export async function GET(
       ...parsed.data,
     });
 
-    return NextResponse.json({
-      ...selfiesPage,
-    });
+    return NextResponse.json(selfiesPage);
   } catch (error) {
     const requestId = request.headers.get("x-amz-cf-id") ?? request.headers.get("x-amzn-requestid") ?? request.headers.get("x-correlation-id") ?? null;
     const databaseError = isDatabaseErrorLike(error) ? describeDatabaseError(error) : null;

@@ -113,7 +113,7 @@ export type AdminEventSelfie = {
 };
 
 export type AdminEventSelfiesPage = {
-  event?: {
+  event: {
     id: string;
     slug: string;
     title: string;

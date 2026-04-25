@@ -850,6 +850,7 @@ export async function listAdminEventSelfies(input: {
       const event = await getAdminEventHeader(input.eventSlug);
       if (!event) {
         return {
+          event: null,
           selfies: [],
           page: input.page,
           pageSize: input.pageSize,

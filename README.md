@@ -471,6 +471,14 @@ Approximate recurring cost drivers for the POC:
 
 Before introducing new infrastructure, re-check whether the change reduces one of these baseline drivers or only adds complexity.
 
+## Deferred Optimization
+
+The original cost-reduction direction started from "remove VPCs where possible". The implemented architecture now makes one constraint explicit:
+
+- private Aurora plus direct PostgreSQL clients means Lambda functions must stay VPC-attached
+
+Further cost reduction is still possible, but only through a deliberate data-access redesign such as moving to Aurora Data API or another boundary that removes direct socket connectivity requirements.
+
 ## How The Code Is Organized
 
 The enrollment flow is deliberately split into small seams:

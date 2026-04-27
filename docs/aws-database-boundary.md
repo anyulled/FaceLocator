@@ -27,6 +27,15 @@ The POC provisions a Terraform-managed Aurora PostgreSQL Serverless v2 cluster a
   - the Lambda runtime security group for worker and API Lambdas
 - VPC endpoints for S3, Secrets Manager, Rekognition, and SES keep Lambda egress private while Lambdas remain VPC-attached.
 
+## Deferred optimization path
+
+- Full Lambda VPC removal is not compatible with the current direct PostgreSQL client model.
+- If cost or latency pressure justifies another redesign, evaluate one of these explicit follow-up paths:
+  - move database access behind a different service boundary
+  - adopt Aurora Data API and refactor callers accordingly
+  - accept a different egress design with its own cost and security trade-offs
+- Do not remove interface endpoints or Lambda VPC attachment as an isolated optimization change.
+
 ## Required logical tables
 
 - `events`

@@ -28,6 +28,7 @@ This document freezes the infrastructure scope for the AWS-backed FaceLocator PO
 - WAF
 - CDN
 - VPC hardening beyond what is immediately necessary
+- removing Lambda VPC attachment without first changing the private database access model
 - production-grade CI/CD
 
 ## Guardrails

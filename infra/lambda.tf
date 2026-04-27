@@ -46,7 +46,7 @@ resource "aws_lambda_function" "selfie_enrollment" {
 
   vpc_config {
     subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-    security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    security_group_ids = [aws_security_group.lambda_runtime.id]
   }
 
   depends_on = [
@@ -78,7 +78,7 @@ resource "aws_lambda_function" "attendee_registration" {
 
   vpc_config {
     subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-    security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    security_group_ids = [aws_security_group.lambda_runtime.id]
   }
 
   depends_on = [
@@ -111,7 +111,7 @@ resource "aws_lambda_function" "admin_events_read" {
 
   vpc_config {
     subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-    security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    security_group_ids = [aws_security_group.lambda_runtime.id]
   }
 
   depends_on = [
@@ -144,7 +144,7 @@ resource "aws_lambda_function" "event_photo_worker" {
 
   vpc_config {
     subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-    security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    security_group_ids = [aws_security_group.lambda_runtime.id]
   }
 
   depends_on = [
@@ -178,7 +178,7 @@ resource "aws_lambda_function" "matched_photo_notifier" {
 
   vpc_config {
     subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-    security_group_ids = [aws_security_group.lambda_runtime[0].id]
+    security_group_ids = [aws_security_group.lambda_runtime.id]
   }
 
   depends_on = [

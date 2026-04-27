@@ -24,7 +24,7 @@ describe("infra phase 2 explicit lambda vpc attachment", () => {
     expect(lambdaTf).not.toContain('dynamic "vpc_config"');
     const vpcConfigBlocks = lambdaTf.match(/\n\s*vpc_config\s*\{/g) ?? [];
     expect(vpcConfigBlocks.length).toBe(5);
-    expect(lambdaTf).toContain("aws_security_group.lambda_runtime[0].id");
+    expect(lambdaTf).toContain("aws_security_group.lambda_runtime.id");
   });
 
   it("documents the phase 2 decision in ADR", () => {

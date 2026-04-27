@@ -49,8 +49,6 @@ resource "aws_subnet" "db_private" {
 }
 
 resource "aws_route_table" "db_private" {
-  count = 1
-
   vpc_id = data.aws_vpc.default.id
 
   tags = merge(local.common_tags, {
@@ -62,12 +60,10 @@ resource "aws_route_table_association" "db_private" {
   for_each = aws_subnet.db_private
 
   subnet_id      = each.value.id
-  route_table_id = aws_route_table.db_private[0].id
+  route_table_id = aws_route_table.db_private.id
 }
 
 resource "aws_security_group" "lambda_runtime" {
-  count = 1
-
   name        = "${local.name_prefix}-lambda-runtime-sg"
   description = "Security group for private Lambda runtime networking"
   vpc_id      = data.aws_vpc.default.id
@@ -83,10 +79,8 @@ resource "aws_security_group" "lambda_runtime" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "lambda_runtime_https_from_self" {
-  count = 1
-
-  security_group_id            = aws_security_group.lambda_runtime[0].id
-  referenced_security_group_id = aws_security_group.lambda_runtime[0].id
+  security_group_id            = aws_security_group.lambda_runtime.id
+  referenced_security_group_id = aws_security_group.lambda_runtime.id
   from_port                    = 443
   to_port                      = 443
   ip_protocol                  = "tcp"
@@ -94,10 +88,8 @@ resource "aws_vpc_security_group_ingress_rule" "lambda_runtime_https_from_self" 
 }
 
 resource "aws_vpc_security_group_ingress_rule" "db_from_lambda" {
-  count = 1
-
   security_group_id            = aws_security_group.db.id
-  referenced_security_group_id = aws_security_group.lambda_runtime[0].id
+  referenced_security_group_id = aws_security_group.lambda_runtime.id
   from_port                    = 5432
   to_port                      = 5432
   ip_protocol                  = "tcp"
@@ -105,51 +97,43 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_lambda" {
 }
 
 resource "aws_vpc_endpoint" "s3_gateway" {
-  count = 1
-
   vpc_id            = data.aws_vpc.default.id
   service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
-  route_table_ids   = [aws_route_table.db_private[0].id]
+  route_table_ids   = [aws_route_table.db_private.id]
 
   tags = local.common_tags
 }
 
 resource "aws_vpc_endpoint" "secretsmanager" {
-  count = 1
-
   vpc_id              = data.aws_vpc.default.id
   service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for subnet in aws_subnet.db_private : subnet.id]
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.lambda_runtime[0].id]
+  security_group_ids  = [aws_security_group.lambda_runtime.id]
 
   tags = local.common_tags
 }
 
 resource "aws_vpc_endpoint" "rekognition" {
-  count = 1
-
   vpc_id              = data.aws_vpc.default.id
   service_name        = "com.amazonaws.${var.aws_region}.rekognition"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for subnet in aws_subnet.db_private : subnet.id]
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.lambda_runtime[0].id]
+  security_group_ids  = [aws_security_group.lambda_runtime.id]
 
   tags = local.common_tags
 }
 
 resource "aws_vpc_endpoint" "ses" {
-  count = 1
-
   vpc_id              = data.aws_vpc.default.id
   service_name        = "com.amazonaws.${var.aws_region}.email"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for subnet in aws_subnet.db_private : subnet.id]
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.lambda_runtime[0].id]
+  security_group_ids  = [aws_security_group.lambda_runtime.id]
 
   tags = local.common_tags
 }

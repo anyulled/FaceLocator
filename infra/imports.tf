@@ -15,7 +15,7 @@ import {
 }
 
 import {
-  to = aws_security_group.lambda_runtime[0]
+  to = aws_security_group.lambda_runtime
   id = "sg-0f099376dc60458fc"
 }
 

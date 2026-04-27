@@ -18,7 +18,7 @@ describe("infra phase 3 endpoint SG consolidation", () => {
 
   it("uses lambda runtime SG for interface endpoints", () => {
     const lambdaEndpointSgRefs =
-      databaseTf.match(/security_group_ids\s*=\s*\[aws_security_group\.lambda_runtime\[0\]\.id\]/g) ?? [];
+      databaseTf.match(/security_group_ids\s*=\s*\[aws_security_group\.lambda_runtime\.id\]/g) ?? [];
 
     expect(lambdaEndpointSgRefs.length).toBe(3);
     expect(databaseTf).toContain('resource "aws_vpc_endpoint" "secretsmanager"');
@@ -29,7 +29,7 @@ describe("infra phase 3 endpoint SG consolidation", () => {
   it("allows HTTPS from lambda runtime SG to itself for endpoint traffic", () => {
     expect(databaseTf).toContain('resource "aws_vpc_security_group_ingress_rule" "lambda_runtime_https_from_self"');
     expect(databaseTf).toContain("from_port                    = 443");
-    expect(databaseTf).toContain("referenced_security_group_id = aws_security_group.lambda_runtime[0].id");
+    expect(databaseTf).toContain("referenced_security_group_id = aws_security_group.lambda_runtime.id");
   });
 
   it("records phase 3 decision and constraints in ADR", () => {

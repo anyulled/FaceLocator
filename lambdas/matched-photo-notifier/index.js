@@ -312,15 +312,15 @@ async function getNotificationCandidates(client, options = {}) {
         e.public_base_url AS "publicBaseUrl",
         current_face.id AS "faceEnrollmentId",
         current_face.rekognition_face_id AS "faceId",
-        COUNT(DISTINCT ep.id)::int AS "matchCount"
+        COUNT(DISTINCT ep.id)::int AS "matchCount",
+        c.id AS "consentId"
       FROM event_attendees ea
       JOIN attendees a
         ON a.id = ea.attendee_id
       JOIN events e
         ON e.id = ea.event_id
-      JOIN consents c
+      LEFT JOIN consents c
         ON c.id = ea.consent_id
-       AND c.withdrawn_at IS NULL
       JOIN LATERAL (
         SELECT fe.id, fe.rekognition_face_id
         FROM face_enrollments fe
@@ -351,7 +351,8 @@ async function getNotificationCandidates(client, options = {}) {
         e.title,
         e.public_base_url,
         current_face.id,
-        current_face.rekognition_face_id
+        current_face.rekognition_face_id,
+        c.id
       ${limitClause}
     `,
     values,
@@ -427,6 +428,20 @@ async function persistNotification(client, candidate, providerMessageId) {
 }
 
 async function processCandidate(client, candidate, options = {}) {
+  if (!candidate.consentId) {
+    console.error(
+      JSON.stringify({
+        scope: "lambda.matched-photo-notifier",
+        level: "error",
+        message: "Attendee has matched photos but is missing a consent record (consent_id is NULL). This violates business logic for selfie registrations.",
+        eventId: candidate.eventId,
+        attendeeId: candidate.attendeeId,
+        kind: "DATA_INTEGRITY",
+      }),
+    );
+    return { outcome: "skipped_missing_consent" };
+  }
+
   await client.query("BEGIN");
   try {
     const lockRes = await client.query(

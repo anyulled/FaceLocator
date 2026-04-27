@@ -413,7 +413,6 @@ async function getAdminEventPhotosPage(input) {
               SELECT COUNT(*)::text
               FROM event_attendees ea
               WHERE ea.event_id = $1
-                AND ea.withdrawal_at IS NULL
             ) AS "totalAssociatedUsers"
         `,
         [event.id],
@@ -524,7 +523,6 @@ async function getAdminEventSelfiesPage(input) {
             LIMIT 1
           ) fe ON true
           WHERE ea.event_id = $1
-            AND ea.withdrawal_at IS NULL
           ORDER BY ea.created_at DESC
           LIMIT $2 OFFSET $3
         `,
@@ -535,7 +533,6 @@ async function getAdminEventSelfiesPage(input) {
           SELECT COUNT(*)::text AS total
           FROM event_attendees ea
           WHERE ea.event_id = $1
-            AND ea.withdrawal_at IS NULL
         `,
         [event.id],
       ),

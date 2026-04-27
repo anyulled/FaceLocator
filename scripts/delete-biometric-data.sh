@@ -42,6 +42,8 @@ fi
 
 echo "Removing database records"
 psql "${DATABASE_URL}" <<SQL
+BEGIN;
+
 delete from photo_face_matches
 where attendee_id = '${ATTENDEE_ID}';
 
@@ -49,18 +51,17 @@ delete from face_enrollments
 where attendee_id = '${ATTENDEE_ID}'
   and event_id = '${EVENT_ID}';
 
-update consents
-set withdrawn_at = now()
-where attendee_id = '${ATTENDEE_ID}'
-  and event_id = '${EVENT_ID}'
-  and withdrawn_at is null;
-
-update event_attendees
-set enrollment_status = 'deleted',
-    withdrawal_at = now(),
-    updated_at = now()
+-- Deleting from consents will now cascade to event_attendees
+-- due to the ON DELETE CASCADE constraint.
+delete from consents
 where attendee_id = '${ATTENDEE_ID}'
   and event_id = '${EVENT_ID}';
+
+-- If no other events exist for this attendee, we could delete them from attendees
+-- but for now we follow the 'event registration' deletion logic.
+-- If the attendee record itself must be deleted, it can be added here.
+
+COMMIT;
 SQL
 
 echo "Manual follow-up: inspect event-photo retention and remove any already-delivered photos tied to the attendee if policy requires it."

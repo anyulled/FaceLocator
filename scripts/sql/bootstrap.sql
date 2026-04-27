@@ -31,7 +31,7 @@ create table if not exists consents (
 create table if not exists event_attendees (
   event_id text not null references events(id) on delete cascade,
   attendee_id text not null references attendees(id) on delete cascade,
-  consent_id text references consents(id) on delete set null,
+  consent_id text references consents(id) on delete cascade,
   enrollment_status text not null default 'pending',
   withdrawal_at timestamptz,
   photo_notifications_unsubscribed_at timestamptz,

@@ -500,7 +500,6 @@ export async function getAdminEventPhotosPageViaBackend(input: {
             SELECT COUNT(*)::text
             FROM event_attendees ea
             WHERE ea.event_id = $1
-              AND ea.withdrawal_at IS NULL
           ) AS "totalAssociatedUsers"
       `,
       [event.id],

@@ -32,6 +32,14 @@ export const ADMIN_EVENTS_SCHEMA_QUERIES: AdminEventsSchemaQuery[] = [
   {
     text: `ALTER TABLE IF EXISTS events ALTER COLUMN public_base_url SET DEFAULT 'https://localhost:3000'`,
   },
+  {
+    text: `ALTER TABLE IF EXISTS event_attendees DROP CONSTRAINT IF EXISTS event_attendees_consent_id_fkey`,
+  },
+  {
+    text: `ALTER TABLE IF EXISTS event_attendees 
+           ADD CONSTRAINT event_attendees_consent_id_fkey 
+           FOREIGN KEY (consent_id) REFERENCES consents(id) ON DELETE CASCADE`,
+  },
 ];
 
 let ensureAdminEventsSchemaPromise: Promise<void> | null = null;

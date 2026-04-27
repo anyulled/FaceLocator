@@ -438,6 +438,35 @@ data "aws_iam_policy_document" "operator_discovery" {
     ]
     resources = var.enable_cognito_admin_auth ? [aws_cognito_user_pool.admin[0].arn] : ["*"]
   }
+
+  statement {
+    sid = "AllowS3Discovery"
+    actions = [
+      "s3:GetBucketLocation",
+      "s3:GetBucketAcl",
+      "s3:ListBucket",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowSecretsDiscovery"
+    actions = [
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetResourcePolicy",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowIamDiscovery"
+    actions = [
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListPolicyVersions",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_policy" "operator_discovery" {

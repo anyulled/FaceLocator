@@ -34,6 +34,10 @@ resource "aws_cognito_user_pool" "admin" {
     require_uppercase                = true
     temporary_password_validity_days = 7
   }
+
+  lifecycle {
+    ignore_changes = [schema]
+  }
 }
 
 resource "aws_cognito_user_pool_client" "admin_web" {

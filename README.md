@@ -453,6 +453,24 @@ The AWS POC is intentionally narrow. The accepted surface area is documented in:
 
 Do not add AWS resources unless they map directly to a ticket in `specs/aws_poc_ticket_pack`.
 
+## Cost Baseline
+
+Current infrastructure baseline (after phases 1-4) keeps:
+
+- Aurora PostgreSQL Serverless v2 in private subnets
+- VPC-attached Lambdas for private database connectivity
+- Interface VPC endpoints for Secrets Manager, Rekognition, and SES
+
+Approximate recurring cost drivers for the POC:
+
+- Aurora Serverless v2 ACU usage (depends on `aurora_serverless_min_capacity` and activity)
+- Interface VPC endpoints (3 services)
+- Lambda invocations and duration
+- Rekognition API calls per enrollment and photo processing event
+- S3 storage and request volume
+
+Before introducing new infrastructure, re-check whether the change reduces one of these baseline drivers or only adds complexity.
+
 ## How The Code Is Organized
 
 The enrollment flow is deliberately split into small seams:

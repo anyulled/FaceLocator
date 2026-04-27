@@ -117,6 +117,13 @@ run ./scripts/package-lambdas.sh
 run ./scripts/tf-init.sh
 run terraform -chdir=infra validate
 
+echo
+echo "==> Terraform output sanity checks"
+run terraform -chdir=infra output -raw database_cluster_endpoint
+run terraform -chdir=infra output -raw admin_events_read_lambda_name
+run terraform -chdir=infra output -raw attendee_registration_lambda_name
+run terraform -chdir=infra output -raw matched_photo_notifier_lambda_name
+
 if [[ "${RUN_TERRAFORM_APPLY}" == "true" ]]; then
   run ./scripts/tf-apply.sh
 else

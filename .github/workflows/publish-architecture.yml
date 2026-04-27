@@ -33,14 +33,16 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Structurizr Site Generatr
-        run: npm install -g @avisi-cloud/structurizr-site-generatr
-
-      - name: Generate static site
+      - name: Generate static site with Docker
         run: |
-          structurizr-site-generatr \
-            --workspace architecture.structurizr \
-            --output docs/architecture-site
+          rm -rf docs/architecture-site
+          mkdir -p docs/architecture-site
+          docker run --rm \
+            -v "$PWD":/workspace \
+            ghcr.io/avisi-cloud/structurizr-site-generatr:latest \
+            generate-site \
+            --workspace-file /workspace/architecture.structurizr \
+            --output-dir /workspace/docs/architecture-site
 
       - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3

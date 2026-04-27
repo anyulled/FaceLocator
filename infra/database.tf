@@ -82,29 +82,15 @@ resource "aws_security_group" "lambda_runtime" {
   tags = local.common_tags
 }
 
-resource "aws_security_group" "private_endpoints" {
+resource "aws_vpc_security_group_ingress_rule" "lambda_runtime_https_from_self" {
   count = 1
 
-  name        = "${local.name_prefix}-private-endpoints-sg"
-  description = "Security group for interface VPC endpoints used by Lambdas"
-  vpc_id      = data.aws_vpc.default.id
-
-  ingress {
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.lambda_runtime[0].id]
-    description     = "Allow Lambda runtime to reach AWS service endpoints"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = local.common_tags
+  security_group_id            = aws_security_group.lambda_runtime[0].id
+  referenced_security_group_id = aws_security_group.lambda_runtime[0].id
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
+  description                  = "Allow Lambda runtime traffic to interface VPC endpoints over HTTPS"
 }
 
 resource "aws_vpc_security_group_ingress_rule" "db_from_lambda" {
@@ -137,7 +123,7 @@ resource "aws_vpc_endpoint" "secretsmanager" {
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for subnet in aws_subnet.db_private : subnet.id]
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.private_endpoints[0].id]
+  security_group_ids  = [aws_security_group.lambda_runtime[0].id]
 
   tags = local.common_tags
 }
@@ -150,7 +136,7 @@ resource "aws_vpc_endpoint" "rekognition" {
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for subnet in aws_subnet.db_private : subnet.id]
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.private_endpoints[0].id]
+  security_group_ids  = [aws_security_group.lambda_runtime[0].id]
 
   tags = local.common_tags
 }
@@ -163,7 +149,7 @@ resource "aws_vpc_endpoint" "ses" {
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for subnet in aws_subnet.db_private : subnet.id]
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.private_endpoints[0].id]
+  security_group_ids  = [aws_security_group.lambda_runtime[0].id]
 
   tags = local.common_tags
 }

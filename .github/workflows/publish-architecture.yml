@@ -26,24 +26,23 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Generate static site with Docker
         run: |
           rm -rf docs/architecture-site
           mkdir -p docs/architecture-site
           docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            -v "$PWD":/workspace \
+            -v "$PWD":/var/model \
             ghcr.io/avisi-cloud/structurizr-site-generatr:latest \
             generate-site \
-            --workspace-file /workspace/architecture.structurizr \
-            --output-dir /workspace/docs/architecture-site
+            --workspace-file architecture.structurizr \
+            --output-dir /var/model/docs/architecture-site
 
       - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3

@@ -4,10 +4,6 @@ project_name = "face-locator"
 database_name = "face_locator"
 database_username = "face_locator_app"
 database_allowed_cidr_blocks = []
-database_private_subnets = [
-  { availability_zone = "eu-west-1a", cidr_block = "172.31.200.0/24" },
-  { availability_zone = "eu-west-1b", cidr_block = "172.31.201.0/24" }
-]
 aurora_postgresql_engine_version = "16.4"
 aurora_serverless_min_capacity = 0.5
 aurora_serverless_max_capacity = 1

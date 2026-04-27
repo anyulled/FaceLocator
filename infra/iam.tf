@@ -171,11 +171,6 @@ resource "aws_iam_role_policy" "selfie_enrollment_lambda" {
   policy = data.aws_iam_policy_document.selfie_enrollment_lambda.json
 }
 
-resource "aws_iam_role_policy_attachment" "selfie_enrollment_vpc_access" {
-  role       = aws_iam_role.selfie_enrollment_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
 resource "aws_iam_role" "attendee_registration_lambda" {
   name               = "${local.lambda_names.attendee_registration}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
@@ -218,11 +213,6 @@ resource "aws_iam_role_policy" "attendee_registration_lambda" {
   name   = "${local.lambda_names.attendee_registration}-policy"
   role   = aws_iam_role.attendee_registration_lambda.id
   policy = data.aws_iam_policy_document.attendee_registration_lambda.json
-}
-
-resource "aws_iam_role_policy_attachment" "attendee_registration_vpc_access" {
-  role       = aws_iam_role.attendee_registration_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 resource "aws_iam_role" "admin_events_read_lambda" {
@@ -275,11 +265,6 @@ resource "aws_iam_role_policy" "admin_events_read_lambda" {
   policy = data.aws_iam_policy_document.admin_events_read_lambda.json
 }
 
-resource "aws_iam_role_policy_attachment" "admin_events_read_vpc_access" {
-  role       = aws_iam_role.admin_events_read_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
 resource "aws_iam_role" "event_photo_worker_lambda" {
   name               = "${local.lambda_names.event_photo_worker}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
@@ -328,11 +313,6 @@ resource "aws_iam_role_policy" "event_photo_worker_lambda" {
   name   = "${local.lambda_names.event_photo_worker}-policy"
   role   = aws_iam_role.event_photo_worker_lambda.id
   policy = data.aws_iam_policy_document.event_photo_worker_lambda.json
-}
-
-resource "aws_iam_role_policy_attachment" "event_photo_worker_vpc_access" {
-  role       = aws_iam_role.event_photo_worker_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 resource "aws_iam_role" "matched_photo_notifier_lambda" {
@@ -390,11 +370,6 @@ resource "aws_iam_role_policy" "matched_photo_notifier_lambda" {
   name   = "${local.lambda_names.matched_notifier}-policy"
   role   = aws_iam_role.matched_photo_notifier_lambda.id
   policy = data.aws_iam_policy_document.matched_photo_notifier_lambda.json
-}
-
-resource "aws_iam_role_policy_attachment" "matched_photo_notifier_vpc_access" {
-  role       = aws_iam_role.matched_photo_notifier_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 resource "aws_iam_role" "matched_photo_notifier_scheduler" {

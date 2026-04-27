@@ -5,18 +5,13 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 import {
-  to = aws_cognito_user_pool_domain.admin[0]
-  id = "face-locator-poc-admin"
-}
-
-import {
   to = aws_security_group.db
   id = "sg-04bb2281781c99c0c"
 }
 
 import {
-  to = aws_security_group.lambda_runtime
-  id = "sg-0f099376dc60458fc"
+  to = aws_db_subnet_group.poc
+  id = "face-locator-poc-db-subnets"
 }
 
 import {

@@ -22,7 +22,9 @@
     "verify:prepush": "pnpm typecheck:web && pnpm lint:web && pnpm test:coverage && pnpm build && pnpm typecheck:desktop && pnpm desktop:build",
     "desktop:dev": "pnpm --filter macos-uploader dev",
     "desktop:build": "pnpm --filter macos-uploader build",
-    "desktop:tauri": "pnpm --filter macos-uploader tauri build"
+    "desktop:tauri": "pnpm --filter macos-uploader tauri build",
+    "arch:generate": "structurizr-site-generatr --workspace architecture.structurizr --output docs/architecture-site",
+    "arch:serve": "cd docs/architecture-site && npx http-server -p 8080"
   },
   "dependencies": {
     "@aws-sdk/client-lambda": "^3.1032.0",

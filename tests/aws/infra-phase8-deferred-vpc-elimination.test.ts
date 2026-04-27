@@ -20,19 +20,17 @@ const adr = readFileSync(
 );
 
 describe("infra phase 8 deferred vpc elimination", () => {
-  it("documents deferred optimization in README", () => {
-    expect(readme).toContain("## Deferred Optimization");
-    expect(readme).toContain("Lambda functions must stay VPC-attached");
+  it("documents completed optimization in README", () => {
+    expect(readme).not.toContain("Lambda functions must stay VPC-attached");
   });
 
-  it("documents deferred path in database boundary doc", () => {
-    expect(dbBoundary).toContain("## Deferred optimization path");
-    expect(dbBoundary).toContain("Aurora Data API");
-    expect(dbBoundary).toContain("Do not remove interface endpoints or Lambda VPC attachment as an isolated optimization change");
+  it("documents non-vpc lambda model in database boundary doc", () => {
+    expect(dbBoundary).toContain("Lambda functions are not VPC-attached");
+    expect(dbBoundary).toContain("Interface VPC endpoints for Secrets Manager, Rekognition, and SES are not provisioned");
   });
 
-  it("marks unsupported VPC removal as out of scope", () => {
-    expect(pocScope).toContain("removing Lambda VPC attachment without first changing the private database access model");
+  it("removes deferred-vpc wording from scope constraints", () => {
+    expect(pocScope).not.toContain("removing Lambda VPC attachment without first changing the private database access model");
   });
 
   it("records phase 8 decision in ADR", () => {

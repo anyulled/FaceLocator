@@ -16,20 +16,15 @@ describe("infra phase 3 endpoint SG consolidation", () => {
     expect(databaseTf).not.toContain('resource "aws_security_group" "private_endpoints"');
   });
 
-  it("uses lambda runtime SG for interface endpoints", () => {
-    const lambdaEndpointSgRefs =
-      databaseTf.match(/security_group_ids\s*=\s*\[aws_security_group\.lambda_runtime\.id\]/g) ?? [];
-
-    expect(lambdaEndpointSgRefs.length).toBe(3);
-    expect(databaseTf).toContain('resource "aws_vpc_endpoint" "secretsmanager"');
-    expect(databaseTf).toContain('resource "aws_vpc_endpoint" "rekognition"');
-    expect(databaseTf).toContain('resource "aws_vpc_endpoint" "ses"');
+  it("removes interface endpoints that were only needed for VPC-attached Lambdas", () => {
+    expect(databaseTf).not.toContain('resource "aws_vpc_endpoint" "secretsmanager"');
+    expect(databaseTf).not.toContain('resource "aws_vpc_endpoint" "rekognition"');
+    expect(databaseTf).not.toContain('resource "aws_vpc_endpoint" "ses"');
   });
 
-  it("allows HTTPS from lambda runtime SG to itself for endpoint traffic", () => {
-    expect(databaseTf).toContain('resource "aws_vpc_security_group_ingress_rule" "lambda_runtime_https_from_self"');
-    expect(databaseTf).toContain("from_port                    = 443");
-    expect(databaseTf).toContain("referenced_security_group_id = aws_security_group.lambda_runtime.id");
+  it("removes lambda runtime endpoint traffic ingress rules", () => {
+    expect(databaseTf).not.toContain('resource "aws_vpc_security_group_ingress_rule" "lambda_runtime_https_from_self"');
+    expect(databaseTf).not.toContain("aws_security_group.lambda_runtime.id");
   });
 
   it("records phase 3 decision and constraints in ADR", () => {

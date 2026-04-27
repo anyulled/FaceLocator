@@ -18,8 +18,8 @@ This README is meant to help both humans and AI agents understand the codebase q
 - Issues upload instructions through a gateway abstraction
 - Tracks registration status through `UPLOAD_PENDING`, `PROCESSING`, `ENROLLED`, `FAILED`, and `CANCELLED`
 - Exposes admin pages for event and photo management
-- Routes public registration and admin reads through explicit backend modes so the app can run in mock mode or through VPC-attached Lambdas when the database is private
-- Routes magic-link gallery and unsubscribe pages through the matched-photo-notifier Lambda when the database is private
+- Routes public registration and admin reads through explicit backend modes so the app can run in mock mode or through Lambda backends
+- Routes magic-link gallery and unsubscribe pages through the matched-photo-notifier Lambda backend
 - Keeps the AWS-backed pieces behind explicit boundaries so the app can still run in mock mode
 
 ## System Landscape
@@ -457,27 +457,18 @@ Do not add AWS resources unless they map directly to a ticket in `specs/aws_poc_
 
 Current infrastructure baseline (after phases 1-4) keeps:
 
-- Aurora PostgreSQL Serverless v2 in private subnets
-- VPC-attached Lambdas for private database connectivity
-- Interface VPC endpoints for Secrets Manager, Rekognition, and SES
+- Aurora PostgreSQL Serverless v2
+- Lambda backends without VPC attachment
+- No interface VPC endpoints for Secrets Manager, Rekognition, or SES
 
 Approximate recurring cost drivers for the POC:
 
 - Aurora Serverless v2 ACU usage (depends on `aurora_serverless_min_capacity` and activity)
-- Interface VPC endpoints (3 services)
 - Lambda invocations and duration
 - Rekognition API calls per enrollment and photo processing event
 - S3 storage and request volume
 
 Before introducing new infrastructure, re-check whether the change reduces one of these baseline drivers or only adds complexity.
-
-## Deferred Optimization
-
-The original cost-reduction direction started from "remove VPCs where possible". The implemented architecture now makes one constraint explicit:
-
-- private Aurora plus direct PostgreSQL clients means Lambda functions must stay VPC-attached
-
-Further cost reduction is still possible, but only through a deliberate data-access redesign such as moving to Aurora Data API or another boundary that removes direct socket connectivity requirements.
 
 ## How The Code Is Organized
 

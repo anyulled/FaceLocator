@@ -29,14 +29,14 @@ describe("infra phase 4 singleton cleanup", () => {
     expect(databaseTf).not.toContain("aws_security_group.lambda_runtime[0].id");
     expect(databaseTf).not.toContain("aws_route_table.db_private[0].id");
     expect(lambdaTf).not.toContain("aws_security_group.lambda_runtime[0].id");
-    expect(databaseTf).toContain("aws_security_group.lambda_runtime.id");
-    expect(databaseTf).toContain("aws_route_table.db_private.id");
+    expect(databaseTf).not.toContain("aws_security_group.lambda_runtime.id");
+    expect(databaseTf).not.toContain("aws_route_table.db_private.id");
   });
 
-  it("keeps explicit VPC attachment for all Lambda functions", () => {
+  it("removes explicit VPC attachment for all Lambda functions", () => {
     const vpcConfigBlocks = lambdaTf.match(/\n\s*vpc_config\s*\{/g) ?? [];
-    expect(vpcConfigBlocks.length).toBe(5);
-    expect(lambdaTf).toContain("aws_security_group.lambda_runtime.id");
+    expect(vpcConfigBlocks.length).toBe(0);
+    expect(lambdaTf).not.toContain("aws_security_group.lambda_runtime.id");
   });
 
   it("documents the phase 4 decision in ADR", () => {

@@ -20,21 +20,16 @@ The POC provisions a Terraform-managed Aurora PostgreSQL Serverless v2 cluster a
 
 ## Network boundary
 
-- The Aurora cluster is provisioned in private subnets in the AWS account's default VPC.
-- Public database access is disabled.
-- The cluster security group allows PostgreSQL traffic only from:
-  - optional operator CIDR blocks configured in `database_allowed_cidr_blocks`
-  - the Lambda runtime security group for worker and API Lambdas
-- VPC endpoints for S3, Secrets Manager, Rekognition, and SES keep Lambda egress private while Lambdas remain VPC-attached.
+- The Aurora cluster uses a subnet group built from default VPC subnets.
+- Lambda functions are not VPC-attached.
+- Interface VPC endpoints for Secrets Manager, Rekognition, and SES are not provisioned.
+- The cluster security group allows PostgreSQL traffic only from CIDR blocks configured in `database_allowed_cidr_blocks`.
+- Aurora connectivity from non-VPC Lambdas requires explicit public ingress allowance in `database_allowed_cidr_blocks`.
 
-## Deferred optimization path
+## Hardening guidance
 
-- Full Lambda VPC removal is not compatible with the current direct PostgreSQL client model.
-- If cost or latency pressure justifies another redesign, evaluate one of these explicit follow-up paths:
-  - move database access behind a different service boundary
-  - adopt Aurora Data API and refactor callers accordingly
-  - accept a different egress design with its own cost and security trade-offs
-- Do not remove interface endpoints or Lambda VPC attachment as an isolated optimization change.
+- Keep `database_allowed_cidr_blocks` as narrow as possible.
+- If broad CIDR ingress is unacceptable, move database access behind a service boundary (for example Aurora Data API) before tightening ingress.
 
 ## Required logical tables
 

@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "structurizr": {
+      "type": "http",
+      "url": "https://mcp.structurizr.com/mcp"
+    }
+  }
+}

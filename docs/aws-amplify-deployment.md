@@ -41,14 +41,14 @@ Set these on the Amplify app or production branch:
 - `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME` or `MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
 
-The hosted runtime delegates magic-link gallery rendering and notification opt-out through the matched-photo notifier Lambda, so the app does not need direct private DB access for those routes.
+The hosted runtime delegates magic-link gallery rendering and notification opt-out through the matched-photo notifier Lambda.
 If `MATCH_LINK_BACKEND` is omitted in production, the app still prefers the Lambda path; set `MATCH_LINK_BACKEND=direct` only for local troubleshooting.
 
 Operational baseline:
 
-- Database is Aurora PostgreSQL Serverless v2 in private subnets.
-- Hosted Next.js runtime must continue invoking Lambda backends for DB-backed operations.
-- Do not configure Amplify runtime to connect directly to Aurora.
+- Database is Aurora PostgreSQL Serverless v2.
+- Hosted Next.js runtime invokes Lambda backends for DB-backed operations.
+- Amplify runtime should not connect directly to Aurora.
 
 ### Per-tenant Cognito admin variables (runbook)
 

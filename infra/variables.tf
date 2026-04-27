@@ -150,15 +150,6 @@ variable "database_allowed_cidr_blocks" {
   default     = []
 }
 
-variable "database_private_subnets" {
-  description = "Private subnets for Aurora Serverless in the default VPC, one per AZ. Example: [{ availability_zone = \"eu-west-1a\", cidr_block = \"172.31.200.0/24\" }]."
-  type = list(object({
-    availability_zone = string
-    cidr_block        = string
-  }))
-  default = []
-}
-
 variable "aurora_postgresql_engine_version" {
   description = "Aurora PostgreSQL engine version for the cluster."
   type        = string

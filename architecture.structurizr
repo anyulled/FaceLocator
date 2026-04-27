@@ -1,0 +1,238 @@
+workspace "FaceLocator" "A Next.js-based event photography enrollment and delivery scaffold with AWS backend." {
+
+    model {
+        # External Actors
+        attendee = person "Attendee" "Registers a selfie for an event and checks matching status."
+        photographer = person "Photographer / Media Team" "Uploads event photos to the platform."
+        organizer = person "Event Organizer / Admin" "Creates events, manages photos, and reviews enrollments."
+        operator = person "AWS Operator" "Manages cloud infrastructure and monitoring."
+
+        # FaceLocator System
+        facelocator = softwareSystem "FaceLocator" "Provides event photography enrollment, matching, and delivery." {
+            nextjs = container "Next.js Application" "Handles public registration, admin reads, notifications." "Next.js + TypeScript"
+            awsBackend = container "AWS Backend" "Lambda-based microservices for async processing." "AWS Lambda + Node.js"
+            database = container "Aurora PostgreSQL Serverless v2" "Private Aurora cluster." "PostgreSQL"
+            selfiesBucket = container "S3 Selfies Bucket" "Temporary selfie storage (30 days)." "S3"
+            photosBucket = container "S3 Event Photos Bucket" "Raw and matched event photos." "S3"
+            rekognition = container "Amazon Rekognition" "Face enrollment and matching." "Rekognition"
+            cognito = container "Amazon Cognito" "Admin authentication with optional MFA." "Cognito"
+            secretsManager = container "Secrets Manager" "Database credentials." "AWS Secrets Manager"
+            cloudwatch = container "CloudWatch" "Centralized logging." "CloudWatch"
+            budgetAlarm = container "Budget Alarm" "Monthly cost monitoring." "AWS Budgets"
+        }
+
+        # AWS Services (external)
+        amplify = softwareSystem "AWS Amplify Hosting" "Hosts the Next.js application." "Deployment"
+
+        # Relationships
+        attendee -> facelocator "Registers selfie; checks matching status"
+        photographer -> facelocator "Uploads event photos"
+        organizer -> facelocator "Creates events; manages photos; reviews enrollments"
+        operator -> amplify "Deploys and monitors application"
+        operator -> facelocator "Monitors via CloudWatch and Budget alerts"
+        amplify -> facelocator "Hosts the Next.js application"
+
+        # Internal flows
+        nextjs -> awsBackend "Delegates DB operations"
+        nextjs -> cognito "Validates admin JWTs"
+        awsBackend -> database "Reads/writes enrollment state"
+        awsBackend -> selfiesBucket "Reads selfies"
+        awsBackend -> photosBucket "Reads/writes photos"
+        awsBackend -> rekognition "Enrolls and matches faces"
+        awsBackend -> secretsManager "Retrieves DB credentials"
+        nextjs -> cloudwatch "Sends logs"
+        awsBackend -> cloudwatch "Sends logs"
+    }
+
+    views {
+        systemContext facelocator {
+            include *
+            autolayout lr
+            title "FaceLocator System Context"
+            description "Attendees, photographers, and event organizers interact with FaceLocator. AWS operators manage infrastructure via Amplify."
+        }
+
+        container facelocator {
+            include *
+            autolayout lr
+            title "FaceLocator Container Architecture"
+            description "Next.js application delegates database operations to Lambda functions. Aurora PostgreSQL remains private and VPC-attached. S3, Rekognition, and Cognito are regional AWS services."
+        }
+    }
+
+    documentation {
+        section "ADR-0001: Aurora Serverless Phase 1" {
+            title "ADR-0001: Adopt Aurora PostgreSQL Serverless v2"
+            content """
+                # Status: Accepted
+
+                ## Context
+                The POC previously relied on a single RDS instance with staged migration phases. This created operational complexity.
+
+                ## Decision
+                Adopt Aurora PostgreSQL Serverless v2 as the database baseline.
+
+                ## Consequences
+                - Database baseline is private and deterministic
+                - Terraform no longer carries migration-phase branching
+                - Secrets and app contracts remain stable
+                - Aurora writer/reader endpoints available for future optimization
+                - Improved cost elasticity vs. always-on db.t3.micro
+
+                See: adr/ADR-0001-aurora-serverless-phase1.md
+            """
+        }
+
+        section "ADR-0002: Explicit Lambda VPC Attachment" {
+            title "ADR-0002: Keep Lambda VPC Attachment Explicit"
+            content """
+                # Status: Accepted
+
+                ## Context
+                Phase 1 established Aurora in private subnets. All database clients use direct PostgreSQL socket connectivity via the pg driver.
+
+                ## Decision
+                Keep Lambda VPC attachment explicit; convert from conditional dynamic blocks to static vpc_config.
+
+                ## Consequences
+                - Private Aurora connectivity remains functional
+                - Terraform intent is clearer
+                - Eliminates obsolete branching logic
+                - Lambda VPC overhead remains (deferred to future Aurora Data API migration)
+
+                See: adr/ADR-0002-explicit-lambda-vpc-attachment.md
+            """
+        }
+
+        section "ADR-0006: Security Hardening & Cost Guardrails" {
+            title "ADR-0006: Security Hardening and Cost Guardrail Baseline"
+            content """
+                # Status: Accepted
+
+                ## Hardening Actions
+                1. Cognito MFA set to OPTIONAL for admin access
+                2. Lambda DB clients: ssl: true (removed rejectUnauthorized: false)
+                3. Monthly AWS budget alarm with forecasted + actual spend alerts
+
+                ## Consequences
+                - Admin users can enroll MFA
+                - Lambda DB clients no longer bypass certificate validation
+                - Operators receive budget alerts before overrun
+                - Budget alarms depend on valid notification email
+                - MFA remains optional (can become required in later phase)
+
+                See: adr/ADR-0006-security-hardening-and-cost-guardrail.md
+            """
+        }
+
+        section "System Overview" {
+            title "FaceLocator System Overview"
+            content """
+                FaceLocator is a Next.js-based event photography enrollment and delivery scaffold.
+
+                ## Key Features
+                - Attendees register a selfie for an event
+                - App issues upload instruction
+                - Backend processes selfie and creates Rekognition enrollment
+                - Event photos are matched against enrolled faces
+                - Matched photos are delivered via magic-link gallery
+
+                ## State Machine
+                UPLOAD_PENDING → PROCESSING → ENROLLED → (matched photos delivered)
+                Failed: FAILED, CANCELLED
+
+                ## Architecture Principles
+                - Private Aurora PostgreSQL Serverless v2 database
+                - Explicit VPC-attached Lambda functions for database access
+                - Route handlers delegate to Lambda for privacy-sensitive operations
+                - Cognito enforced for admin dashboard
+                - Budget and cost monitoring via AWS Budgets
+            """
+        }
+
+        section "Deployment Model" {
+            title "AWS Amplify Production Deployment"
+            content """
+                # Hosting & CI/CD
+
+                ## Deployment Flow
+                - GitHub pull requests run CI and live AWS-backed E2E tests
+                - Merge to main triggers Amplify auto-build
+                - Amplify builds and deploys production environment
+                - Post-merge smoke tests verify production
+
+                ## Required Environment Variables
+                - AWS_REGION
+                - FACE_LOCATOR_AWS_UPLOAD_MODE=aws
+                - FACE_LOCATOR_REPOSITORY_TYPE=postgres
+                - FACE_LOCATOR_SELFIES_BUCKET
+                - FACE_LOCATOR_EVENT_PHOTOS_BUCKET
+                - FACE_LOCATOR_EVENT_LOGOS_BUCKET
+                - ADMIN_READ_BACKEND=lambda
+                - FACE_LOCATOR_ADMIN_EVENTS_READ_LAMBDA_NAME
+                - PUBLIC_REGISTRATION_BACKEND=lambda
+                - FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME
+                - DATABASE_SECRET_NAME
+                - Cognito: COGNITO_USER_POOL_ID, COGNITO_APP_CLIENT_ID, COGNITO_ISSUER
+
+                ## Operational Baseline
+                - Database: Aurora PostgreSQL Serverless v2
+                - Hosted Next.js runtime invokes Lambda for DB-backed operations
+                - Amplify runtime does not connect directly to Aurora (uses Lambda delegation)
+            """
+        }
+
+        section "Database Boundary" {
+            title "AWS Database Boundary"
+            content """
+                # Private Aurora Architecture
+
+                ## Baseline
+                - Aurora PostgreSQL Serverless v2 in private subnets
+                - No public endpoint
+                - All access routed through VPC-attached Lambda or application layer
+
+                ## Data Persistence
+                - Events, attendees, photos, enrollment state stored in Aurora
+                - S3 stores selfie and event photo images (temporary)
+                - Rekognition maintains face vector enrollment
+
+                ## Secrets Management
+                - Database credentials in Secrets Manager
+                - All Lambda functions retrieve secret at runtime
+                - TLS verification enforced (ssl: true)
+
+                ## Cost Optimization
+                - Aurora Serverless v2 scales ACUs based on demand
+                - Lower idle cost vs. always-on db.t3.micro
+                - Monthly budget alarm monitors spend
+            """
+        }
+
+        section "Operator Runbook" {
+            title "AWS Operator Runbook"
+            content """
+                # Operations & Monitoring
+
+                ## Key Checks
+                1. Verify Amplify runtime role has lambda:InvokeFunction permission
+                2. Confirm Lambda exists: face-locator-poc-admin-events-read
+                3. Check CloudWatch logs for errors
+                4. Validate schema contract in lib/admin/events/schema.ts
+                5. Monitor budget alarm for cost overruns
+
+                ## Common Issues
+                - 5xx on admin events page: Check Amplify role permissions
+                - Lambda invocation fails: Inspect CloudWatch logs
+                - Database connection fails: Check schema contract and Secrets Manager
+
+                ## Rollback
+                - Terraform state backed up before apply
+                - Pre-commit hooks validate all changes
+                - Production smoke tests run post-merge
+
+                See: docs/aws-operator-runbook.md
+            """
+        }
+    }
+}

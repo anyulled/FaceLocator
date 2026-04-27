@@ -35,15 +35,15 @@ describe("infra phase 1 aurora migration", () => {
   it("replaces the single RDS instance with Aurora Serverless v2 resources", () => {
     expect(databaseTf).toContain('resource "aws_rds_cluster" "poc"');
     expect(databaseTf).toContain('resource "aws_rds_cluster_instance" "poc"');
-    expect(databaseTf).toContain('engine             = "aurora-postgresql"');
+    expect(databaseTf).toMatch(/engine\s*=\s*"aurora-postgresql"/);
     expect(databaseTf).toContain("serverlessv2_scaling_configuration");
     expect(databaseTf).not.toContain('resource "aws_db_instance" "poc"');
   });
 
-  it("keeps cluster networking private and AZ-redundant", () => {
-    expect(databaseTf).toContain("db_subnet_group_name = aws_db_subnet_group.poc.name");
-    expect(databaseTf).toContain("Provide at least 2 database_private_subnets in distinct AZs");
-    expect(databaseTf).toContain("publicly_accessible = false");
+  it("keeps cluster subnet-grouped and AZ-redundant", () => {
+    expect(databaseTf).toMatch(/db_subnet_group_name\s*=\s*aws_db_subnet_group\.poc\.name/);
+    expect(databaseTf).toContain("Default VPC must include at least two subnets for Aurora Serverless deployment.");
+    expect(databaseTf).toContain("publicly_accessible = true");
   });
 
   it("writes database secrets from Aurora cluster endpoint", () => {
@@ -66,10 +66,10 @@ describe("infra phase 1 aurora migration", () => {
   });
 
   it("updates sample terraform inputs for Aurora", () => {
-    expect(tfvarsExample).toContain("database_private_subnets = [");
     expect(tfvarsExample).toContain("aurora_postgresql_engine_version");
     expect(tfvarsExample).toContain("aurora_serverless_min_capacity");
     expect(tfvarsExample).toContain("aurora_serverless_max_capacity");
+    expect(tfvarsExample).not.toContain("database_private_subnets");
     expect(tfvarsExample).not.toContain("database_network_migration_phase");
   });
 

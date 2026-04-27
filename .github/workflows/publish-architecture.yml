@@ -1,0 +1,62 @@
+name: Publish Architecture & ADRs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'architecture.structurizr'
+      - 'adr/**'
+      - '.github/workflows/publish-architecture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  generate-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Structurizr Site Generatr
+        run: npm install -g @avisi-cloud/structurizr-site-generatr
+
+      - name: Generate static site
+        run: |
+          structurizr-site-generatr \
+            --workspace architecture.structurizr \
+            --output docs/architecture-site
+
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/architecture-site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  notify-on-failure:
+    runs-on: ubuntu-latest
+    needs: generate-and-publish
+    if: failure()
+    steps:
+      - name: Notify of failure
+        run: |
+          echo "⚠️ Architecture site generation failed."
+          echo "Check the workflow run for details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

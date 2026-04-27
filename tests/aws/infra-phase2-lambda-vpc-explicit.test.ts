@@ -15,16 +15,16 @@ const adr = readFileSync(
   "utf8",
 );
 
-describe("infra phase 2 explicit lambda vpc attachment", () => {
+describe("infra phase 2 lambda vpc elimination", () => {
   it("removes conditional local flag used for lambda VPC branching", () => {
     expect(databaseTf).not.toContain("use_lambda_vpc");
   });
 
-  it("uses explicit vpc_config blocks for all lambda functions", () => {
+  it("removes vpc_config blocks from all lambda functions", () => {
     expect(lambdaTf).not.toContain('dynamic "vpc_config"');
     const vpcConfigBlocks = lambdaTf.match(/\n\s*vpc_config\s*\{/g) ?? [];
-    expect(vpcConfigBlocks.length).toBe(5);
-    expect(lambdaTf).toContain("aws_security_group.lambda_runtime.id");
+    expect(vpcConfigBlocks.length).toBe(0);
+    expect(lambdaTf).not.toContain("aws_security_group.lambda_runtime.id");
   });
 
   it("documents the phase 2 decision in ADR", () => {

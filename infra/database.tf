@@ -7,9 +7,6 @@ locals {
     for subnet in var.database_private_subnets :
     subnet.availability_zone => subnet
   }
-
-  use_private_db_subnets = true
-  use_lambda_vpc         = true
 }
 
 resource "aws_security_group" "db" {

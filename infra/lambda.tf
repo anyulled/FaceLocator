@@ -44,12 +44,9 @@ resource "aws_lambda_function" "selfie_enrollment" {
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = local.use_lambda_vpc ? [1] : []
-    content {
-      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-      security_group_ids = [aws_security_group.lambda_runtime[0].id]
-    }
+  vpc_config {
+    subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+    security_group_ids = [aws_security_group.lambda_runtime[0].id]
   }
 
   depends_on = [
@@ -79,12 +76,9 @@ resource "aws_lambda_function" "attendee_registration" {
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = local.use_lambda_vpc ? [1] : []
-    content {
-      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-      security_group_ids = [aws_security_group.lambda_runtime[0].id]
-    }
+  vpc_config {
+    subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+    security_group_ids = [aws_security_group.lambda_runtime[0].id]
   }
 
   depends_on = [
@@ -115,12 +109,9 @@ resource "aws_lambda_function" "admin_events_read" {
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = local.use_lambda_vpc ? [1] : []
-    content {
-      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-      security_group_ids = [aws_security_group.lambda_runtime[0].id]
-    }
+  vpc_config {
+    subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+    security_group_ids = [aws_security_group.lambda_runtime[0].id]
   }
 
   depends_on = [
@@ -151,12 +142,9 @@ resource "aws_lambda_function" "event_photo_worker" {
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = local.use_lambda_vpc ? [1] : []
-    content {
-      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-      security_group_ids = [aws_security_group.lambda_runtime[0].id]
-    }
+  vpc_config {
+    subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+    security_group_ids = [aws_security_group.lambda_runtime[0].id]
   }
 
   depends_on = [
@@ -188,12 +176,9 @@ resource "aws_lambda_function" "matched_photo_notifier" {
     }
   }
 
-  dynamic "vpc_config" {
-    for_each = local.use_lambda_vpc ? [1] : []
-    content {
-      subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
-      security_group_ids = [aws_security_group.lambda_runtime[0].id]
-    }
+  vpc_config {
+    subnet_ids         = [for subnet in aws_subnet.db_private : subnet.id]
+    security_group_ids = [aws_security_group.lambda_runtime[0].id]
   }
 
   depends_on = [

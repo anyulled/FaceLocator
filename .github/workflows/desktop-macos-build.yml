@@ -2,9 +2,13 @@ name: Desktop macOS Build
 
 on:
   pull_request:
+    paths:
+      - 'apps/macos-uploader/**'
   push:
     branches:
       - main
+    paths:
+      - 'apps/macos-uploader/**'
   workflow_dispatch:
 
 concurrency:

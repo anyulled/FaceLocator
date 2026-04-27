@@ -7,15 +7,28 @@ echo "🏗️  Building FaceLocator architecture documentation..."
 
 # Check if Structurizr Site Generatr is installed
 if ! command -v structurizr-site-generatr &> /dev/null; then
-    echo "📦 Installing Structurizr Site Generatr..."
-    npm install -g @avisi-cloud/structurizr-site-generatr
+    # Check for Docker
+    if command -v docker &> /dev/null; then
+        echo "📦 Using Docker to generate site (no local installation needed)..."
+        docker run -it --rm \
+            -v "$PWD":/var/model \
+            ghcr.io/avisi-cloud/structurizr-site-generatr:latest \
+            generate-site \
+            --workspace-file architecture.structurizr \
+            --output-dir /var/model/build
+        mv build docs/architecture-site
+    else
+        echo "❌ Docker not found. Install Docker or use Homebrew:"
+        echo "   brew tap avisi-cloud/tools && brew install structurizr-site-generatr"
+        exit 1
+    fi
+else
+    # Generate the static site using installed tool
+    echo "🎨 Generating Structurizr site from architecture.structurizr..."
+    structurizr-site-generatr generate-site \
+        --workspace-file architecture.structurizr \
+        --output docs/architecture-site
 fi
-
-# Generate the static site
-echo "🎨 Generating Structurizr site from architecture.structurizr..."
-structurizr-site-generatr \
-    --workspace architecture.structurizr \
-    --output docs/architecture-site
 
 echo "✅ Architecture site generated successfully!"
 echo ""

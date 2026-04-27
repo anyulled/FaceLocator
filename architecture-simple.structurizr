@@ -1,0 +1,62 @@
+workspace "FaceLocator" "A Next.js-based event photography enrollment and delivery scaffold with AWS backend." {
+
+    model {
+        # External Actors
+        attendee = person "Attendee" "Registers a selfie for an event and checks matching status."
+        photographer = person "Photographer / Media Team" "Uploads event photos to the platform."
+        organizer = person "Event Organizer / Admin" "Creates events, manages photos, and reviews enrollments."
+        operator = person "AWS Operator" "Manages cloud infrastructure and monitoring."
+
+        # FaceLocator System
+        facelocator = softwareSystem "FaceLocator" "Provides event photography enrollment, matching, and delivery." {
+            nextjs = container "Next.js Application" "Handles public registration, admin reads, notifications." "Next.js + TypeScript"
+            awsBackend = container "AWS Backend" "Lambda-based microservices for async processing." "AWS Lambda + Node.js"
+            database = container "Aurora PostgreSQL Serverless v2" "Private Aurora cluster." "PostgreSQL"
+            selfiesBucket = container "S3 Selfies Bucket" "Temporary selfie storage (30 days)." "S3"
+            photosBucket = container "S3 Event Photos Bucket" "Raw and matched event photos." "S3"
+            rekognition = container "Amazon Rekognition" "Face enrollment and matching." "Rekognition"
+            cognito = container "Amazon Cognito" "Admin authentication with optional MFA." "Cognito"
+            secretsManager = container "Secrets Manager" "Database credentials." "AWS Secrets Manager"
+            cloudwatch = container "CloudWatch" "Centralized logging." "CloudWatch"
+            budgetAlarm = container "Budget Alarm" "Monthly cost monitoring." "AWS Budgets"
+        }
+
+        # AWS Services (external)
+        amplify = softwareSystem "AWS Amplify Hosting" "Hosts the Next.js application." "Deployment"
+
+        # Relationships
+        attendee -> facelocator "Registers selfie; checks matching status"
+        photographer -> facelocator "Uploads event photos"
+        organizer -> facelocator "Creates events; manages photos; reviews enrollments"
+        operator -> amplify "Deploys and monitors application"
+        operator -> facelocator "Monitors via CloudWatch and Budget alerts"
+        amplify -> facelocator "Hosts the Next.js application"
+
+        # Internal flows
+        nextjs -> awsBackend "Delegates DB operations"
+        nextjs -> cognito "Validates admin JWTs"
+        awsBackend -> database "Reads/writes enrollment state"
+        awsBackend -> selfiesBucket "Reads selfies"
+        awsBackend -> photosBucket "Reads/writes photos"
+        awsBackend -> rekognition "Enrolls and matches faces"
+        awsBackend -> secretsManager "Retrieves DB credentials"
+        nextjs -> cloudwatch "Sends logs"
+        awsBackend -> cloudwatch "Sends logs"
+    }
+
+    views {
+        systemContext facelocator {
+            include *
+            autolayout lr
+            title "FaceLocator System Context"
+            description "Attendees, photographers, and event organizers interact with FaceLocator. AWS operators manage infrastructure via Amplify."
+        }
+
+        container facelocator {
+            include *
+            autolayout lr
+            title "FaceLocator Container Architecture"
+            description "Next.js application delegates database operations to Lambda functions. Aurora PostgreSQL remains private and VPC-attached. S3, Rekognition, and Cognito are regional AWS services."
+        }
+    }
+}

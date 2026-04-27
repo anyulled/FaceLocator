@@ -115,7 +115,7 @@ async function withDatabase(callback) {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: { rejectUnauthorized: false },
+    ssl: true,
   });
 
   await client.connect();

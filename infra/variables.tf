@@ -249,3 +249,21 @@ variable "nextjs_runtime_role_name" {
   type        = string
   default     = null
 }
+
+variable "enable_monthly_cost_budget_alarm" {
+  description = "Whether to create a monthly AWS budget alarm for this POC."
+  type        = bool
+  default     = true
+}
+
+variable "monthly_cost_budget_limit_usd" {
+  description = "Monthly AWS budget limit in USD for cost alerting."
+  type        = number
+  default     = 50
+}
+
+variable "cost_budget_notification_email" {
+  description = "Email address that receives monthly cost budget alarms."
+  type        = string
+  default     = null
+}

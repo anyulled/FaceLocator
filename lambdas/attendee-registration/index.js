@@ -155,7 +155,7 @@ async function withDatabase(callback) {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: { rejectUnauthorized: false },
+    ssl: true,
     connectionTimeoutMillis: 5000,
     statement_timeout: 7000,
     query_timeout: 7000,

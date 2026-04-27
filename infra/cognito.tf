@@ -20,7 +20,7 @@ resource "aws_cognito_user_pool" "admin" {
 
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
-  mfa_configuration        = "OFF"
+  mfa_configuration        = "OPTIONAL"
 
   admin_create_user_config {
     allow_admin_create_user_only = true

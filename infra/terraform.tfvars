@@ -10,6 +10,9 @@ database_private_subnets = [
 enable_cognito_admin_auth          = true
 search_faces_on_event_photo_upload = true
 ses_from_email                     = "anyulled@gmail.com"
+enable_monthly_cost_budget_alarm   = true
+monthly_cost_budget_limit_usd      = 50
+cost_budget_notification_email     = "anyulled@gmail.com"
 cognito_domain_prefix              = "face-locator-poc-admin"
 cognito_callback_urls = [
   "http://localhost:3000/admin",

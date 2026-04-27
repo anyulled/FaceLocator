@@ -415,3 +415,44 @@ resource "aws_iam_role_policy" "matched_photo_notifier_scheduler" {
   role   = aws_iam_role.matched_photo_notifier_scheduler.id
   policy = data.aws_iam_policy_document.matched_photo_notifier_scheduler.json
 }
+
+# --- Operator Permissions ---
+
+data "aws_iam_policy_document" "operator_discovery" {
+  statement {
+    sid = "AllowVpcDiscovery"
+    actions = [
+      "ec2:DescribeVpcAttribute",
+      "ec2:DescribeVpcs",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeSecurityGroups",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "AllowCognitoDiscovery"
+    actions = [
+      "cognito-idp:GetUserPoolMfaConfig",
+      "cognito-idp:DescribeUserPool",
+    ]
+    resources = var.enable_cognito_admin_auth ? [aws_cognito_user_pool.admin[0].arn] : ["*"]
+  }
+}
+
+resource "aws_iam_policy" "operator_discovery" {
+  name        = "${local.name_prefix}-operator-discovery"
+  description = "Permissions for the local operator to run Terraform discovery and planning."
+  policy      = data.aws_iam_policy_document.operator_discovery.json
+}
+
+# Note: The operator user 'face-locator-operator' is assumed to exist in the environment.
+# We use a data source to avoid trying to manage the user resource if it was created manually.
+data "aws_iam_user" "operator" {
+  user_name = "face-locator-operator"
+}
+
+resource "aws_iam_user_policy_attachment" "operator_discovery" {
+  user       = data.aws_iam_user.operator.user_name
+  policy_arn = aws_iam_policy.operator_discovery.arn
+}

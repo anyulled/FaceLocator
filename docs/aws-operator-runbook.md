@@ -82,3 +82,15 @@ Operational notes:
 - Review [docs/aws-retention-and-delete.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-retention-and-delete.md) first.
 - Use [scripts/delete-biometric-data.sh](/Users/anyulled/IdeaProjects/FaceLocator/scripts/delete-biometric-data.sh) for the operator-driven placeholder flow.
 - Treat `tf-destroy.sh` and delete operations as destructive and double-check bucket names, event ids, and attendee ids before running them.
+
+## Rollback quick path
+
+Use this when a newly applied infrastructure change needs to be reverted quickly:
+
+1. Identify the last known-good commit SHA and Terraform plan context.
+2. Check out the known-good commit locally and run `./scripts/package-lambdas.sh`.
+3. Run `terraform -chdir=infra validate` and `terraform -chdir=infra plan`.
+4. Apply only after confirming the plan reverts the unintended changes.
+5. Re-run smoke checks for admin event reads, attendee registration, and the matched-photo notifier schedule.
+
+If state and code diverge unexpectedly, pause and reconcile `infra/imports.tf` targets before applying additional changes.

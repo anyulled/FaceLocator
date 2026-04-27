@@ -426,6 +426,8 @@ data "aws_iam_policy_document" "operator_discovery" {
       "ec2:DescribeVpcs",
       "ec2:DescribeSubnets",
       "ec2:DescribeSecurityGroups",
+      "ec2:DescribePrefixLists",
+      "ec2:DescribeVpcEndpoints",
     ]
     resources = ["*"]
   }
@@ -471,6 +473,7 @@ data "aws_iam_policy_document" "operator_discovery" {
       "iam:GetPolicy",
       "iam:GetPolicyVersion",
       "iam:ListPolicyVersions",
+      "iam:GetUser",
     ]
     resources = ["*"]
   }

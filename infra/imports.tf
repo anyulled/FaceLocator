@@ -26,10 +26,10 @@ import {
 
 import {
   to = aws_secretsmanager_secret.database
-  id = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:face-locator-poc-database-tDkA4V"
+  id = "arn:aws:secretsmanager:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:secret:face-locator-poc-database-tDkA4V"
 }
 
 import {
   to = aws_secretsmanager_secret.match_link_signing
-  id = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:face-locator-poc-match-link-signing-secret-p3xYCz"
+  id = "arn:aws:secretsmanager:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:secret:face-locator-poc-match-link-signing-secret-p3xYCz"
 }

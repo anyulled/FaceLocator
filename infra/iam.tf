@@ -446,7 +446,11 @@ data "aws_iam_policy_document" "operator_discovery" {
       "s3:GetBucketAcl",
       "s3:ListBucket",
     ]
-    resources = ["*"]
+    resources = [
+      aws_s3_bucket.selfies.arn,
+      aws_s3_bucket.event_photos.arn,
+      aws_s3_bucket.event_logos.arn,
+    ]
   }
 
   statement {
@@ -455,7 +459,10 @@ data "aws_iam_policy_document" "operator_discovery" {
       "secretsmanager:DescribeSecret",
       "secretsmanager:GetResourcePolicy",
     ]
-    resources = ["*"]
+    resources = [
+      aws_secretsmanager_secret.database.arn,
+      aws_secretsmanager_secret.match_link_signing.arn,
+    ]
   }
 
   statement {

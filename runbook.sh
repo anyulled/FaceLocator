@@ -123,6 +123,17 @@ run terraform -chdir=infra output -raw database_cluster_endpoint
 run terraform -chdir=infra output -raw admin_events_read_lambda_name
 run terraform -chdir=infra output -raw attendee_registration_lambda_name
 run terraform -chdir=infra output -raw matched_photo_notifier_lambda_name
+run terraform -chdir=infra output -raw monthly_cost_budget_name || true
+run terraform -chdir=infra output -raw monthly_cost_budget_limit_usd
+
+echo
+echo "==> Cognito MFA configuration check"
+USER_POOL_ID="$(terraform -chdir=infra output -raw cognito_user_pool_id 2>/dev/null || true)"
+if [[ -n "${USER_POOL_ID}" ]]; then
+  run aws cognito-idp describe-user-pool --user-pool-id "${USER_POOL_ID}" --query 'UserPool.MfaConfiguration'
+else
+  echo "Skipping Cognito MFA check (no user pool output)."
+fi
 
 if [[ "${RUN_TERRAFORM_APPLY}" == "true" ]]; then
   run ./scripts/tf-apply.sh

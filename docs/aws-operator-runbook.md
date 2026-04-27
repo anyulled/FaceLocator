@@ -62,6 +62,12 @@ Operational notes:
 - Amplify Hosting uses its own runtime role for the deployed Next.js server workload.
 - Terraform apply remains an operator action and is separate from the hosted deployment path.
 
+## Security and cost baseline
+
+- Cognito admin MFA is configured as `OPTIONAL` and should be enabled for operator accounts.
+- Lambda database clients now use standard SSL verification and must not revert to `rejectUnauthorized: false`.
+- A monthly AWS budget alarm is expected to exist for the POC account scope.
+
 ## Logs and inspection
 
 - Selfie worker log group: `/aws/lambda/<project>-<env>-selfie-enrollment`

@@ -44,6 +44,17 @@ Observable outcome:
 
 - Lifecycle and least-privilege decisions are visible and auditable without secret values being exposed.
 
+## Security and cost guardrails
+
+1. Run `terraform -chdir=infra output monthly_cost_budget_name`.
+2. Run `terraform -chdir=infra output monthly_cost_budget_limit_usd`.
+3. Confirm the Cognito user pool is configured with `OPTIONAL` MFA.
+4. Confirm admin operators have enrolled an MFA factor before production use.
+
+Observable outcome:
+
+- The budget alarm exists with the intended threshold, and admin authentication has MFA capability enabled.
+
 ## Production deployment verification
 
 1. Confirm the Amplify app exists and the production branch is `main`.

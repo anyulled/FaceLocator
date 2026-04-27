@@ -127,3 +127,13 @@ output "cognito_admin_group_name" {
   description = "Cognito group name required for admin route access."
   value       = var.cognito_admin_group_name
 }
+
+output "monthly_cost_budget_name" {
+  description = "AWS Budget name used for monthly cost alerting."
+  value       = try(aws_budgets_budget.monthly_cost[0].name, null)
+}
+
+output "monthly_cost_budget_limit_usd" {
+  description = "Configured monthly AWS budget threshold in USD."
+  value       = var.monthly_cost_budget_limit_usd
+}

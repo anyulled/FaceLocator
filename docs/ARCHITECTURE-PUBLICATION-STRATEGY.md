@@ -25,26 +25,49 @@ Use **Structurizr Site Generatr** to convert the DSL workspace + ADRs into a sel
 
 #### Local Development
 
+**Option A: Docker** (Recommended — fastest, no local dependencies)
+
 ```bash
-# Install Structurizr Site Generatr (one-time)
-npm install -g @avisi-cloud/structurizr-site-generatr
+# Generate static site using Docker
+docker run -it --rm \
+  -v "$PWD":/var/model \
+  ghcr.io/avisi-cloud/structurizr-site-generatr:latest \
+  generate-site \
+  --workspace-file architecture.structurizr \
+  --output-dir build
+
+# Move to docs folder for serving
+mv build docs/architecture-site
+
+# Preview locally
+cd docs/architecture-site && npx http-server -p 8080
+```
+
+**Option B: Homebrew** (macOS native, first-time install takes ~5-10 min)
+
+```bash
+# Install via Homebrew (one-time, may take several minutes)
+brew tap avisi-cloud/tools
+brew install structurizr-site-generatr
 
 # Generate static site
-structurizr-site-generatr \
-  --workspace architecture.structurizr \
+structurizr-site-generatr generate-site \
+  --workspace-file architecture.structurizr \
   --output docs/architecture-site
 
-# Preview locally (optional)
-cd docs/architecture-site && npx http-server
+# Preview locally
+cd docs/architecture-site && npx http-server -p 8080
 ```
 
 #### GitHub Actions Pipeline
 
 Auto-generate and deploy on:
+
 - Merge to `main` (ADR or DSL changes)
 - Manual workflow trigger
 
 Files:
+
 - `.github/workflows/publish-architecture.yml` (build + deploy)
 
 #### GitHub Pages Configuration
@@ -55,7 +78,7 @@ Files:
 
 ### 3. **File Structure**
 
-```
+```text
 FaceLocator/
 ├── architecture.structurizr           # Source (versioned)
 ├── adr/                              # Source (versioned)
@@ -87,7 +110,7 @@ FaceLocator/
 
 Current approach in `architecture.structurizr`:
 
-```
+```text
 documentation {
     section "ADR-0001: Aurora Serverless Phase 1" {
         title "ADR-0001: Adopt Aurora PostgreSQL Serverless v2"
@@ -100,6 +123,7 @@ documentation {
 ```
 
 Site Generatr will:
+
 1. Extract decision sections
 2. Generate a "Decisions" page
 3. Optionally link back to `adr/` folder (if accessible on GitHub Pages)
@@ -107,6 +131,7 @@ Site Generatr will:
 ### 5. **Site Generatr Features**
 
 ✅ Supported:
+
 - C4 diagrams (rendered from DSL)
 - Embedded documentation
 - Decision records as searchable pages
@@ -114,6 +139,7 @@ Site Generatr will:
 - Dark mode
 
 ❌ Not supported:
+
 - Interactive diagram editing (read-only)
 - Real-time updates (regenerate on change)
 
@@ -143,7 +169,7 @@ Site Generatr will:
 ## Estimate
 
 | Task | Effort | Blocking |
-|------|--------|----------|
+| ---- | ------ | -------- |
 | Install + local generation | 5 min | No |
 | GitHub Actions setup | 15 min | No |
 | GitHub Pages config | 5 min | No |

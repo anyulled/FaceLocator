@@ -14,6 +14,7 @@ A comprehensive C4 architecture model that captures:
 **Validated** ✅ with Structurizr MCP (uses official DSL syntax)
 
 **Key Features**:
+
 - Clear separation of concerns (NextJS container, Lambda backend container, AWS managed services)
 - Explicit relationships showing:
   - Attendee enrollment flow
@@ -36,10 +37,12 @@ Detailed guide covering:
 ### 3. **GitHub Actions Workflow** (`.github/workflows/publish-architecture.yml`)
 
 Automated build & deploy on:
+
 - Push to `main` (if `architecture.structurizr` or `adr/` changes)
 - Manual trigger (`workflow_dispatch`)
 
 **Pipeline**:
+
 1. Checkout repo
 2. Install Node.js
 3. Install Structurizr Site Generatr
@@ -53,6 +56,7 @@ Automated build & deploy on:
 ### 4. **Build Scripts**
 
 #### Local Generation
+
 ```bash
 # Option A: npm script (added to package.json)
 pnpm arch:generate
@@ -67,6 +71,7 @@ structurizr-site-generatr \
 ```
 
 #### Local Preview
+
 ```bash
 pnpm arch:serve
 # Then visit http://localhost:8080
@@ -128,6 +133,7 @@ pnpm arch:serve
 ### Phase 3: Integration
 
 1. **Update README.md** with link to architecture site:
+
    ```markdown
    ## Architecture
 
@@ -151,7 +157,7 @@ pnpm arch:serve
 ## 📋 Decisions Made
 
 | Decision | Recommendation | Rationale |
-|----------|-----------------|-----------|
+| -------- | -------------- | --------- |
 | **Tool** | Structurizr Site Generatr | Free, static, git-friendly, C4-native |
 | **Hosting** | GitHub Pages | No cost, integrated with repo, automatic SSL |
 | **Build Mode** | GitHub Actions | Auto-deploy on change, centralized CI/CD |
@@ -162,7 +168,7 @@ pnpm arch:serve
 
 ## 📦 File Manifest
 
-```
+```text
 FaceLocator/
 ├── architecture.structurizr                          # NEW: Structurizr DSL
 ├── adr/                                              # EXISTING: ADRs (linked in DSL)
@@ -206,7 +212,7 @@ FaceLocator/
 ## ⚙️ Troubleshooting
 
 | Issue | Solution |
-|-------|----------|
+| ----- | -------- |
 | `structurizr-site-generatr: command not found` | Run `npm install -g @avisi-cloud/structurizr-site-generatr` |
 | Generated site is empty or broken | Check console output during `pnpm arch:generate`; validate DSL with `mcp_structurizr_validate` |
 | GitHub Pages 404 | Verify GitHub Pages is enabled in Settings; check branch/folder config; wait 1-2 min for deploy |

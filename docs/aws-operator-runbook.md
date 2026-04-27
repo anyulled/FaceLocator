@@ -20,30 +20,27 @@
 3. Review and apply with [scripts/tf-apply.sh](/Users/anyulled/IdeaProjects/FaceLocator/scripts/tf-apply.sh).
 4. Destroy only when explicitly needed with [scripts/tf-destroy.sh](/Users/anyulled/IdeaProjects/FaceLocator/scripts/tf-destroy.sh).
 
-## RDS network migration phases
+## Database baseline
 
-Use staged migration through `database_network_migration_phase` in `infra/terraform.tfvars`:
+The POC database baseline is Aurora PostgreSQL Serverless v2 in private subnets.
 
-1. `legacy` (default): keeps current DB behavior (`default` subnet group + public endpoint) so unrelated Terraform applies do not block.
-2. `prepare_private_subnets`: creates explicit private subnets, VPC endpoints required by Lambda workloads (S3, Secrets Manager, Rekognition, SES API), moves Lambdas into those private subnets, and updates the custom DB subnet group to those subnets, but does not move the DB instance yet.
-3. `cutover_private_endpoint`: disables public DB endpoint while still on `default` subnet group.
-4. `cutover_private_subnet_group` (or `private`): attempts to move the DB instance to the custom private DB subnet group.
-
-Important AWS constraint:
-
-- Existing RDS instances in the `default` DB subnet group can fail `ModifyDBInstance` with `InvalidVPCNetworkStateFault` when switching to another subnet group in the same VPC.
-- If this happens, keep `cutover_private_endpoint` (private-only endpoint) as the secure steady state, or perform a replacement migration (snapshot/restore into a new DB instance attached to the target subnet group) and cut over application secrets.
-
-Before phase 3, ensure all DB clients (Lambdas/app/ops access) can reach the DB through private networking.
+- Configure at least two private subnets in distinct AZs via `database_private_subnets`.
+- Keep `database_allowed_cidr_blocks = []` unless temporary operator ingress is required.
+- Tune Aurora capacity with:
+  - `aurora_postgresql_engine_version`
+  - `aurora_serverless_min_capacity`
+  - `aurora_serverless_max_capacity`
 
 Example `infra/terraform.tfvars` fragment:
 
 ```hcl
-database_network_migration_phase = "prepare_private_subnets"
 database_private_subnets = [
   { availability_zone = "eu-west-1a", cidr_block = "172.31.200.0/24" },
   { availability_zone = "eu-west-1b", cidr_block = "172.31.201.0/24" }
 ]
+aurora_postgresql_engine_version = "16.4"
+aurora_serverless_min_capacity   = 0.5
+aurora_serverless_max_capacity   = 1
 ```
 
 ## Lambda packaging

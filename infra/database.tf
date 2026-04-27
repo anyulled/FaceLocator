@@ -2,34 +2,14 @@ data "aws_vpc" "default" {
   default = true
 }
 
-data "aws_subnets" "default_vpc" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
 locals {
-  database_network_migration_phase = lower(var.database_network_migration_phase)
-  use_private_db_subnets = contains([
-    "prepare_private_subnets",
-    "cutover_private_endpoint",
-    "cutover_private_subnet_group",
-    "private",
-  ], local.database_network_migration_phase)
-
   db_private_subnets_by_az = {
     for subnet in var.database_private_subnets :
     subnet.availability_zone => subnet
   }
 
-  db_publicly_accessible = contains([
-    "cutover_private_endpoint",
-    "cutover_private_subnet_group",
-    "private",
-  ], local.database_network_migration_phase) ? false : true
-
-  use_lambda_vpc = local.use_private_db_subnets
+  use_private_db_subnets = true
+  use_lambda_vpc         = true
 }
 
 resource "aws_security_group" "db" {
@@ -59,7 +39,7 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_cidr" {
 }
 
 resource "aws_subnet" "db_private" {
-  for_each = local.use_private_db_subnets ? local.db_private_subnets_by_az : {}
+  for_each = local.db_private_subnets_by_az
 
   vpc_id                  = data.aws_vpc.default.id
   cidr_block              = each.value.cidr_block
@@ -72,7 +52,7 @@ resource "aws_subnet" "db_private" {
 }
 
 resource "aws_route_table" "db_private" {
-  count = local.use_private_db_subnets ? 1 : 0
+  count = 1
 
   vpc_id = data.aws_vpc.default.id
 
@@ -82,14 +62,14 @@ resource "aws_route_table" "db_private" {
 }
 
 resource "aws_route_table_association" "db_private" {
-  for_each = local.use_private_db_subnets ? aws_subnet.db_private : {}
+  for_each = aws_subnet.db_private
 
   subnet_id      = each.value.id
   route_table_id = aws_route_table.db_private[0].id
 }
 
 resource "aws_security_group" "lambda_runtime" {
-  count = local.use_lambda_vpc ? 1 : 0
+  count = 1
 
   name        = "${local.name_prefix}-lambda-runtime-sg"
   description = "Security group for private Lambda runtime networking"
@@ -106,7 +86,7 @@ resource "aws_security_group" "lambda_runtime" {
 }
 
 resource "aws_security_group" "private_endpoints" {
-  count = local.use_lambda_vpc ? 1 : 0
+  count = 1
 
   name        = "${local.name_prefix}-private-endpoints-sg"
   description = "Security group for interface VPC endpoints used by Lambdas"
@@ -131,7 +111,7 @@ resource "aws_security_group" "private_endpoints" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "db_from_lambda" {
-  count = local.use_lambda_vpc ? 1 : 0
+  count = 1
 
   security_group_id            = aws_security_group.db.id
   referenced_security_group_id = aws_security_group.lambda_runtime[0].id
@@ -142,7 +122,7 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_lambda" {
 }
 
 resource "aws_vpc_endpoint" "s3_gateway" {
-  count = local.use_lambda_vpc ? 1 : 0
+  count = 1
 
   vpc_id            = data.aws_vpc.default.id
   service_name      = "com.amazonaws.${var.aws_region}.s3"
@@ -153,7 +133,7 @@ resource "aws_vpc_endpoint" "s3_gateway" {
 }
 
 resource "aws_vpc_endpoint" "secretsmanager" {
-  count = local.use_lambda_vpc ? 1 : 0
+  count = 1
 
   vpc_id              = data.aws_vpc.default.id
   service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"
@@ -166,7 +146,7 @@ resource "aws_vpc_endpoint" "secretsmanager" {
 }
 
 resource "aws_vpc_endpoint" "rekognition" {
-  count = local.use_lambda_vpc ? 1 : 0
+  count = 1
 
   vpc_id              = data.aws_vpc.default.id
   service_name        = "com.amazonaws.${var.aws_region}.rekognition"
@@ -179,7 +159,7 @@ resource "aws_vpc_endpoint" "rekognition" {
 }
 
 resource "aws_vpc_endpoint" "ses" {
-  count = local.use_lambda_vpc ? 1 : 0
+  count = 1
 
   vpc_id              = data.aws_vpc.default.id
   service_name        = "com.amazonaws.${var.aws_region}.email"
@@ -193,38 +173,48 @@ resource "aws_vpc_endpoint" "ses" {
 
 resource "aws_db_subnet_group" "poc" {
   name       = "${local.name_prefix}-db-subnets"
-  subnet_ids = local.use_private_db_subnets ? [for subnet in aws_subnet.db_private : subnet.id] : data.aws_subnets.default_vpc.ids
+  subnet_ids = [for subnet in aws_subnet.db_private : subnet.id]
 
   lifecycle {
     precondition {
-      condition = !local.use_private_db_subnets || (
+      condition = (
         length(var.database_private_subnets) >= 2 &&
         length(keys(local.db_private_subnets_by_az)) == length(var.database_private_subnets)
       )
-      error_message = "When database_network_migration_phase uses private subnets, provide at least 2 database_private_subnets in distinct AZs."
+      error_message = "Provide at least 2 database_private_subnets in distinct AZs for Aurora Serverless deployment."
     }
   }
 
   tags = local.common_tags
 }
 
-resource "aws_db_instance" "poc" {
-  identifier          = "${local.name_prefix}-db"
-  engine              = "postgres"
-  engine_version      = "16"
-  instance_class      = "db.t3.micro"
-  allocated_storage   = 20
-  storage_type        = "gp3"
-  db_name             = var.database_name
-  username            = var.database_username
-  password            = local.database_password
-  skip_final_snapshot = true
-  publicly_accessible = local.db_publicly_accessible
-  db_subnet_group_name = contains([
-    "cutover_private_subnet_group",
-    "private",
-  ], local.database_network_migration_phase) ? aws_db_subnet_group.poc.name : "default"
+resource "aws_rds_cluster" "poc" {
+  cluster_identifier = "${local.name_prefix}-cluster"
+  engine             = "aurora-postgresql"
+  engine_version     = var.aurora_postgresql_engine_version
+  database_name      = var.database_name
+  master_username    = var.database_username
+  master_password    = local.database_password
+  db_subnet_group_name = aws_db_subnet_group.poc.name
   vpc_security_group_ids = [aws_security_group.db.id]
+  skip_final_snapshot    = true
+  storage_encrypted      = true
+
+  serverlessv2_scaling_configuration {
+    min_capacity = var.aurora_serverless_min_capacity
+    max_capacity = var.aurora_serverless_max_capacity
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_rds_cluster_instance" "poc" {
+  identifier         = "${local.name_prefix}-cluster-instance-1"
+  cluster_identifier = aws_rds_cluster.poc.id
+  instance_class     = "db.serverless"
+  engine             = aws_rds_cluster.poc.engine
+  engine_version     = aws_rds_cluster.poc.engine_version
+  publicly_accessible = false
 
   tags = local.common_tags
 }

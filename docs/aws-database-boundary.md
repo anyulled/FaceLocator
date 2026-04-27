@@ -1,11 +1,11 @@
 # AWS PostgreSQL Boundary
 
-The POC keeps database provisioning intentionally minimal while still provisioning a Terraform-managed PostgreSQL-compatible RDS instance. The runtime contract is fixed now.
+The POC provisions a Terraform-managed Aurora PostgreSQL Serverless v2 cluster as the database boundary. The runtime contract is fixed now.
 
 ## Credentials source
 
 - Worker Lambdas read database connection details from the Secrets Manager secret output as `database_secret_name`.
-- Terraform writes the managed RDS endpoint into that secret after the instance is created.
+- Terraform writes the managed Aurora writer endpoint into that secret after the cluster is created.
 - The secret JSON shape is:
 
 ```json
@@ -20,13 +20,12 @@ The POC keeps database provisioning intentionally minimal while still provisioni
 
 ## Network boundary
 
-- The RDS instance is provisioned in the AWS account's default VPC.
-- Network migration is controlled by `database_network_migration_phase`:
-  - `legacy` keeps `default` DB subnet group and public endpoint for compatibility.
-  - `prepare_private_subnets` creates explicit private subnets and custom DB subnet group, then places worker Lambdas in those private subnets using VPC endpoints for AWS API egress.
-  - `cutover_private_endpoint` disables public DB access and is the secure steady-state for this POC.
-  - `cutover_private_subnet_group` is best-effort and can be blocked by AWS `InvalidVPCNetworkStateFault` for legacy instances originally created in the `default` DB subnet group.
-- `database_allowed_cidr_blocks` exists only for tightly scoped operator access if that is later needed; the default is an empty list, which keeps the security group from allowing any inbound PostgreSQL traffic.
+- The Aurora cluster is provisioned in private subnets in the AWS account's default VPC.
+- Public database access is disabled.
+- The cluster security group allows PostgreSQL traffic only from:
+  - optional operator CIDR blocks configured in `database_allowed_cidr_blocks`
+  - the Lambda runtime security group for worker and API Lambdas
+- VPC endpoints for S3, Secrets Manager, Rekognition, and SES keep Lambda egress private while Lambdas remain VPC-attached.
 
 ## Required logical tables
 

@@ -88,9 +88,19 @@ output "event_photo_pending_key_pattern" {
   value       = local.event_photo_pending_pattern
 }
 
-output "database_network_migration_phase" {
-  description = "Current staged migration phase for RDS networking."
-  value       = local.database_network_migration_phase
+output "database_cluster_endpoint" {
+  description = "Aurora cluster writer endpoint for PostgreSQL connections."
+  value       = aws_rds_cluster.poc.endpoint
+}
+
+output "database_cluster_reader_endpoint" {
+  description = "Aurora cluster reader endpoint for read-only PostgreSQL traffic."
+  value       = aws_rds_cluster.poc.reader_endpoint
+}
+
+output "database_cluster_identifier" {
+  description = "Aurora cluster identifier."
+  value       = aws_rds_cluster.poc.cluster_identifier
 }
 
 output "cognito_user_pool_id" {

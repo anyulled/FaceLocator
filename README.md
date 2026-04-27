@@ -316,7 +316,7 @@ flowchart TB
     lambdaNotifier["Matched photo notifier Lambda"]
     lambdaPhoto["Event photo worker Lambda"]
     rekognition["Rekognition collection"]
-    rds[(PostgreSQL-compatible DB)]
+    rds[(Aurora PostgreSQL Serverless v2)]
     secrets["Secrets Manager"]
     logs["CloudWatch logs"]
     cognito["Cognito"]

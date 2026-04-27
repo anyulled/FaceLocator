@@ -33,7 +33,7 @@ This document fixes the assumptions the Next.js backend must honor when real AWS
 - `FACE_LOCATOR_EVENT_PHOTO_PENDING_PREFIX`
 - `FACE_LOCATOR_AWS_UPLOAD_MODE`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME` when the app runs against the PostgreSQL repository
-- `PUBLIC_REGISTRATION_BACKEND=lambda` and `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME` when RDS is private and public registration DB work must run through the VPC-attached Lambda
+- `PUBLIC_REGISTRATION_BACKEND=lambda` and `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME` when Aurora is private and public registration DB work must run through the VPC-attached Lambda
 - `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME` when the hosted runtime serves gallery and unsubscribe magic links through the VPC-attached matched-photo-notifier Lambda
 - `MATCH_LINK_BACKEND=direct` only for local troubleshooting; production defaults to the Lambda path when the variable is omitted
 

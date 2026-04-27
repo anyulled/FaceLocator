@@ -150,30 +150,31 @@ variable "database_allowed_cidr_blocks" {
   default     = []
 }
 
-variable "database_network_migration_phase" {
-  description = "Controls staged RDS networking migration. Use legacy -> prepare_private_subnets -> cutover_private_endpoint -> cutover_private_subnet_group/private."
-  type        = string
-  default     = "legacy"
-
-  validation {
-    condition = contains([
-      "legacy",
-      "prepare_private_subnets",
-      "cutover_private_endpoint",
-      "cutover_private_subnet_group",
-      "private",
-    ], lower(var.database_network_migration_phase))
-    error_message = "database_network_migration_phase must be one of: legacy, prepare_private_subnets, cutover_private_endpoint, cutover_private_subnet_group, private."
-  }
-}
-
 variable "database_private_subnets" {
-  description = "Private subnets for RDS migration in the default VPC, one per AZ. Example: [{ availability_zone = \"eu-west-1a\", cidr_block = \"172.31.200.0/24\" }]."
+  description = "Private subnets for Aurora Serverless in the default VPC, one per AZ. Example: [{ availability_zone = \"eu-west-1a\", cidr_block = \"172.31.200.0/24\" }]."
   type = list(object({
     availability_zone = string
     cidr_block        = string
   }))
   default = []
+}
+
+variable "aurora_postgresql_engine_version" {
+  description = "Aurora PostgreSQL engine version for the cluster."
+  type        = string
+  default     = "16.4"
+}
+
+variable "aurora_serverless_min_capacity" {
+  description = "Minimum Aurora Serverless v2 ACU capacity."
+  type        = number
+  default     = 0.5
+}
+
+variable "aurora_serverless_max_capacity" {
+  description = "Maximum Aurora Serverless v2 ACU capacity."
+  type        = number
+  default     = 1
 }
 
 variable "search_faces_on_event_photo_upload" {

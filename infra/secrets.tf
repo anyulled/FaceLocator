@@ -17,8 +17,8 @@ resource "aws_secretsmanager_secret" "database" {
 resource "aws_secretsmanager_secret_version" "database" {
   secret_id = aws_secretsmanager_secret.database.id
   secret_string = jsonencode({
-    host     = aws_db_instance.poc.address
-    port     = aws_db_instance.poc.port
+    host     = aws_rds_cluster.poc.endpoint
+    port     = aws_rds_cluster.poc.port
     dbname   = var.database_name
     username = var.database_username
     password = local.database_password

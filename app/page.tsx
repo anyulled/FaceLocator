@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import React from "react";
 import styles from "./page.module.css";
 
 import { getFeaturedEventSlug } from "@/lib/events/queries";
@@ -50,6 +51,9 @@ export default async function Home() {
         <nav className={styles.nav} aria-label="Primary">
           <p className={styles.brand}>FaceLocator</p>
           <div className={styles.navActions}>
+            <Link className={styles.navLink} href="/admin">
+              Admin
+            </Link>
             <Link className={styles.navLink} href={featuredEventHref}>
               Live demo
             </Link>

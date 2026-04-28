@@ -170,9 +170,20 @@ describe("event queries", () => {
     vi.stubEnv("NODE_ENV", "production");
     getPublicRegistrationBackendModeMock.mockReturnValue("lambda");
     getFeaturedEventSlugViaBackendMock.mockRejectedValueOnce(new Error("lambda down"));
+    queryMock.mockResolvedValueOnce({ rows: [{ slug: "cantus-laudis" }] });
 
     const { getFeaturedEventSlug } = await import("@/lib/events/queries");
-    await expect(getFeaturedEventSlug()).resolves.toBe("");
+    await expect(getFeaturedEventSlug()).resolves.toBe("cantus-laudis");
+  });
+
+  it("getFeaturedEventSlug falls back to direct DB when lambda returns empty slug", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    getPublicRegistrationBackendModeMock.mockReturnValue("lambda");
+    getFeaturedEventSlugViaBackendMock.mockResolvedValueOnce({ slug: "" });
+    queryMock.mockResolvedValueOnce({ rows: [{ slug: "cantus-laudis" }] });
+
+    const { getFeaturedEventSlug } = await import("@/lib/events/queries");
+    await expect(getFeaturedEventSlug()).resolves.toBe("cantus-laudis");
   });
 
   it("formatEventDate handles various date combinations", async () => {

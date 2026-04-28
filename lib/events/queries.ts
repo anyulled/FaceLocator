@@ -156,16 +156,7 @@ export async function getFeaturedEventSlug(): Promise<string> {
     return DEMO_EVENT.slug;
   }
 
-  if (getPublicRegistrationBackendMode() === "lambda") {
-    try {
-      const result = await getFeaturedEventSlugViaBackend();
-      return (result.slug || "").trim();
-    } catch {
-      return "";
-    }
-  }
-
-  try {
+  const resolveFromDatabase = async () => {
     const pool = await getDatabasePool();
     const result = await pool.query<{ slug: string }>(
       `
@@ -177,6 +168,27 @@ export async function getFeaturedEventSlug(): Promise<string> {
     );
 
     return result.rows[0]?.slug ?? "";
+  };
+
+  if (getPublicRegistrationBackendMode() === "lambda") {
+    try {
+      const result = await getFeaturedEventSlugViaBackend();
+      const slug = (result.slug || "").trim();
+      if (slug) {
+        return slug;
+      }
+      return await resolveFromDatabase();
+    } catch {
+      try {
+        return await resolveFromDatabase();
+      } catch {
+        return "";
+      }
+    }
+  }
+
+  try {
+    return await resolveFromDatabase();
   } catch {
     return "";
   }

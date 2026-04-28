@@ -30,8 +30,8 @@ describe("infra option b guardrails", () => {
     expect(variablesTf).toContain("cannot include /0 ranges");
   });
 
-  it("keeps aurora publicly reachable behind cidr rules", () => {
-    expect(databaseTf).toContain("publicly_accessible = true");
+  it("keeps postgres publicly reachable behind cidr rules", () => {
+    expect(databaseTf).toMatch(/publicly_accessible\s*=\s*true/);
     expect(databaseTf).toContain("for_each = toset(var.database_allowed_cidr_blocks)");
   });
 

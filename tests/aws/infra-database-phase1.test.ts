@@ -31,24 +31,22 @@ const adr = readFileSync(
   "utf8",
 );
 
-describe("infra phase 1 aurora migration", () => {
-  it("replaces the single RDS instance with Aurora Serverless v2 resources", () => {
-    expect(databaseTf).toContain('resource "aws_rds_cluster" "poc"');
-    expect(databaseTf).toContain('resource "aws_rds_cluster_instance" "poc"');
-    expect(databaseTf).toMatch(/engine\s*=\s*"aurora-postgresql"/);
-    expect(databaseTf).toContain("serverlessv2_scaling_configuration");
-    expect(databaseTf).not.toContain('resource "aws_db_instance" "poc"');
+describe("infra phase 1 database baseline", () => {
+  it("uses a public PostgreSQL DB instance resource", () => {
+    expect(databaseTf).toContain('resource "aws_db_instance" "poc"');
+    expect(databaseTf).toMatch(/engine\s*=\s*"postgres"/);
+    expect(databaseTf).not.toContain('resource "aws_rds_cluster" "poc"');
   });
 
-  it("keeps cluster subnet-grouped and AZ-redundant", () => {
+  it("keeps db subnet-grouped and publicly reachable under guardrails", () => {
     expect(databaseTf).toMatch(/db_subnet_group_name\s*=\s*aws_db_subnet_group\.poc\.name/);
-    expect(databaseTf).toContain("Default VPC must include at least two subnets for Aurora Serverless deployment.");
-    expect(databaseTf).toContain("publicly_accessible = true");
+    expect(databaseTf).toContain("Default VPC must include at least two subnets for PostgreSQL deployment.");
+    expect(databaseTf).toMatch(/publicly_accessible\s*=\s*true/);
   });
 
-  it("writes database secrets from Aurora cluster endpoint", () => {
-    expect(secretsTf).toContain("host     = aws_rds_cluster.poc.endpoint");
-    expect(secretsTf).toContain("port     = aws_rds_cluster.poc.port");
+  it("writes database secrets from DB instance endpoint", () => {
+    expect(secretsTf).toContain("host     = aws_db_instance.poc.address");
+    expect(secretsTf).toContain("port     = aws_db_instance.poc.port");
   });
 
   it("removes staged migration variable and adds Aurora tuning variables", () => {

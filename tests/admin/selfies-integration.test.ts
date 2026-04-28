@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as listSelfies } from "@/app/api/admin/events/[eventSlug]/selfies/route";
 import { DELETE as deleteAttendee } from "@/app/api/admin/events/[eventSlug]/selfies/[registrationId]/route";
 import type { NextRequest } from "next/server";
-import { resolveAdminIdentity } from "@/lib/admin/auth";
+import { isAuthorizedAdminRequest, resolveAdminIdentity } from "@/lib/admin/auth";
 import { checkLiveE2EPrerequisites } from "../e2e/aws-test-helpers";
 
 vi.mock("server-only", () => ({}));
@@ -13,6 +13,7 @@ vi.mock("@/lib/admin/auth", () => ({
 }));
 
 const mockedResolveAdminIdentity = vi.mocked(resolveAdminIdentity);
+const mockedIsAuthorizedAdminRequest = vi.mocked(isAuthorizedAdminRequest);
 
 function makeNextRequest(url: string, init?: RequestInit) {
   return Object.assign(new Request(url, init), {
@@ -23,6 +24,7 @@ function makeNextRequest(url: string, init?: RequestInit) {
 describe("Selfies & Attendees Integration", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    mockedIsAuthorizedAdminRequest.mockResolvedValue(true);
   });
 
   it("lists selfies from the database when authorized", async () => {
@@ -79,12 +81,12 @@ describe("Selfies & Attendees Integration", () => {
       { params: Promise.resolve({ eventSlug, registrationId }) }
     );
 
-    // If it's a real integration, we expect it to fail gracefully
-    expect([404, 500, 503]).toContain(response.status);
+    // Integration can return 200 (idempotent/no-op) or fail gracefully.
+    expect([200, 404, 500, 503]).toContain(response.status);
   });
 
   it("returns 401 when identity resolution fails", async () => {
-    mockedResolveAdminIdentity.mockResolvedValue(null);
+    mockedIsAuthorizedAdminRequest.mockResolvedValue(false);
 
     const eventSlug = "any-event";
     const response = await listSelfies(

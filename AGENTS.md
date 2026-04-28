@@ -12,6 +12,7 @@ This repository is a POC with a narrow production boundary. Future agents should
 - Keep changes small and traceable. If a fix spans app, lambda, and Terraform, update all three together or do not merge the partial change.
 - Keep `.codex/` and other local workspace artifacts out of git. They are not part of the product repo.
 - If you change the request flow, backend boundary, or infrastructure shape, update `README.md`, the architecture diagrams, and the matching docs in the same change.
+- NEVER bypass git hooks. Do not use `--no-verify` for `git commit` or `git push` under any circumstances.
 
 ## Spawn Strategy
 
@@ -167,6 +168,7 @@ When touching the hosted admin flow:
 - **Git Hooks Enforcement**:
   - `pre-commit`: Runs `lint` and `unit tests`. Fast feedback for the developer.
   - `pre-push`: Runs `typecheck`, `lint`, `test` (including integration), and `build`. Mandatory gate before code leaves the local machine.
+  - Absolute rule: do not bypass these hooks with `--no-verify`.
 - **Test File Organization**:
   - `tests/admin/`: Integration and route tests for the admin dashboard.
   - `tests/e2e/`: Playwright browser tests for critical user journeys.

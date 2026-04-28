@@ -1,5 +1,6 @@
 import type { EnrollmentEventSummary } from "@/lib/attendees/contracts";
 import {
+  getFeaturedEventSlugViaBackend,
   getPublicEventBySlugViaBackend,
   getPublicRegistrationBackendMode,
 } from "@/lib/attendees/backend";
@@ -155,6 +156,15 @@ export async function getFeaturedEventSlug(): Promise<string> {
     return DEMO_EVENT.slug;
   }
 
+  if (getPublicRegistrationBackendMode() === "lambda") {
+    try {
+      const result = await getFeaturedEventSlugViaBackend();
+      return (result.slug || "").trim();
+    } catch {
+      return "";
+    }
+  }
+
   try {
     const pool = await getDatabasePool();
     const result = await pool.query<{ slug: string }>(
@@ -166,9 +176,9 @@ export async function getFeaturedEventSlug(): Promise<string> {
       `,
     );
 
-    return result.rows[0]?.slug ?? DEMO_EVENT.slug;
+    return result.rows[0]?.slug ?? "";
   } catch {
-    return DEMO_EVENT.slug;
+    return "";
   }
 }
 

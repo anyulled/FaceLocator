@@ -6,6 +6,10 @@ import {
 } from "@/lib/events/queries";
 
 const queryMock = vi.fn();
+const { getPublicRegistrationBackendModeMock, getFeaturedEventSlugViaBackendMock } = vi.hoisted(() => ({
+  getPublicRegistrationBackendModeMock: vi.fn(() => "direct"),
+  getFeaturedEventSlugViaBackendMock: vi.fn(),
+}));
 
 vi.mock("@/lib/aws/database", () => ({
   getDatabasePool: async () => ({
@@ -13,9 +17,18 @@ vi.mock("@/lib/aws/database", () => ({
   }),
 }));
 
+vi.mock("@/lib/attendees/backend", () => ({
+  getPublicEventBySlugViaBackend: vi.fn(),
+  getPublicRegistrationBackendMode: getPublicRegistrationBackendModeMock,
+  getFeaturedEventSlugViaBackend: getFeaturedEventSlugViaBackendMock,
+}));
+
 describe("event queries", () => {
   beforeEach(() => {
     queryMock.mockReset();
+    getPublicRegistrationBackendModeMock.mockReset();
+    getFeaturedEventSlugViaBackendMock.mockReset();
+    getPublicRegistrationBackendModeMock.mockReturnValue("direct");
     vi.stubEnv("NODE_ENV", "test");
   });
 
@@ -126,7 +139,7 @@ describe("event queries", () => {
     expect(result?.logoUrl).toBeUndefined();
   });
 
-  it("getFeaturedEventSlug returns latest event or demo fallback", async () => {
+  it("getFeaturedEventSlug returns latest event or empty fallback in direct mode", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const { getFeaturedEventSlug } = await import("@/lib/events/queries");
     
@@ -136,11 +149,30 @@ describe("event queries", () => {
     
     // Empty case
     queryMock.mockResolvedValueOnce({ rows: [] });
-    expect(await getFeaturedEventSlug()).toBe("speaker-session-2026");
+    expect(await getFeaturedEventSlug()).toBe("");
     
     // Error case
     queryMock.mockRejectedValueOnce(new Error("DB fail"));
-    expect(await getFeaturedEventSlug()).toBe("speaker-session-2026");
+    expect(await getFeaturedEventSlug()).toBe("");
+  });
+
+  it("getFeaturedEventSlug uses lambda backend in production lambda mode", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    getPublicRegistrationBackendModeMock.mockReturnValue("lambda");
+    getFeaturedEventSlugViaBackendMock.mockResolvedValueOnce({ slug: "cantus-laudis" });
+
+    const { getFeaturedEventSlug } = await import("@/lib/events/queries");
+    await expect(getFeaturedEventSlug()).resolves.toBe("cantus-laudis");
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it("getFeaturedEventSlug avoids hardcoded demo fallback when lambda backend fails", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    getPublicRegistrationBackendModeMock.mockReturnValue("lambda");
+    getFeaturedEventSlugViaBackendMock.mockRejectedValueOnce(new Error("lambda down"));
+
+    const { getFeaturedEventSlug } = await import("@/lib/events/queries");
+    await expect(getFeaturedEventSlug()).resolves.toBe("");
   });
 
   it("formatEventDate handles various date combinations", async () => {

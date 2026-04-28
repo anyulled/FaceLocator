@@ -126,6 +126,12 @@ export async function getPublicEventBySlugViaBackend(slug: string) {
   }>("getEventBySlug", { slug });
 }
 
+export async function getFeaturedEventSlugViaBackend() {
+  return invokeAttendeeRegistrationLambda<{
+    slug: string | null;
+  }>("getFeaturedEventSlug", {});
+}
+
 export async function createRegistrationIntentViaBackend(
   input: RegistrationIntentRequest,
 ): Promise<RegistrationIntentResponse> {

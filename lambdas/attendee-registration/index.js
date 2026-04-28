@@ -214,6 +214,21 @@ async function getEventBySlug(input) {
   });
 }
 
+async function getFeaturedEventSlug() {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `
+        SELECT slug
+        FROM events
+        ORDER BY created_at DESC NULLS LAST, scheduled_at DESC NULLS LAST
+        LIMIT 1
+      `,
+    );
+
+    return { slug: result.rows[0]?.slug || null };
+  });
+}
+
 async function createUploadInstructions(input) {
   const objectKey = buildSelfieObjectKey({
     eventId: input.eventSlug,
@@ -481,6 +496,10 @@ async function handler(event) {
 
     if (payload.operation === "createRegistrationIntent") {
       return await createRegistrationIntent(payload.input || {});
+    }
+
+    if (payload.operation === "getFeaturedEventSlug") {
+      return await getFeaturedEventSlug();
     }
 
     if (payload.operation === "completeRegistration") {

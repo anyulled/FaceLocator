@@ -41,7 +41,9 @@ const metrics = [
 
 export default async function Home() {
   const featuredEventSlug = await getFeaturedEventSlug();
-  const featuredEventHref = `/events/${featuredEventSlug}/register`;
+  const featuredEventHref = featuredEventSlug
+    ? `/events/${featuredEventSlug}/register`
+    : "/admin/events";
 
   return (
     <main className={styles.page}>
@@ -53,9 +55,6 @@ export default async function Home() {
           <div className={styles.navActions}>
             <Link className={styles.navLink} href="/admin">
               Admin
-            </Link>
-            <Link className={styles.navLink} href={featuredEventHref}>
-              Live demo
             </Link>
             <Link className={styles.navCta} href={featuredEventHref}>
               Start free

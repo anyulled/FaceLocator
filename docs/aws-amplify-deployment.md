@@ -47,6 +47,8 @@ If `MATCH_LINK_BACKEND` is omitted in production, the app still prefers the Lamb
 Operational baseline:
 
 - Database is Aurora PostgreSQL Serverless v2.
+- Aurora endpoints are publicly reachable with narrow explicit ingress CIDR allowlists.
+- Application Lambdas are non-VPC.
 - Hosted Next.js runtime invokes Lambda backends for DB-backed operations.
 - Amplify runtime should not connect directly to Aurora.
 

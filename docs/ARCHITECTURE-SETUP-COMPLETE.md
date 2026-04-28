@@ -82,7 +82,7 @@ pnpm arch:serve
 The `architecture.structurizr` file includes embedded documentation sections for:
 
 - **ADR-0001: Aurora Serverless Phase 1** – Database architecture decision
-- **ADR-0002: Explicit Lambda VPC Attachment** – Network boundary decision
+- **ADR-0002: Remove Lambda VPC Attachment** – Option B network boundary decision
 - **ADR-0006: Security Hardening & Cost Guardrails** – Security and budget controls
 - **System Overview** – FaceLocator purpose, state machine, principles
 - **Deployment Model** – Amplify hosting and Lambda delegation

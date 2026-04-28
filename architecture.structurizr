@@ -56,7 +56,7 @@ workspace "FaceLocator" "A Next.js-based event photography enrollment and delive
             include *
             autolayout lr
             title "FaceLocator Container Architecture"
-            description "Next.js application delegates database operations to Lambda functions. Aurora PostgreSQL remains private and VPC-attached. S3, Rekognition, and Cognito are regional AWS services."
+            description "Next.js application delegates database operations to Lambda functions. Lambdas are non-VPC and Aurora PostgreSQL uses public endpoints with narrow CIDR ingress controls."
         }
     }
 
@@ -73,7 +73,7 @@ workspace "FaceLocator" "A Next.js-based event photography enrollment and delive
                 Adopt Aurora PostgreSQL Serverless v2 as the database baseline.
 
                 ## Consequences
-                - Database baseline is private and deterministic
+                - Database baseline uses public Aurora ingress with explicit narrow CIDR controls
                 - Terraform no longer carries migration-phase branching
                 - Secrets and app contracts remain stable
                 - Aurora writer/reader endpoints available for future optimization
@@ -83,22 +83,20 @@ workspace "FaceLocator" "A Next.js-based event photography enrollment and delive
             """
         }
 
-        section "ADR-0002: Explicit Lambda VPC Attachment" {
-            title "ADR-0002: Keep Lambda VPC Attachment Explicit"
+        section "ADR-0002: Remove Lambda VPC Attachment" {
+            title "ADR-0002: Remove Lambda VPC Attachment For Option B"
             content """
-                # Status: Accepted
+                # Status: Superseded
 
                 ## Context
-                Phase 1 established Aurora in private subnets. All database clients use direct PostgreSQL socket connectivity via the pg driver.
+                Earlier phases assumed private-Aurora access patterns.
 
                 ## Decision
-                Keep Lambda VPC attachment explicit; convert from conditional dynamic blocks to static vpc_config.
+                Lambdas must remain non-VPC under Option B.
 
                 ## Consequences
-                - Private Aurora connectivity remains functional
-                - Terraform intent is clearer
-                - Eliminates obsolete branching logic
-                - Lambda VPC overhead remains (deferred to future Aurora Data API migration)
+                - Eliminates VPC networking overhead for Lambda
+                - Requires explicit Aurora ingress CIDR guardrails
 
                 See: adr/ADR-0002-explicit-lambda-vpc-attachment.md
             """
@@ -142,8 +140,8 @@ workspace "FaceLocator" "A Next.js-based event photography enrollment and delive
                 Failed: FAILED, CANCELLED
 
                 ## Architecture Principles
-                - Private Aurora PostgreSQL Serverless v2 database
-                - Explicit VPC-attached Lambda functions for database access
+                - Aurora PostgreSQL Serverless v2 with public endpoint and narrow CIDR ingress controls
+                - Non-VPC Lambda functions for application database operations
                 - Route handlers delegate to Lambda for privacy-sensitive operations
                 - Cognito enforced for admin dashboard
                 - Budget and cost monitoring via AWS Budgets
@@ -185,12 +183,12 @@ workspace "FaceLocator" "A Next.js-based event photography enrollment and delive
         section "Database Boundary" {
             title "AWS Database Boundary"
             content """
-                # Private Aurora Architecture
+                # Option B Aurora Architecture
 
                 ## Baseline
-                - Aurora PostgreSQL Serverless v2 in private subnets
-                - No public endpoint
-                - All access routed through VPC-attached Lambda or application layer
+                - Aurora PostgreSQL Serverless v2 with publicly reachable endpoints
+                - Lambdas are non-VPC
+                - Access controlled through explicit narrow `database_allowed_cidr_blocks`
 
                 ## Data Persistence
                 - Events, attendees, photos, enrollment state stored in Aurora

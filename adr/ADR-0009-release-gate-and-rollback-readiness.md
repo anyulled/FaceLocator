@@ -34,7 +34,7 @@ A final phase is needed to make promotion and rollback checks explicit, reproduc
 
 ## Decision
 
-Adopt a Phase 9 release gate that requires running phase security/ops/deferred-architecture tests and confirming rollback readiness before promotion.
+Adopt a Phase 9 release gate that requires running phase security/ops/Option B architecture tests and confirming rollback readiness before promotion.
 
 ## Consequences
 

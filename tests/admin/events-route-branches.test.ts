@@ -217,6 +217,33 @@ describe("events route POST — branches", () => {
     expect(body.error).toBe("S3 Upload Failed");
   });
 
+  it("uses FACE_LOCATOR_EVENT_PHOTOS_BUCKET fallback when logos bucket is missing", async () => {
+    delete process.env.FACE_LOCATOR_EVENT_LOGOS_BUCKET;
+    process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET = "photos-fallback-bucket";
+
+    vi.mocked(parseCreateEventRequest).mockResolvedValue({
+      payload: {
+        title: "My Event",
+        slug: "my-event",
+        venue: "Venue",
+        description: "Description",
+        startsAt: "2026-01-01T10:00:00.000Z",
+        endsAt: "2026-01-02T10:00:00.000Z",
+      },
+      logoFile: new File(["data"], "logo.jpg", { type: "image/jpeg" }),
+    });
+
+    mockS3Send.mockResolvedValue({});
+    vi.mocked(createAdminEventViaBackend).mockResolvedValue({ id: "e1", slug: "my-event" } as never);
+
+    const res = await createEvent(makeNextRequest("http://localhost/api/admin/events", {
+      method: "POST",
+      headers: { "Content-Type": "multipart/form-data" },
+    }));
+
+    expect(res.status).toBe(201);
+  });
+
   it("cleans up logo on backend failure", async () => {
     vi.mocked(parseCreateEventRequest).mockResolvedValue({
       payload: {

@@ -71,9 +71,10 @@ Observable outcome:
 1. Run `pnpm exec vitest run tests/aws/infra-phase6-security-hardening.test.ts`.
 2. Run `pnpm exec vitest run tests/aws/infra-phase7-ops-verification.test.ts`.
 3. Run `pnpm exec vitest run tests/aws/infra-phase8-deferred-vpc-elimination.test.ts`.
-4. Run `terraform -chdir=infra validate` and confirm no address mismatch in `imports.tf` targets.
-5. Confirm the rollback path in `docs/aws-operator-runbook.md` is still valid for the current environment.
+4. Run `pnpm exec vitest run tests/aws/infra-option-b-guardrails.test.ts`.
+5. Run `terraform -chdir=infra validate` and confirm no address mismatch in `imports.tf` targets.
+6. Confirm the rollback path in `docs/aws-operator-runbook.md` is still valid for the current environment.
 
 Observable outcome:
 
-- Security controls, operator checks, and deferred-architecture constraints are all verified before promoting changes.
+- Security controls, operator checks, and Option B architecture constraints are all verified before promoting changes.

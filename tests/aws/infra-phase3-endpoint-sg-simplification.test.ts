@@ -28,8 +28,8 @@ describe("infra phase 3 endpoint SG consolidation", () => {
   });
 
   it("records phase 3 decision and constraints in ADR", () => {
-    expect(adr).toContain("# ADR-0003: Consolidate Interface Endpoint Security Groups");
-    expect(adr).toContain("Accepted");
-    expect(adr).toContain("Interface endpoints remain required");
+    expect(adr).toContain("# ADR-0003: Remove Interface Endpoint Dependencies Under Option B");
+    expect(adr).toContain("Superseded");
+    expect(adr).toContain("Interface endpoints and endpoint-specific SG ingress rules are not part of the active baseline.");
   });
 });

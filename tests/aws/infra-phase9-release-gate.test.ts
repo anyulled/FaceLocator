@@ -6,6 +6,10 @@ const verificationChecklist = readFileSync(
   fileURLToPath(new URL("../../docs/aws-verification-checklist.md", import.meta.url)),
   "utf8",
 );
+const amplifyDeploymentDoc = readFileSync(
+  fileURLToPath(new URL("../../docs/aws-amplify-deployment.md", import.meta.url)),
+  "utf8",
+);
 const operatorRunbook = readFileSync(
   fileURLToPath(new URL("../../docs/aws-operator-runbook.md", import.meta.url)),
   "utf8",
@@ -32,5 +36,11 @@ describe("infra phase 9 release gate", () => {
   it("records phase 9 decision in ADR", () => {
     expect(adr).toContain("# ADR-0009: Establish Release Gate And Rollback Readiness");
     expect(adr).toContain("Accepted");
+  });
+
+  it("requires admin event bucket env vars in deployment and verification docs", () => {
+    expect(amplifyDeploymentDoc).toContain("FACE_LOCATOR_EVENT_PHOTOS_BUCKET");
+    expect(amplifyDeploymentDoc).toContain("FACE_LOCATOR_EVENT_LOGOS_BUCKET");
+    expect(verificationChecklist).toContain("Production deployment verification");
   });
 });

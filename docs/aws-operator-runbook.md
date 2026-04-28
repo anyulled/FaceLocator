@@ -20,12 +20,24 @@
 3. Review and apply with [scripts/tf-apply.sh](/Users/anyulled/IdeaProjects/FaceLocator/scripts/tf-apply.sh).
 4. Destroy only when explicitly needed with [scripts/tf-destroy.sh](/Users/anyulled/IdeaProjects/FaceLocator/scripts/tf-destroy.sh).
 
+## Option B rollout sequencing
+
+Apply Option B convergence in two Terraform phases:
+
+1. **Phase 1 (stabilize)**: apply ingress guardrails, output/documentation alignment, and invariant checks without changing runtime traffic paths.
+2. **Phase 2 (cleanup)**: remove all remaining in-scope legacy private-network artifacts and finalize Option B-only topology.
+
+Rollback rule:
+
+- Revert to the previous known-good git commit and re-apply Terraform.
+- Do not use manual console edits as rollback.
+
 ## Database baseline
 
-The POC database baseline is Aurora PostgreSQL Serverless v2 in private subnets.
+The POC database baseline is Aurora PostgreSQL Serverless v2 with publicly reachable DB endpoints and explicit narrow ingress CIDRs.
 
-- Configure at least two private subnets in distinct AZs via `database_private_subnets`.
-- Keep `database_allowed_cidr_blocks = []` unless temporary operator ingress is required.
+- Keep `database_allowed_cidr_blocks` explicit and narrow (prefer `/32` runtime/operator egress IPs).
+- Never use `/0` ingress ranges.
 - Tune Aurora capacity with:
   - `aurora_postgresql_engine_version`
   - `aurora_serverless_min_capacity`
@@ -34,10 +46,7 @@ The POC database baseline is Aurora PostgreSQL Serverless v2 in private subnets.
 Example `infra/terraform.tfvars` fragment:
 
 ```hcl
-database_private_subnets = [
-  { availability_zone = "eu-west-1a", cidr_block = "172.31.200.0/24" },
-  { availability_zone = "eu-west-1b", cidr_block = "172.31.201.0/24" }
-]
+database_allowed_cidr_blocks = ["203.0.113.10/32"]
 aurora_postgresql_engine_version = "16.4"
 aurora_serverless_min_capacity   = 0.5
 aurora_serverless_max_capacity   = 1
@@ -94,3 +103,16 @@ Use this when a newly applied infrastructure change needs to be reverted quickly
 5. Re-run smoke checks for admin event reads, attendee registration, and the matched-photo notifier schedule.
 
 If state and code diverge unexpectedly, pause and reconcile `infra/imports.tf` targets before applying additional changes.
+
+## Drift-prevention checks
+
+Before each production apply, confirm the Option B invariants:
+
+1. `infra/lambda.tf` contains no `vpc_config` blocks.
+2. `infra/database.tf` contains no `aws_vpc_endpoint` resources.
+3. `infra/variables.tf` enforces a non-empty `database_allowed_cidr_blocks` allowlist and rejects `/0`.
+4. Run:
+   - `pnpm exec vitest run tests/aws/infra-phase2-lambda-vpc-explicit.test.ts`
+   - `pnpm exec vitest run tests/aws/infra-phase3-endpoint-sg-simplification.test.ts`
+   - `pnpm exec vitest run tests/aws/infra-phase8-deferred-vpc-elimination.test.ts`
+   - `pnpm exec vitest run tests/aws/infra-option-b-guardrails.test.ts`

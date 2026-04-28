@@ -28,7 +28,7 @@ describe("infra phase 2 lambda vpc elimination", () => {
   });
 
   it("documents the phase 2 decision in ADR", () => {
-    expect(adr).toContain("# ADR-0002: Keep Lambda VPC Attachment Explicit With Private Aurora");
-    expect(adr).toContain("Accepted");
+    expect(adr).toContain("# ADR-0002: Remove Lambda VPC Attachment For Option B");
+    expect(adr).toContain("Superseded");
   });
 });

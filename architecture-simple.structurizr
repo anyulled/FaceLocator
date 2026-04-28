@@ -56,7 +56,7 @@ workspace "FaceLocator" "A Next.js-based event photography enrollment and delive
             include *
             autolayout lr
             title "FaceLocator Container Architecture"
-            description "Next.js application delegates database operations to Lambda functions. Aurora PostgreSQL remains private and VPC-attached. S3, Rekognition, and Cognito are regional AWS services."
+            description "Next.js application delegates database operations to Lambda functions. Lambdas are non-VPC and Aurora PostgreSQL uses public endpoints with narrow CIDR ingress controls."
         }
     }
 }

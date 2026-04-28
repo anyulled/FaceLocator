@@ -19,7 +19,7 @@ const adr = readFileSync(
   "utf8",
 );
 
-describe("infra phase 8 deferred vpc elimination", () => {
+describe("infra phase 8 finalized vpc elimination", () => {
   it("documents completed optimization in README", () => {
     expect(readme).not.toContain("Lambda functions must stay VPC-attached");
   });
@@ -34,7 +34,7 @@ describe("infra phase 8 deferred vpc elimination", () => {
   });
 
   it("records phase 8 decision in ADR", () => {
-    expect(adr).toContain("# ADR-0008: Defer Full VPC Elimination Until Data Access Changes");
+    expect(adr).toContain("# ADR-0008: Finalize Full VPC Elimination For Application Lambdas");
     expect(adr).toContain("Accepted");
   });
 });

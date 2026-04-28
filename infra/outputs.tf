@@ -89,18 +89,18 @@ output "event_photo_pending_key_pattern" {
 }
 
 output "database_cluster_endpoint" {
-  description = "Aurora cluster writer endpoint for PostgreSQL connections."
-  value       = aws_rds_cluster.poc.endpoint
+  description = "Current PostgreSQL writer endpoint for application connections."
+  value       = aws_db_instance.poc.address
 }
 
 output "database_cluster_reader_endpoint" {
-  description = "Aurora cluster reader endpoint for read-only PostgreSQL traffic."
-  value       = aws_rds_cluster.poc.reader_endpoint
+  description = "Current PostgreSQL reader endpoint. Mirrors writer endpoint for single-instance fallback."
+  value       = aws_db_instance.poc.address
 }
 
 output "database_cluster_identifier" {
-  description = "Aurora cluster identifier."
-  value       = aws_rds_cluster.poc.cluster_identifier
+  description = "Current PostgreSQL infrastructure identifier."
+  value       = aws_db_instance.poc.identifier
 }
 
 output "cognito_user_pool_id" {
@@ -136,4 +136,14 @@ output "monthly_cost_budget_name" {
 output "monthly_cost_budget_limit_usd" {
   description = "Configured monthly AWS budget threshold in USD."
   value       = var.monthly_cost_budget_limit_usd
+}
+
+output "lambda_network_mode" {
+  description = "Lambda networking baseline mode for this stack."
+  value       = "non-vpc"
+}
+
+output "database_ingress_cidr_allowlist" {
+  description = "Explicit CIDR allowlist used for Aurora PostgreSQL ingress."
+  value       = var.database_allowed_cidr_blocks
 }

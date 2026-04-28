@@ -47,40 +47,61 @@ resource "aws_db_subnet_group" "poc" {
   lifecycle {
     precondition {
       condition     = length(data.aws_subnets.default_vpc.ids) >= 2
-      error_message = "Default VPC must include at least two subnets for Aurora Serverless deployment."
+      error_message = "Default VPC must include at least two subnets for PostgreSQL deployment."
     }
   }
 
   tags = local.common_tags
 }
 
-resource "aws_rds_cluster" "poc" {
-  cluster_identifier     = "${local.name_prefix}-cluster"
-  engine                 = "aurora-postgresql"
-  engine_version         = var.aurora_postgresql_engine_version
-  database_name          = var.database_name
-  master_username        = var.database_username
-  master_password        = local.database_password
-  db_subnet_group_name   = aws_db_subnet_group.poc.name
-  vpc_security_group_ids = [aws_security_group.db.id]
-  skip_final_snapshot    = true
-  storage_encrypted      = true
+resource "aws_db_parameter_group" "poc" {
+  name        = "${local.name_prefix}-postgres16"
+  family      = "postgres16"
+  description = "Hardened PostgreSQL parameters for FaceLocator public RDS boundary."
 
-  serverlessv2_scaling_configuration {
-    min_capacity = var.aurora_serverless_min_capacity
-    max_capacity = var.aurora_serverless_max_capacity
+  parameter {
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name  = "password_encryption"
+    value = "scram-sha-256"
+  }
+
+  parameter {
+    name  = "log_connections"
+    value = "1"
+  }
+
+  parameter {
+    name  = "log_disconnections"
+    value = "1"
   }
 
   tags = local.common_tags
 }
 
-resource "aws_rds_cluster_instance" "poc" {
-  identifier          = "${local.name_prefix}-cluster-instance-1"
-  cluster_identifier  = aws_rds_cluster.poc.id
-  instance_class      = "db.serverless"
-  engine              = aws_rds_cluster.poc.engine
-  engine_version      = aws_rds_cluster.poc.engine_version
-  publicly_accessible = true
+resource "aws_db_instance" "poc" {
+  identifier                      = "${local.name_prefix}-db"
+  engine                          = "postgres"
+  engine_version                  = "16"
+  instance_class                  = "db.t3.micro"
+  allocated_storage               = 20
+  db_name                         = var.database_name
+  username                        = var.database_username
+  password                        = local.database_password
+  db_subnet_group_name            = aws_db_subnet_group.poc.name
+  vpc_security_group_ids          = [aws_security_group.db.id]
+  parameter_group_name            = aws_db_parameter_group.poc.name
+  publicly_accessible             = true
+  storage_encrypted               = true
+  deletion_protection             = true
+  backup_retention_period         = 0
+  copy_tags_to_snapshot           = true
+  enabled_cloudwatch_logs_exports = ["postgresql"]
+  skip_final_snapshot             = true
 
   tags = local.common_tags
 }

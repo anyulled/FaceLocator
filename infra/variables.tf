@@ -145,9 +145,27 @@ variable "database_password_override" {
 }
 
 variable "database_allowed_cidr_blocks" {
-  description = "Optional IPv4 CIDR blocks allowed to reach the PostgreSQL endpoint. Leave empty to keep the database unreachable from public networks."
+  description = "Required explicit IPv4 CIDR allowlist for public PostgreSQL ingress to Aurora. Keep entries narrow and operator/runtime scoped."
   type        = list(string)
-  default     = []
+  default     = ["203.0.113.10/32"]
+
+  validation {
+    condition     = length(var.database_allowed_cidr_blocks) > 0
+    error_message = "database_allowed_cidr_blocks must include at least one explicit CIDR for Option B."
+  }
+
+  validation {
+    condition = alltrue([
+      for cidr in var.database_allowed_cidr_blocks : var.allow_broad_database_ingress || !strcontains(cidr, "/0")
+    ])
+    error_message = "database_allowed_cidr_blocks cannot include /0 ranges unless allow_broad_database_ingress=true."
+  }
+}
+
+variable "allow_broad_database_ingress" {
+  description = "Emergency override to allow /0 PostgreSQL ingress when non-VPC Lambda egress IPs are not fixed."
+  type        = bool
+  default     = false
 }
 
 variable "aurora_postgresql_engine_version" {
@@ -239,6 +257,12 @@ variable "nextjs_runtime_role_name" {
   description = "Optional IAM role name used by the hosted Next.js runtime. When set, Terraform attaches the required backend policies."
   type        = string
   default     = null
+}
+
+variable "enable_database_schema_bootstrap" {
+  description = "Whether Terraform should apply scripts/sql/bootstrap.sql after DB provisioning."
+  type        = bool
+  default     = true
 }
 
 variable "enable_monthly_cost_budget_alarm" {

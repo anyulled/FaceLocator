@@ -28,8 +28,25 @@ The POC provisions a Terraform-managed Aurora PostgreSQL Serverless v2 cluster a
 
 ## Hardening guidance
 
-- Keep `database_allowed_cidr_blocks` as narrow as possible.
+- Keep `database_allowed_cidr_blocks` as narrow as possible (prefer `/32` egress IPs).
+- Do not use `/0` ingress ranges for PostgreSQL.
 - If broad CIDR ingress is unacceptable, move database access behind a service boundary (for example Aurora Data API) before tightening ingress.
+
+## Drift-Prevention Contract
+
+The Option B baseline is considered healthy only when all of the following remain true:
+
+- `infra/lambda.tf` has no Lambda `vpc_config` blocks.
+- `infra/database.tf` has no interface endpoint resources (`aws_vpc_endpoint`).
+- `infra/database.tf` keeps Aurora publicly reachable and ingress constrained by `database_allowed_cidr_blocks`.
+- `infra/variables.tf` enforces non-empty CIDR allowlists and rejects `/0` CIDR ranges.
+
+CI enforcement:
+
+- `tests/aws/infra-phase2-lambda-vpc-explicit.test.ts`
+- `tests/aws/infra-phase3-endpoint-sg-simplification.test.ts`
+- `tests/aws/infra-phase8-deferred-vpc-elimination.test.ts`
+- `tests/aws/infra-option-b-guardrails.test.ts`
 
 ## Required logical tables
 

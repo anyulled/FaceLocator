@@ -5,6 +5,8 @@ import styles from "./page.module.css";
 
 import { getFeaturedEventSlug } from "@/lib/events/queries";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Instant Event Photo Discovery",
   description: "Private face-based matching that helps attendees find their event photos in seconds.",

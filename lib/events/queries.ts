@@ -174,16 +174,9 @@ export async function getFeaturedEventSlug(): Promise<string> {
     try {
       const result = await getFeaturedEventSlugViaBackend();
       const slug = (result.slug || "").trim();
-      if (slug) {
-        return slug;
-      }
-      return await resolveFromDatabase();
+      return slug;
     } catch {
-      try {
-        return await resolveFromDatabase();
-      } catch {
-        return "";
-      }
+      return "";
     }
   }
 

@@ -14,6 +14,12 @@ describe("home page navbar", () => {
     getFeaturedEventSlugMock.mockReset();
   });
 
+  it("renders dynamically so the featured-event CTA stays live", async () => {
+    const homePageModule = await import("@/app/page");
+
+    expect(homePageModule.dynamic).toBe("force-dynamic");
+  });
+
   it("includes admin and dynamic featured-event start-free link", async () => {
     getFeaturedEventSlugMock.mockResolvedValueOnce("demo-event-2026");
     const { default: HomePage } = await import("@/app/page");

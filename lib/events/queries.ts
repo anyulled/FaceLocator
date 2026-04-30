@@ -175,7 +175,11 @@ export async function getFeaturedEventSlug(): Promise<string> {
       const result = await getFeaturedEventSlugViaBackend();
       const slug = (result.slug || "").trim();
       return slug;
-    } catch {
+    } catch (err) {
+      console.error(
+        "Failed to fetch featured event slug from lambda backend",
+        { error: err },
+      );
       return "";
     }
   }

@@ -173,6 +173,7 @@ describe("event queries", () => {
 
     const { getFeaturedEventSlug } = await import("@/lib/events/queries");
     await expect(getFeaturedEventSlug()).resolves.toBe("");
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it("getFeaturedEventSlug returns empty when lambda returns empty slug", async () => {
@@ -182,6 +183,7 @@ describe("event queries", () => {
 
     const { getFeaturedEventSlug } = await import("@/lib/events/queries");
     await expect(getFeaturedEventSlug()).resolves.toBe("");
+    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it("formatEventDate handles various date combinations", async () => {

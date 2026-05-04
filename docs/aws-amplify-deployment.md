@@ -162,12 +162,20 @@ Terraform exports the policy ARNs as `nextjs_presign_policy_arn`, `nextjs_runtim
 Configure these repository-level values:
 
 - Secret: `AWS_ROLE_TO_ASSUME=arn:aws:iam::722851018992:role/face-locator-github-actions`
+- Secret: `MATCH_LINK_SIGNING_SECRET=<same signing secret used by the app/lambdas>`
+- Secret: `E2E_ADMIN_AUTH_SECRET=<random secret used only by Playwright admin tests>`
+- Secret: `FACE_LOCATOR_DATABASE_SECRET_ARN` or variable `FACE_LOCATOR_DATABASE_SECRET_NAME`
 - Variable: `AWS_REGION=eu-west-1`
 - Variable: `FACE_LOCATOR_SELFIES_BUCKET=face-locator-poc-selfies`
 - Variable: `FACE_LOCATOR_EVENT_PHOTOS_BUCKET=face-locator-poc-event-photos`
 - Variable: `FACE_LOCATOR_EVENT_LOGOS_BUCKET=face-locator-poc-event-logos`
+- Variable: `FACE_LOCATOR_E2E_ADMIN_AUTH=1` is set by the live E2E workflow, not in Amplify production.
 - Variable: `AMPLIFY_APP_ID=<app-id>`
 - Variable: `AMPLIFY_PRODUCTION_BRANCH=main`
+
+The live E2E workflow runs `pnpm test:e2e:live`, which exercises the web app only. It covers the
+landing page, attendee enrollment, event-photo matching, matched gallery, unsubscribe, and seeded
+admin-session browser flow. Missing live prerequisites fail the workflow instead of skipping.
 
 ## Post-merge production smoke verification
 

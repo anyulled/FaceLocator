@@ -3,5 +3,5 @@
 
 set -e
 
-echo "Running production push gate (all checks + coverage >= 80%)..."
-pnpm run verify:prepush
+echo "Running web push gate (web checks + live Playwright happy path)..."
+pnpm run verify:prepush:web

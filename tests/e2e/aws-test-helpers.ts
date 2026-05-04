@@ -18,6 +18,10 @@ export function getRequiredEnv(name: string) {
   return value;
 }
 
+export function isStrictLiveE2E() {
+  return process.env.E2E_REQUIRE_LIVE === "1";
+}
+
 export function getSelfiesBucketName() {
   return getRequiredEnv("FACE_LOCATOR_SELFIES_BUCKET");
 }
@@ -74,6 +78,19 @@ export async function checkLiveE2EPrerequisites(
   options?: { requireDatabase?: false },
 ): Promise<LiveE2EPrerequisiteSuccess | LiveE2EPrerequisiteFailure>;
 export async function checkLiveE2EPrerequisites(options?: { requireDatabase?: boolean }) {
+  const requiredEnv = [
+    "FACE_LOCATOR_SELFIES_BUCKET",
+    "FACE_LOCATOR_EVENT_PHOTOS_BUCKET",
+  ];
+  const missingEnv = requiredEnv.filter((name) => !process.env[name]);
+  if (missingEnv.length > 0) {
+    const reason = `Missing required live E2E environment variable(s): ${missingEnv.join(", ")}`;
+    if (isStrictLiveE2E()) {
+      throw new Error(reason);
+    }
+    return { ok: false as const, reason: `Skipping live E2E: ${reason}` };
+  }
+
   if (!options?.requireDatabase) {
     return { ok: true as const };
   }
@@ -86,11 +103,16 @@ export async function checkLiveE2EPrerequisites(options?: { requireDatabase?: bo
       pool,
     };
   } catch (error) {
+    const reason =
+      "direct database connectivity is unavailable from the runner. "
+      + `Details: ${getErrorMessage(error)}`;
+    if (isStrictLiveE2E()) {
+      throw new Error(`Live E2E prerequisite failed: ${reason}`);
+    }
+
     return {
       ok: false as const,
-      reason:
-        "Skipping live E2E: direct database connectivity is unavailable from the runner. "
-        + `Details: ${getErrorMessage(error)}`,
+      reason: `Skipping live E2E: ${reason}`,
     };
   }
 }

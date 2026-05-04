@@ -29,6 +29,12 @@ const QUERY_CODES = new Set([
   "42601",
 ]);
 
+function getDatabaseSslConfig() {
+  return process.env.FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED === "0"
+    ? { rejectUnauthorized: false }
+    : true;
+}
+
 const ADMIN_EVENTS_SCHEMA_QUERIES = [
   {
     text: `ALTER TABLE IF EXISTS events ADD COLUMN IF NOT EXISTS public_base_url text`,
@@ -115,7 +121,7 @@ async function withDatabase(callback) {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: true,
+    ssl: getDatabaseSslConfig(),
   });
 
   await client.connect();

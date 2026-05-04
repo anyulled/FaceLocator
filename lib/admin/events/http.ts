@@ -42,7 +42,11 @@ function readEnv(...keys: string[]) {
 async function getBaseUrl() {
   const explicitBase = readEnv("FACE_LOCATOR_PUBLIC_BASE_URL", "NEXT_PUBLIC_FACE_LOCATOR_PUBLIC_BASE_URL");
   if (explicitBase) {
-    return explicitBase.replace(/\/+$/, "");
+    try {
+      return new URL(explicitBase).toString().replace(/\/+$/, "");
+    } catch {
+      // Fall through to request headers when a local env file contains a slug or other non-URL value.
+    }
   }
 
   const headerStore = await headers();

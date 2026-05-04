@@ -36,11 +36,12 @@ resource "aws_lambda_function" "selfie_enrollment" {
 
   environment {
     variables = {
-      LOG_LEVEL                 = "info"
-      SELFIES_BUCKET_NAME       = aws_s3_bucket.selfies.bucket
-      REKOGNITION_COLLECTION_ID = aws_rekognition_collection.attendee_faces.collection_id
-      DATABASE_SECRET_NAME      = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN       = aws_secretsmanager_secret.database.arn
+      LOG_LEVEL                                     = "info"
+      SELFIES_BUCKET_NAME                           = aws_s3_bucket.selfies.bucket
+      REKOGNITION_COLLECTION_ID                     = aws_rekognition_collection.attendee_faces.collection_id
+      DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
+      FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
     }
   }
 
@@ -62,11 +63,12 @@ resource "aws_lambda_function" "attendee_registration" {
 
   environment {
     variables = {
-      LOG_LEVEL                    = "info"
-      FACE_LOCATOR_SELFIES_BUCKET  = aws_s3_bucket.selfies.bucket
-      FACE_LOCATOR_PUBLIC_BASE_URL = var.public_base_url
-      DATABASE_SECRET_NAME         = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN          = aws_secretsmanager_secret.database.arn
+      LOG_LEVEL                                     = "info"
+      FACE_LOCATOR_SELFIES_BUCKET                   = aws_s3_bucket.selfies.bucket
+      FACE_LOCATOR_PUBLIC_BASE_URL                  = var.public_base_url
+      DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
+      FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
     }
   }
 
@@ -89,11 +91,12 @@ resource "aws_lambda_function" "admin_events_read" {
 
   environment {
     variables = {
-      LOG_LEVEL                        = "info"
-      FACE_LOCATOR_EVENT_PHOTOS_BUCKET = aws_s3_bucket.event_photos.bucket
-      FACE_LOCATOR_PUBLIC_BASE_URL     = var.public_base_url
-      DATABASE_SECRET_NAME             = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN              = aws_secretsmanager_secret.database.arn
+      LOG_LEVEL                                     = "info"
+      FACE_LOCATOR_EVENT_PHOTOS_BUCKET              = aws_s3_bucket.event_photos.bucket
+      FACE_LOCATOR_PUBLIC_BASE_URL                  = var.public_base_url
+      DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
+      FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
     }
   }
 
@@ -115,11 +118,12 @@ resource "aws_lambda_function" "event_photo_worker" {
 
   environment {
     variables = {
-      LOG_LEVEL                 = "info"
-      EVENT_PHOTOS_BUCKET_NAME  = aws_s3_bucket.event_photos.bucket
-      REKOGNITION_COLLECTION_ID = aws_rekognition_collection.attendee_faces.collection_id
-      DATABASE_SECRET_NAME      = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN       = aws_secretsmanager_secret.database.arn
+      LOG_LEVEL                                     = "info"
+      EVENT_PHOTOS_BUCKET_NAME                      = aws_s3_bucket.event_photos.bucket
+      REKOGNITION_COLLECTION_ID                     = aws_rekognition_collection.attendee_faces.collection_id
+      DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
+      FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
     }
   }
 
@@ -141,13 +145,14 @@ resource "aws_lambda_function" "matched_photo_notifier" {
 
   environment {
     variables = {
-      LOG_LEVEL                        = "info"
-      DATABASE_SECRET_NAME             = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN              = aws_secretsmanager_secret.database.arn
-      MATCH_LINK_SIGNING_SECRET_ARN    = aws_secretsmanager_secret.match_link_signing.arn
-      FACE_LOCATOR_EVENT_PHOTOS_BUCKET = aws_s3_bucket.event_photos.bucket
-      MATCH_LINK_TTL_DAYS              = tostring(var.match_link_ttl_days)
-      SES_FROM_EMAIL                   = var.ses_from_email
+      LOG_LEVEL                                     = "info"
+      DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
+      DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
+      MATCH_LINK_SIGNING_SECRET_ARN                 = aws_secretsmanager_secret.match_link_signing.arn
+      FACE_LOCATOR_EVENT_PHOTOS_BUCKET              = aws_s3_bucket.event_photos.bucket
+      MATCH_LINK_TTL_DAYS                           = tostring(var.match_link_ttl_days)
+      SES_FROM_EMAIL                                = var.ses_from_email
+      FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
     }
   }
 

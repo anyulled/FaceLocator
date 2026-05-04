@@ -20,6 +20,12 @@ const PHOTO_RESPONSE_CONTENT_TYPE = "image/jpeg";
 let cachedDatabaseConfig = null;
 let cachedSigningSecret = null;
 
+function getDatabaseSslConfig() {
+  return process.env.FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED === "0"
+    ? { rejectUnauthorized: false }
+    : true;
+}
+
 function trimTrailingSlash(value) {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
@@ -260,7 +266,7 @@ async function withDatabase(callback) {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: true,
+    ssl: getDatabaseSslConfig(),
   });
 
   await client.connect();

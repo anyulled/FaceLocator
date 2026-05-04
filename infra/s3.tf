@@ -44,6 +44,8 @@ resource "aws_s3_bucket_cors_configuration" "selfies" {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD", "PUT"]
     allowed_origins = [
+      "http://127.0.0.1:3000",
+      "http://localhost:3000",
       "https://face-locator-enrollment.localhost",
       var.public_base_url,
     ]
@@ -124,6 +126,8 @@ resource "aws_s3_bucket_cors_configuration" "event_photos" {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD", "PUT"]
     allowed_origins = [
+      "http://127.0.0.1:3000",
+      "http://localhost:3000",
       "https://face-locator-enrollment.localhost",
       var.public_base_url,
     ]

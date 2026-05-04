@@ -383,8 +383,16 @@ Open [http://localhost:3000](http://localhost:3000), then visit `/events/speaker
 pnpm lint
 pnpm test
 pnpm test:e2e
+pnpm test:e2e:live
+pnpm verify:prepush:web
 pnpm build
 ```
+
+`pnpm test:e2e:live` runs the strict web-only Playwright happy path against live AWS, PostgreSQL,
+S3, Rekognition, and Lambda boundaries. It requires `E2E_REQUIRE_LIVE=1`,
+`FACE_LOCATOR_E2E_ADMIN_AUTH=1`, `E2E_ADMIN_AUTH_SECRET`, `MATCH_LINK_SIGNING_SECRET`, AWS
+credentials, bucket names, and database secret configuration. The local pre-push hook calls
+`pnpm verify:prepush:web`; desktop checks remain available through the desktop-specific scripts.
 
 ## Environment Variables
 
@@ -400,7 +408,10 @@ The most important runtime variables are:
 - `FACE_LOCATOR_PUBLIC_BASE_URL`
 - `FACE_LOCATOR_DATABASE_SECRET_NAME`
 - `FACE_LOCATOR_DATABASE_SECRET_ARN`
+- `FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED`
 - `MATCH_LINK_SIGNING_SECRET`
+- `FACE_LOCATOR_E2E_ADMIN_AUTH`
+- `E2E_ADMIN_AUTH_SECRET`
 - `FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME`
 - `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
 - `AWS_REGION`
@@ -431,7 +442,7 @@ Do not add AWS resources unless they map directly to a ticket in `specs/aws_poc_
 
 Current infrastructure baseline (after phases 1-4) keeps:
 
-- Public single-instance RDS PostgreSQL with explicit CIDR allowlists
+- Public single-instance RDS PostgreSQL with explicit CIDR allowlists. The current non-VPC Lambda POC uses `allow_broad_database_ingress=true` until fixed runtime egress or private networking is added.
 - Lambda backends without VPC attachment
 - No interface VPC endpoints for Secrets Manager, Rekognition, or SES
 

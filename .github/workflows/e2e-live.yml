@@ -2,6 +2,9 @@ name: Live E2E
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 concurrency:
   group: e2e-live-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -17,6 +20,20 @@ env:
   FACE_LOCATOR_REPOSITORY_TYPE: postgres
   FACE_LOCATOR_SELFIES_BUCKET: ${{ vars.FACE_LOCATOR_SELFIES_BUCKET }}
   FACE_LOCATOR_EVENT_PHOTOS_BUCKET: ${{ vars.FACE_LOCATOR_EVENT_PHOTOS_BUCKET }}
+  FACE_LOCATOR_DATABASE_SECRET_ARN: ${{ secrets.FACE_LOCATOR_DATABASE_SECRET_ARN }}
+  FACE_LOCATOR_DATABASE_SECRET_NAME: ${{ vars.FACE_LOCATOR_DATABASE_SECRET_NAME }}
+  DATABASE_SECRET_ARN: ${{ secrets.DATABASE_SECRET_ARN }}
+  DATABASE_SECRET_NAME: ${{ vars.DATABASE_SECRET_NAME }}
+  FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME: ${{ vars.FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME }}
+  FACE_LOCATOR_REKOGNITION_COLLECTION_ID: ${{ vars.FACE_LOCATOR_REKOGNITION_COLLECTION_ID }}
+  MATCH_LINK_SIGNING_SECRET: ${{ secrets.MATCH_LINK_SIGNING_SECRET }}
+  E2E_ADMIN_AUTH_SECRET: ${{ secrets.E2E_ADMIN_AUTH_SECRET }}
+  E2E_REQUIRE_LIVE: "1"
+  FACE_LOCATOR_E2E_ADMIN_AUTH: "1"
+  AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
 jobs:
   live-e2e:
@@ -43,50 +60,36 @@ jobs:
 
       - name: Configure AWS credentials with OIDC
         if: ${{ env.AWS_ROLE_TO_ASSUME != '' }}
-        env:
-          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
           role-session-name: github-actions-live-e2e
 
       - name: Configure AWS credentials with access keys
         if: ${{ env.AWS_ROLE_TO_ASSUME == '' && env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
-        env:
-          AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ env.AWS_SESSION_TOKEN }}
 
       - name: Validate live E2E configuration
         run: |
           test -n "${AWS_REGION}"
           test -n "${FACE_LOCATOR_SELFIES_BUCKET}"
           test -n "${FACE_LOCATOR_EVENT_PHOTOS_BUCKET}"
+          test -n "${MATCH_LINK_SIGNING_SECRET}"
+          test -n "${E2E_ADMIN_AUTH_SECRET}"
+          test "${FACE_LOCATOR_E2E_ADMIN_AUTH}" = "1"
           aws sts get-caller-identity >/dev/null
 
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run live Playwright suites
-        run: |
-          browser_exit=0
-          event_exit=0
-
-          pnpm test:e2e tests/e2e/browser.spec.ts --project=chromium || browser_exit=$?
-          pnpm test:e2e tests/e2e/event-processing.spec.ts --project=chromium || event_exit=$?
-
-          if [ "${browser_exit}" -ne 0 ] || [ "${event_exit}" -ne 0 ]; then
-            echo "browser_exit=${browser_exit}"
-            echo "event_exit=${event_exit}"
-            exit 1
-          fi
+      - name: Run web live happy path
+        run: pnpm run test:e2e:live -- --project=chromium
 
       - name: Upload Playwright report
         if: failure()

@@ -22,6 +22,12 @@ const CONNECTIVITY_CODES = new Set([
   "ECONNRESET",
 ]);
 
+function getDatabaseSslConfig() {
+  return process.env.FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED === "0"
+    ? { rejectUnauthorized: false }
+    : true;
+}
+
 function makeId(prefix) {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
 }
@@ -155,7 +161,7 @@ async function withDatabase(callback) {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: true,
+    ssl: getDatabaseSslConfig(),
     connectionTimeoutMillis: 5000,
     statement_timeout: 7000,
     query_timeout: 7000,

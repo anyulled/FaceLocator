@@ -15,6 +15,12 @@ const secretsClient = new SecretsManagerClient({ region: env.awsRegion });
 
 let cachedDatabaseConfig = null;
 
+function getDatabaseSslConfig() {
+  return process.env.FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED === "0"
+    ? { rejectUnauthorized: false }
+    : true;
+}
+
 async function getDatabaseConfig() {
   if (cachedDatabaseConfig) {
     return cachedDatabaseConfig;
@@ -38,7 +44,7 @@ async function withDatabase(callback) {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: true,
+    ssl: getDatabaseSslConfig(),
   });
 
   await client.connect();

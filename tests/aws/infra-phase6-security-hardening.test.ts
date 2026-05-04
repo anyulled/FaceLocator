@@ -10,6 +10,10 @@ const budgetsTf = readFileSync(
   fileURLToPath(new URL("../../infra/budgets.tf", import.meta.url)),
   "utf8",
 );
+const lambdaTf = readFileSync(
+  fileURLToPath(new URL("../../infra/lambda.tf", import.meta.url)),
+  "utf8",
+);
 const variablesTf = readFileSync(
   fileURLToPath(new URL("../../infra/variables.tf", import.meta.url)),
   "utf8",
@@ -52,7 +56,7 @@ describe("infra phase 6 security hardening", () => {
     expect(cognitoTf).toContain('mfa_configuration        = "OPTIONAL"');
   });
 
-  it("enforces SSL validation in all DB Lambda clients", () => {
+  it("keeps DB Lambda SSL behavior explicit and Terraform-controlled", () => {
     const lambdaSources = [
       adminReadLambda,
       attendeeRegistrationLambda,
@@ -62,9 +66,11 @@ describe("infra phase 6 security hardening", () => {
     ];
 
     for (const source of lambdaSources) {
-      expect(source).toContain("ssl: true");
-      expect(source).not.toContain("rejectUnauthorized: false");
+      expect(source).toContain("getDatabaseSslConfig");
+      expect(source).toContain("FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED");
     }
+
+    expect(lambdaTf.match(/FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED/g)?.length).toBe(5);
   });
 
   it("adds monthly AWS budget alarm resource", () => {

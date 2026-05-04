@@ -84,23 +84,23 @@ resource "aws_db_parameter_group" "poc" {
 }
 
 resource "aws_db_instance" "poc" {
-  identifier                      = "${local.name_prefix}-db"
-  engine                          = "postgres"
-  engine_version                  = "16"
-  instance_class                  = "db.t3.micro"
-  allocated_storage               = 20
-  db_name                         = var.database_name
-  username                        = var.database_username
-  password                        = local.database_password
-  db_subnet_group_name            = aws_db_subnet_group.poc.name
-  vpc_security_group_ids          = [aws_security_group.db.id]
-  parameter_group_name            = aws_db_parameter_group.poc.name
-  publicly_accessible             = true
-  storage_encrypted               = true
-  deletion_protection             = true
-  backup_retention_period         = 0
-  copy_tags_to_snapshot           = true
-  skip_final_snapshot             = true
+  identifier              = "${local.name_prefix}-db"
+  engine                  = "postgres"
+  engine_version          = "16"
+  instance_class          = "db.t3.micro"
+  allocated_storage       = 20
+  db_name                 = var.database_name
+  username                = var.database_username
+  password                = local.database_password
+  db_subnet_group_name    = aws_db_subnet_group.poc.name
+  vpc_security_group_ids  = [aws_security_group.db.id]
+  parameter_group_name    = aws_db_parameter_group.poc.name
+  publicly_accessible     = true
+  storage_encrypted       = true
+  deletion_protection     = true
+  backup_retention_period = 1
+  copy_tags_to_snapshot   = true
+  skip_final_snapshot     = true
 
   tags = local.common_tags
 }

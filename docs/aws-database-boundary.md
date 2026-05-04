@@ -29,7 +29,7 @@ The POC provisions a Terraform-managed public single-instance RDS PostgreSQL dat
 ## Hardening guidance
 
 - Keep `database_allowed_cidr_blocks` as narrow as possible (prefer `/32` egress IPs).
-- Do not use `/0` ingress ranges for PostgreSQL.
+- `/0` PostgreSQL ingress requires `allow_broad_database_ingress=true` and is only acceptable while the POC uses non-VPC Lambda egress without fixed source IPs.
 - If broad CIDR ingress is unacceptable, do not widen the app with ad hoc proxies. Wait for the planned post-free-tier private-network migration.
 
 ## Drift-Prevention Contract
@@ -39,7 +39,7 @@ The Option B baseline is considered healthy only when all of the following remai
 - `infra/lambda.tf` has no Lambda `vpc_config` blocks.
 - `infra/database.tf` has no interface endpoint resources (`aws_vpc_endpoint`).
 - `infra/database.tf` keeps the RDS instance publicly reachable and ingress constrained by `database_allowed_cidr_blocks`.
-- `infra/variables.tf` enforces non-empty CIDR allowlists and rejects `/0` CIDR ranges.
+- `infra/variables.tf` enforces non-empty CIDR allowlists and rejects `/0` CIDR ranges unless `allow_broad_database_ingress=true`.
 
 CI enforcement:
 

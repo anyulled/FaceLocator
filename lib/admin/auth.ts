@@ -48,9 +48,17 @@ type JwksResponse = {
   keys?: (JsonWebKey & { kid?: string })[];
 };
 
+type E2EAdminTokenPayload = {
+  sub: string;
+  username?: string;
+  groups?: string[];
+  exp: number;
+};
+
 const JWKS_TTL_MS = 5 * 60 * 1000;
 const OPENID_CONFIGURATION_TTL_MS = 5 * 60 * 1000;
 const ADMIN_GROUP = "admin";
+const E2E_ADMIN_TOKEN_PREFIX = "e2e-admin";
 
 let jwksCache: { fetchedAt: number; keys: (JsonWebKey & { kid?: string })[] } | null = null;
 let openIdConfigurationCache: {
@@ -298,7 +306,19 @@ export function isCognitoHostedUiConfigured() {
 }
 
 export function isCognitoAdminAuthConfigured() {
+  if (isE2EAdminAuthEnabled()) {
+    return true;
+  }
+
   return getCognitoIssuer().length > 0 && getCognitoClientId().length > 0;
+}
+
+function isE2EAdminAuthEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.FACE_LOCATOR_E2E_ADMIN_AUTH === "1" &&
+    Boolean(process.env.E2E_ADMIN_AUTH_SECRET?.trim())
+  );
 }
 
 export async function getCognitoOpenIdConfiguration() {
@@ -444,6 +464,81 @@ function normalizeGroups(groups: JwtPayload["cognito:groups"]) {
   return [];
 }
 
+function parseE2EAdminTokenPayload(segment: string): E2EAdminTokenPayload | null {
+  try {
+    const bytes = decodeBase64UrlSegment(segment);
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as E2EAdminTokenPayload;
+    if (
+      typeof parsed.sub !== "string" ||
+      !parsed.sub ||
+      typeof parsed.exp !== "number" ||
+      !Number.isFinite(parsed.exp)
+    ) {
+      return null;
+    }
+
+    return {
+      sub: parsed.sub,
+      username: typeof parsed.username === "string" ? parsed.username : undefined,
+      groups: Array.isArray(parsed.groups) ? parsed.groups.map((group) => String(group)) : [],
+      exp: parsed.exp,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveE2EAdminIdentityFromToken(token: string | null): Promise<AdminIdentity | null> {
+  if (!isE2EAdminAuthEnabled() || !token) {
+    return null;
+  }
+
+  const [prefix, encodedPayload, signature] = token.split(".");
+  if (prefix !== E2E_ADMIN_TOKEN_PREFIX || !encodedPayload || !signature) {
+    return null;
+  }
+
+  const secret = process.env.E2E_ADMIN_AUTH_SECRET?.trim();
+  if (!secret) {
+    return null;
+  }
+
+  const payload = parseE2EAdminTokenPayload(encodedPayload);
+  if (!payload || payload.exp <= Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  const groups = normalizeGroups(payload.groups);
+  if (!groups.includes(ADMIN_GROUP)) {
+    return null;
+  }
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    decodeBase64UrlSegment(signature),
+    new TextEncoder().encode(encodedPayload),
+  );
+
+  if (!valid) {
+    return null;
+  }
+
+  return {
+    sub: payload.sub,
+    tokenUse: "id",
+    groups,
+    username: payload.username ?? null,
+  };
+}
+
 function serializeError(error: unknown) {
   if (error instanceof Error) {
     return {
@@ -518,6 +613,11 @@ export async function resolveAdminIdentityFromToken(
   context: AdminAuthContext,
 ): Promise<AdminIdentity | null> {
   try {
+    const e2eIdentity = await resolveE2EAdminIdentityFromToken(token);
+    if (e2eIdentity) {
+      return e2eIdentity;
+    }
+
     const issuer = getCognitoIssuer();
     if (!issuer) {
       return null;

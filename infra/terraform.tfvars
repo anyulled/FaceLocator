@@ -1,8 +1,8 @@
 aws_region                               = "eu-west-1"
 nextjs_runtime_role_name                 = "face-locator-amplify-compute"
 public_base_url                          = "https://main.d1lne42ooc3wfs.amplifyapp.com"
-database_allowed_cidr_blocks             = ["203.0.113.10/32"]
-allow_broad_database_ingress             = false
+database_allowed_cidr_blocks             = ["0.0.0.0/0"]
+allow_broad_database_ingress             = true
 admin_events_read_lambda_timeout_seconds = 120
 enable_cognito_admin_auth                = true
 ses_from_email                           = "anyulled@gmail.com"

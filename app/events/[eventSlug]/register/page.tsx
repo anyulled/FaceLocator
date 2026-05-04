@@ -287,5 +287,9 @@ function buildRegistrationUrl(eventSlug: string) {
     process.env.NEXT_PUBLIC_FACE_LOCATOR_PUBLIC_BASE_URL?.trim() ||
     "http://localhost:3000";
 
-  return new URL(`/events/${eventSlug}/register`, baseUrl).toString();
+  try {
+    return new URL(`/events/${eventSlug}/register`, baseUrl).toString();
+  } catch {
+    return new URL(`/events/${eventSlug}/register`, "http://localhost:3000").toString();
+  }
 }

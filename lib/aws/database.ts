@@ -79,7 +79,9 @@ export async function getDatabasePool(): Promise<Pool> {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: true,
+    ssl: process.env.FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED === "0"
+      ? { rejectUnauthorized: false }
+      : true,
     max: 10,
     connectionTimeoutMillis: 5000,
     statement_timeout: 7000,

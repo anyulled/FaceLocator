@@ -36,14 +36,15 @@ Rollback rule:
 
 The POC database baseline is public single-instance RDS PostgreSQL with explicitly narrow ingress CIDRs for the current free-tier window.
 
-- Keep `database_allowed_cidr_blocks` explicit and narrow (prefer `/32` runtime/operator egress IPs).
-- Never use `/0` ingress ranges.
+- Keep `database_allowed_cidr_blocks` explicit and narrow when runtime/operator egress IPs are fixed.
+- Use `/0` only with `allow_broad_database_ingress=true` while non-VPC Lambda egress is required and source IPs are not fixed.
 - Treat the committed `infra/terraform.tfvars` CIDR as a placeholder until the real runtime/operator egress IPs are confirmed.
 
 Example `infra/terraform.tfvars` fragment:
 
 ```hcl
-database_allowed_cidr_blocks = ["203.0.113.10/32"]
+database_allowed_cidr_blocks = ["0.0.0.0/0"]
+allow_broad_database_ingress = true
 ```
 
 ## Lambda packaging

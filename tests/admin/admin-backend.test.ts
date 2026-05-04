@@ -272,6 +272,51 @@ describe("reprocessAdminEventPhotosViaBackend — lambda mode", () => {
     const result = await reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" });
     expect(result).toEqual(payload);
   });
+
+  it("throws AdminReadBackendError on empty worker payload", async () => {
+    mockedGetDatabasePool.mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
+    } as never);
+    sendMock.mockResolvedValue({ Payload: null });
+
+    const { AdminReadBackendError, reprocessAdminEventPhotosViaBackend } = await import(
+      "@/lib/admin/events/backend"
+    );
+    await expect(reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" })).rejects.toBeInstanceOf(
+      AdminReadBackendError,
+    );
+  });
+
+  it("throws AdminReadBackendError when worker payload has statusCode shape", async () => {
+    mockedGetDatabasePool.mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
+    } as never);
+    sendMock.mockResolvedValue({
+      Payload: encodePayload({ statusCode: 429, errorMessage: "Worker throttled" }),
+    });
+
+    const { reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
+    await expect(reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" })).rejects.toMatchObject({
+      name: "AdminReadBackendError",
+      statusCode: 429,
+      message: "Worker throttled",
+    });
+  });
+
+  it("wraps non-Error invocation failures in AdminReadBackendError", async () => {
+    mockedGetDatabasePool.mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
+    } as never);
+    sendMock.mockRejectedValue("invoke failure");
+
+    const { AdminReadBackendError, reprocessAdminEventPhotosViaBackend } = await import(
+      "@/lib/admin/events/backend"
+    );
+    const err = await reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" }).catch((error) => error);
+
+    expect(err).toBeInstanceOf(AdminReadBackendError);
+    expect((err as InstanceType<typeof AdminReadBackendError>).statusCode).toBe(503);
+  });
 });
 
 describe("reprocessAdminEventPhotosViaBackend — direct mode", () => {

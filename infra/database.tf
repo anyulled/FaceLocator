@@ -100,7 +100,6 @@ resource "aws_db_instance" "poc" {
   deletion_protection             = true
   backup_retention_period         = 0
   copy_tags_to_snapshot           = true
-  enabled_cloudwatch_logs_exports = ["postgresql"]
   skip_final_snapshot             = true
 
   tags = local.common_tags

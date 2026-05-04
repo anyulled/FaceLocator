@@ -112,8 +112,8 @@ Current approach in `architecture.structurizr`:
 
 ```text
 documentation {
-    section "ADR-0001: Aurora Serverless Phase 1" {
-        title "ADR-0001: Adopt Aurora PostgreSQL Serverless v2"
+    section "ADR-0001: Free-Tier RDS Interim" {
+        title "ADR-0001: Defer Aurora And Keep Public RDS During Free Tier"
         content """
             ... summary ...
             See: adr/ADR-0001-aurora-serverless-phase1.md

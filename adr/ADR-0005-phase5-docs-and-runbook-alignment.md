@@ -17,7 +17,7 @@ Architecture and cost controls are only durable if docs/runbooks reflect the act
 All operator docs must describe Option B as the active baseline:
 
 - non-VPC Lambdas
-- public Aurora endpoint
+- public RDS endpoint
 - narrow explicit CIDR ingress policy
 - Terraform-first rollback and drift checks
 

@@ -7,7 +7,7 @@
 A comprehensive C4 architecture model that captures:
 
 - **System Context**: Attendees, photographers, organizers, operators interacting with FaceLocator
-- **Container Diagrams**: Next.js app, Lambda backend, Aurora DB, S3, Rekognition, Cognito, CloudWatch, Budget Alarms
+- **Container Diagrams**: Next.js app, Lambda backend, public RDS PostgreSQL, S3, Rekognition, Cognito, CloudWatch, Budget Alarms
 - **Relationships**: Complete data and control flows
 - **Documentation**: Embedded ADR summaries (ADR-0001, ADR-0002, ADR-0006) with links to full files
 
@@ -81,12 +81,12 @@ pnpm arch:serve
 
 The `architecture.structurizr` file includes embedded documentation sections for:
 
-- **ADR-0001: Aurora Serverless Phase 1** – Database architecture decision
+- **ADR-0001: Free-Tier RDS Interim** – Database architecture decision
 - **ADR-0002: Remove Lambda VPC Attachment** – Option B network boundary decision
 - **ADR-0006: Security Hardening & Cost Guardrails** – Security and budget controls
 - **System Overview** – FaceLocator purpose, state machine, principles
 - **Deployment Model** – Amplify hosting and Lambda delegation
-- **Database Boundary** – Private Aurora architecture
+- **Database Boundary** – Public RDS architecture
 
 When the static site is generated, these become searchable decision pages linked to the full ADR files in the `adr/` folder.
 

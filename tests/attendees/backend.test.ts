@@ -43,10 +43,10 @@ describe("attendees backend — mode resolution", () => {
     expect(getPublicRegistrationBackendMode()).toBe("lambda");
   });
 
-  it("returns lambda when FACE_LOCATOR_REPOSITORY_TYPE=postgres", async () => {
+  it("keeps direct mode when FACE_LOCATOR_REPOSITORY_TYPE=postgres", async () => {
     process.env.FACE_LOCATOR_REPOSITORY_TYPE = "postgres";
     const { getPublicRegistrationBackendMode } = await import("@/lib/attendees/backend");
-    expect(getPublicRegistrationBackendMode()).toBe("lambda");
+    expect(getPublicRegistrationBackendMode()).toBe("direct");
   });
 
   it("falls back to default lambda name", async () => {

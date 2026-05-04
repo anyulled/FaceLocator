@@ -33,18 +33,18 @@ This document fixes the assumptions the Next.js backend must honor when real AWS
 - `FACE_LOCATOR_EVENT_PHOTO_PENDING_PREFIX`
 - `FACE_LOCATOR_AWS_UPLOAD_MODE`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME` when the app runs against the PostgreSQL repository
-- `PUBLIC_REGISTRATION_BACKEND=lambda` and `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME` when public registration DB work runs through the attendee registration Lambda
-- `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME` when the hosted runtime serves gallery and unsubscribe magic links through the matched-photo-notifier Lambda
-- `MATCH_LINK_BACKEND=direct` only for local troubleshooting; production defaults to the Lambda path when the variable is omitted
+- `MATCH_LINK_SIGNING_SECRET` when the hosted runtime serves gallery and unsubscribe links directly
+- `FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME` when the admin UI can trigger manual photo matching
+- `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME` when the admin UI can trigger manual matched-photo notifications
 
 ## Hosted runtime identities
 
 - GitHub Actions assumes a dedicated OIDC role for CI, live E2E, and post-merge hosted smoke verification.
 - AWS Amplify assumes a separate runtime role trusted by `amplify.amazonaws.com`.
 - The hosted Next.js runtime must not reuse the Lambda execution roles.
-- Public registration event reads and attendee registration writes should invoke the attendee registration Lambda.
-- Magic-link gallery reads and unsubscribe writes should invoke the matched-photo-notifier Lambda.
-- The matched-photo-notifier Lambda signs gallery image URLs, so its execution role must allow `s3:GetObject` on `s3://<event_photos_bucket_name>/events/matched/*`. A presigned URL still returns 403 when the signing principal lacks that read permission.
+- Public registration reads/writes, admin reads, and magic-link gallery/unsubscribe flows should connect directly to PostgreSQL through the database secret.
+- The hosted Next.js runtime must be allowed to read the database secret and sign event-photo GET URLs directly.
+- Manual photo reprocessing should invoke the event-photo worker Lambda, and manual notification sends should invoke the matched-photo-notifier Lambda.
 
 The production deployment flow and recommended trust policies are documented in [docs/aws-amplify-deployment.md](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-amplify-deployment.md).
 

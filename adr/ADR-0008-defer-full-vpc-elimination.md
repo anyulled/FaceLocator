@@ -18,7 +18,7 @@ The deferment is closed. The active architecture is Option B:
 
 - Lambdas are non-VPC.
 - Interface endpoints are removed from the baseline.
-- Aurora remains publicly reachable with narrow ingress allowlists.
+- Public RDS remains reachable with narrow ingress allowlists.
 
 ## Consequences
 

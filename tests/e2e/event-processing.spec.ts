@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import type { Pool } from "pg";
 import { join } from "path";
@@ -23,6 +24,10 @@ test.describe("Event Photo Processing E2E", () => {
   const collectionId = getRekognitionCollectionId();
   const selfiesBucketName = getSelfiesBucketName();
   const eventPhotosBucketName = getEventPhotosBucketName();
+  const eventPhotoWorkerLambdaName =
+    process.env.FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME ||
+    process.env.EVENT_PHOTO_WORKER_LAMBDA_NAME ||
+    "face-locator-poc-event-photo-worker";
   const ATTENDEE_EMAIL = `event-tester-${Date.now()}@example.com`;
   
   // Track resources for cleanup
@@ -163,8 +168,22 @@ test.describe("Event Photo Processing E2E", () => {
       }));
     }
 
-    // --- STEP 3: VERIFY RECOGNITION AND MATCHES ---
-    console.log("Waiting for Lambda to process event photos...");
+    // --- STEP 3: TRIGGER MATCHING AND VERIFY RECOGNITION ---
+    console.log("Invoking scheduled/manual event-photo matching flow...");
+    await new LambdaClient({ region: process.env.AWS_REGION || "eu-west-1" }).send(
+      new InvokeCommand({
+        FunctionName: eventPhotoWorkerLambdaName,
+        InvocationType: "RequestResponse",
+        Payload: Buffer.from(
+          JSON.stringify({
+            operation: "processReadyPhotos",
+            eventId: E2E_EVENT_ID,
+            forceReprocess: true,
+            limit: 100,
+          }),
+        ),
+      }),
+    );
 
     const eventPhotoRes = await pollForQueryRow<{
       id: string;

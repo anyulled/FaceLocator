@@ -2,7 +2,6 @@ import "server-only";
 
 import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import {
-  CopyObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   S3Client,
@@ -18,7 +17,6 @@ import type {
   AdminPhotoPresignResponse,
 } from "@/lib/admin/events/contracts";
 import { listAdminEvents } from "@/lib/admin/events/repository";
-import { buildEventPhotoPendingObjectKey } from "@/lib/aws/boundary";
 import { getDatabasePool } from "@/lib/aws/database";
 
 type AdminReadBackendMode = "direct" | "lambda";
@@ -37,6 +35,7 @@ type AdminReadBackendErrorDetails = {
 };
 
 const DEFAULT_ADMIN_READ_LAMBDA_NAME = "face-locator-poc-admin-events-read";
+const DEFAULT_EVENT_PHOTO_WORKER_LAMBDA_NAME = "face-locator-poc-event-photo-worker";
 const DEFAULT_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME = "face-locator-poc-matched-photo-notifier";
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
 const PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE = "image/jpeg";
@@ -99,6 +98,15 @@ export function getMatchedPhotoNotifierLambdaName() {
       "FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME",
       "MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME",
     ) || DEFAULT_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME
+  );
+}
+
+export function getEventPhotoWorkerLambdaName() {
+  return (
+    readEnv(
+      "FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME",
+      "EVENT_PHOTO_WORKER_LAMBDA_NAME",
+    ) || DEFAULT_EVENT_PHOTO_WORKER_LAMBDA_NAME
   );
 }
 
@@ -550,46 +558,10 @@ export async function getAdminEventPhotosPageViaBackend(input: {
   };
 }
 
-function getObjectKeyExtension(objectKey: string) {
-  const match = objectKey.match(/\.([a-z0-9]+)$/i);
-  return match?.[1]?.toLowerCase() || "jpg";
-}
-
-function buildS3CopySource(bucketName: string, objectKey: string) {
-  return `${bucketName}/${objectKey.split("/").map(encodeURIComponent).join("/")}`;
-}
-
-function buildReprocessObjectKey(input: {
-  eventId: string;
-  photoId: string;
-  sourceObjectKey: string;
-  stamp?: string;
-}) {
-  const extension = getObjectKeyExtension(input.sourceObjectKey);
-  const pendingKey = buildEventPhotoPendingObjectKey({
-    eventId: input.eventId,
-    photoId: input.photoId,
-    extension,
-  });
-
-  if (pendingKey !== input.sourceObjectKey) {
-    return pendingKey;
-  }
-
-  return buildEventPhotoPendingObjectKey({
-    eventId: input.eventId,
-    photoId: `${input.photoId}-reprocess-${input.stamp ?? Date.now().toString()}`,
-    extension,
-  });
-}
-
 export async function reprocessAdminEventPhotosViaBackend(input: {
   eventSlug: string;
 }): Promise<AdminEventPhotoReprocessSummary | null> {
-  if (getAdminReadBackendMode() === "lambda") {
-    return invokeAdminReadLambda("reprocessAdminEventPhotos", input);
-  }
-
+  const lambdaName = getEventPhotoWorkerLambdaName();
   const pool = await getDatabasePool();
   const eventRes = await pool.query<{ id: string }>(
     `
@@ -606,57 +578,73 @@ export async function reprocessAdminEventPhotosViaBackend(input: {
     return null;
   }
 
-  const rowsRes = await pool.query<{ id: string; objectKey: string }>(
-    `
-      SELECT
-        ep.id,
-        ep.object_key AS "objectKey"
-      FROM event_photos ep
-      JOIN events e ON e.id = ep.event_id
-      WHERE e.slug = $1
-        AND ep.deleted_at IS NULL
-    `,
-    [input.eventSlug],
-  );
+  try {
+    const response = await getLambdaClient().send(
+      new InvokeCommand({
+        FunctionName: lambdaName,
+        InvocationType: "RequestResponse",
+        Payload: Buffer.from(
+          JSON.stringify({
+            operation: "processReadyPhotos",
+            eventSlug: input.eventSlug,
+            eventId: event.id,
+            forceReprocess: true,
+            limit: 500,
+          }),
+        ),
+      }),
+    );
 
-  const bucketName = getEventPhotosBucketName();
-  const stamp = Date.now().toString();
-  let queued = 0;
-  let failed = 0;
+    const payloadText = response.Payload ? Buffer.from(response.Payload).toString("utf8") : "";
+    const payload = payloadText ? JSON.parse(payloadText) : null;
 
-  for (const row of rowsRes.rows) {
-    const targetKey = buildReprocessObjectKey({
-      eventId: event.id,
-      photoId: row.id,
-      sourceObjectKey: row.objectKey,
-      stamp,
-    });
-
-    try {
-      await getS3Client().send(
-        new CopyObjectCommand({
-          Bucket: bucketName,
-          CopySource: buildS3CopySource(bucketName, row.objectKey),
-          Key: targetKey,
-          MetadataDirective: "REPLACE",
-          Metadata: {
-            "event-id": event.id,
-            "photo-id": row.id,
-          },
-        }),
+    if (!payload) {
+      throw new AdminReadBackendError(
+        "Event photo worker returned an empty response. Check Lambda logs and invocation payload.",
+        502,
+        {
+          operation: "processReadyPhotos",
+          backend: "lambda",
+          lambdaName,
+        },
       );
-      queued += 1;
-    } catch {
-      failed += 1;
     }
-  }
 
-  return {
-    eventSlug: input.eventSlug,
-    total: rowsRes.rows.length,
-    queued,
-    failed,
-  };
+    if (typeof payload === "object" && payload !== null && "statusCode" in payload) {
+      const statusCode = Number((payload as { statusCode?: unknown }).statusCode) || 500;
+      const errorMessage =
+        typeof (payload as { errorMessage?: unknown }).errorMessage === "string"
+          ? (payload as { errorMessage: string }).errorMessage
+          : "Event photo worker failed.";
+
+      throw new AdminReadBackendError(errorMessage, statusCode, {
+        operation: "processReadyPhotos",
+        backend: "lambda",
+        lambdaName,
+        response: payload,
+      });
+    }
+
+    return payload as AdminEventPhotoReprocessSummary;
+  } catch (error) {
+    if (error instanceof AdminReadBackendError) {
+      throw error;
+    }
+
+    throw new AdminReadBackendError(
+      "Event photo worker invocation failed. Check Lambda invoke permission, function name, and CloudWatch logs.",
+      503,
+      {
+        operation: "processReadyPhotos",
+        backend: "lambda",
+        lambdaName,
+        response:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : { message: String(error) },
+      },
+    );
+  }
 }
 
 export async function sendMatchedPhotoNotificationViaBackend(input: {

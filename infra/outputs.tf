@@ -53,14 +53,14 @@ output "nextjs_presign_policy_arn" {
   value       = aws_iam_policy.nextjs_presign.arn
 }
 
-output "nextjs_admin_events_read_invoke_policy_arn" {
-  description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the admin events read Lambda."
-  value       = aws_iam_policy.nextjs_admin_events_read_invoke.arn
+output "nextjs_runtime_data_access_policy_arn" {
+  description = "Policy ARN to attach to the Next.js backend runtime principal for direct DB secret access and event-photo reads."
+  value       = aws_iam_policy.nextjs_runtime_data_access.arn
 }
 
-output "nextjs_attendee_registration_invoke_policy_arn" {
-  description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the public registration Lambda."
-  value       = aws_iam_policy.nextjs_attendee_registration_invoke.arn
+output "nextjs_event_photo_worker_invoke_policy_arn" {
+  description = "Policy ARN to attach to the Next.js backend runtime principal for invoking the event photo worker Lambda manually."
+  value       = aws_iam_policy.nextjs_event_photo_worker_invoke.arn
 }
 
 output "nextjs_matched_photo_notifier_invoke_policy_arn" {
@@ -88,17 +88,17 @@ output "event_photo_pending_key_pattern" {
   value       = local.event_photo_pending_pattern
 }
 
-output "database_cluster_endpoint" {
+output "database_instance_endpoint" {
   description = "Current PostgreSQL writer endpoint for application connections."
   value       = aws_db_instance.poc.address
 }
 
-output "database_cluster_reader_endpoint" {
+output "database_instance_reader_endpoint" {
   description = "Current PostgreSQL reader endpoint. Mirrors writer endpoint for single-instance fallback."
   value       = aws_db_instance.poc.address
 }
 
-output "database_cluster_identifier" {
+output "database_instance_identifier" {
   description = "Current PostgreSQL infrastructure identifier."
   value       = aws_db_instance.poc.identifier
 }
@@ -144,6 +144,6 @@ output "lambda_network_mode" {
 }
 
 output "database_ingress_cidr_allowlist" {
-  description = "Explicit CIDR allowlist used for Aurora PostgreSQL ingress."
+  description = "Explicit CIDR allowlist used for public PostgreSQL ingress."
   value       = var.database_allowed_cidr_blocks
 }

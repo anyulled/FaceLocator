@@ -2,6 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
 
+vi.mock("@aws-sdk/client-lambda", () => ({
+  InvokeCommand: class {
+    constructor(public input: unknown) {}
+  },
+  LambdaClient: class {
+    send = sendMock;
+  },
+}));
+
 vi.mock("@aws-sdk/client-s3", () => ({
   S3Client: class {
     send = sendMock;
@@ -86,13 +95,11 @@ describe("admin backend — direct mode implementation", () => {
     expect(result).toBeNull();
   });
 
-  it("reprocessAdminEventPhotosViaBackend performs S3 copies and returns summary", async () => {
+  it("reprocessAdminEventPhotosViaBackend invokes the worker and returns summary", async () => {
     // Event header
     mockPool.query.mockResolvedValueOnce({ rows: [{ id: "e1" }] });
-    // Photos to reprocess
-    mockPool.query.mockResolvedValueOnce({ rows: [{ id: "p1", objectKey: "events/pending/e1/photos/p1.jpg" }] });
-    // S3 mock
-    sendMock.mockResolvedValue({});
+    // Lambda invoke mock
+    sendMock.mockResolvedValue({ Payload: Buffer.from(JSON.stringify({ eventSlug: "demo", total: 1, queued: 1, failed: 0 }), "utf8") });
 
     const { reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
     const result = await reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" });
@@ -102,19 +109,16 @@ describe("admin backend — direct mode implementation", () => {
     expect(sendMock).toHaveBeenCalled();
   });
 
-  it("reprocessAdminEventPhotosViaBackend records failed count when S3 copy throws", async () => {
+  it("reprocessAdminEventPhotosViaBackend throws when worker invocation fails", async () => {
     // Event header
     mockPool.query.mockResolvedValueOnce({ rows: [{ id: "e1" }] });
-    // Photos to reprocess
-    mockPool.query.mockResolvedValueOnce({ rows: [{ id: "p1", objectKey: "o1" }] });
-    // S3 mock throws
-    sendMock.mockRejectedValueOnce(new Error("S3 fail"));
+    // Lambda invoke throws
+    sendMock.mockRejectedValueOnce(new Error("invoke fail"));
 
-    const { reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
-    const result = await reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" });
-
-    expect(result?.failed).toBe(1);
-    expect(result?.queued).toBe(0);
+    const { AdminReadBackendError, reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
+    await expect(reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" })).rejects.toBeInstanceOf(
+      AdminReadBackendError,
+    );
   });
 
   it("createAdminEventPhotoUploadViaBackend returns presign response", async () => {

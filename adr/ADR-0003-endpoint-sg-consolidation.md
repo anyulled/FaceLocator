@@ -6,7 +6,7 @@ Superseded
 
 ## Superseded By
 
-Option B convergence (non-VPC Lambdas + public Aurora ingress), implemented 2026-04-28.
+Option B convergence (non-VPC Lambdas + public RDS ingress), implemented 2026-04-28.
 
 ## Date
 

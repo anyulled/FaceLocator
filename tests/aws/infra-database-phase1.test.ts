@@ -49,31 +49,32 @@ describe("infra phase 1 database baseline", () => {
     expect(secretsTf).toContain("port     = aws_db_instance.poc.port");
   });
 
-  it("removes staged migration variable and adds Aurora tuning variables", () => {
+  it("removes stale migration-era variables", () => {
     expect(variablesTf).not.toContain('variable "database_network_migration_phase"');
-    expect(variablesTf).toContain('variable "aurora_postgresql_engine_version"');
-    expect(variablesTf).toContain('variable "aurora_serverless_min_capacity"');
-    expect(variablesTf).toContain('variable "aurora_serverless_max_capacity"');
+    expect(variablesTf).not.toContain('variable "aurora_postgresql_engine_version"');
+    expect(variablesTf).not.toContain('variable "aurora_serverless_min_capacity"');
+    expect(variablesTf).not.toContain('variable "aurora_serverless_max_capacity"');
+    expect(variablesTf).not.toContain('variable "aws_profile"');
   });
 
-  it("publishes Aurora cluster outputs and drops migration phase output", () => {
-    expect(outputsTf).toContain('output "database_cluster_endpoint"');
-    expect(outputsTf).toContain('output "database_cluster_reader_endpoint"');
-    expect(outputsTf).toContain('output "database_cluster_identifier"');
+  it("publishes RDS instance outputs and drops migration phase output", () => {
+    expect(outputsTf).toContain('output "database_instance_endpoint"');
+    expect(outputsTf).toContain('output "database_instance_reader_endpoint"');
+    expect(outputsTf).toContain('output "database_instance_identifier"');
     expect(outputsTf).not.toContain('output "database_network_migration_phase"');
   });
 
-  it("updates sample terraform inputs for Aurora", () => {
-    expect(tfvarsExample).toContain("aurora_postgresql_engine_version");
-    expect(tfvarsExample).toContain("aurora_serverless_min_capacity");
-    expect(tfvarsExample).toContain("aurora_serverless_max_capacity");
+  it("updates sample terraform inputs for public RDS", () => {
+    expect(tfvarsExample).not.toContain("aurora_postgresql_engine_version");
+    expect(tfvarsExample).not.toContain("aurora_serverless_min_capacity");
+    expect(tfvarsExample).not.toContain("aurora_serverless_max_capacity");
     expect(tfvarsExample).not.toContain("database_private_subnets");
     expect(tfvarsExample).not.toContain("database_network_migration_phase");
   });
 
-  it("documents the Aurora boundary and records an ADR", () => {
-    expect(dbBoundaryDoc).toContain("Aurora PostgreSQL Serverless v2");
-    expect(adr).toContain("# ADR-0001: Adopt Aurora PostgreSQL Serverless v2 For Phase 1");
+  it("documents the public RDS boundary and records an ADR", () => {
+    expect(dbBoundaryDoc).toContain("public single-instance RDS PostgreSQL");
+    expect(adr).toContain("# ADR-0001: Defer Aurora And Keep Public RDS During Free Tier");
     expect(adr).toContain("## Status");
     expect(adr).toContain("Accepted");
   });

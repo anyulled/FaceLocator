@@ -120,7 +120,6 @@ resource "aws_lambda_function" "event_photo_worker" {
       REKOGNITION_COLLECTION_ID = aws_rekognition_collection.attendee_faces.collection_id
       DATABASE_SECRET_NAME      = aws_secretsmanager_secret.database.name
       DATABASE_SECRET_ARN       = aws_secretsmanager_secret.database.arn
-      SEARCH_FACES_ON_UPLOAD    = tostring(var.search_faces_on_event_photo_upload)
     }
   }
 
@@ -207,5 +206,23 @@ resource "aws_scheduler_schedule" "matched_photo_notifier" {
   target {
     arn      = aws_lambda_function.matched_photo_notifier.arn
     role_arn = aws_iam_role.matched_photo_notifier_scheduler.arn
+  }
+}
+
+resource "aws_scheduler_schedule" "event_photo_matcher" {
+  name                = "${local.lambda_names.event_photo_worker}-schedule"
+  schedule_expression = var.event_photo_match_schedule_expression
+  state               = "ENABLED"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.event_photo_worker.arn
+    role_arn = aws_iam_role.event_photo_worker_scheduler.arn
+    input = jsonencode({
+      operation = "processReadyPhotos"
+    })
   }
 }

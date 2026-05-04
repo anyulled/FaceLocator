@@ -13,15 +13,16 @@ APPLY_SCHEMA="${APPLY_SCHEMA:-false}"
 RUN_TERRAFORM_APPLY="${RUN_TERRAFORM_APPLY:-false}"
 INVOKE_NOTIFIER="${INVOKE_NOTIFIER:-false}"
 TAIL_LOGS="${TAIL_LOGS:-false}"
-ADMIN_READ_BACKEND="${ADMIN_READ_BACKEND:-lambda}"
+ADMIN_READ_BACKEND="${ADMIN_READ_BACKEND:-direct}"
 ADMIN_READ_LAMBDA_NAME="${ADMIN_READ_LAMBDA_NAME:-face-locator-${TF_ENVIRONMENT}-admin-events-read}"
-PUBLIC_REGISTRATION_BACKEND="${PUBLIC_REGISTRATION_BACKEND:-lambda}"
+PUBLIC_REGISTRATION_BACKEND="${PUBLIC_REGISTRATION_BACKEND:-direct}"
 ATTENDEE_REGISTRATION_LAMBDA_NAME="${ATTENDEE_REGISTRATION_LAMBDA_NAME:-face-locator-${TF_ENVIRONMENT}-attendee-registration}"
 
 NOTIFIER_FUNCTION_NAME="${NOTIFIER_FUNCTION_NAME:-face-locator-${TF_ENVIRONMENT}-matched-photo-notifier}"
 NOTIFIER_LOG_GROUP="${NOTIFIER_LOG_GROUP:-/aws/lambda/${NOTIFIER_FUNCTION_NAME}}"
+WORKER_FUNCTION_NAME="${WORKER_FUNCTION_NAME:-face-locator-${TF_ENVIRONMENT}-event-photo-worker}"
 WORKER_LOG_GROUP="${WORKER_LOG_GROUP:-/aws/lambda/face-locator-${TF_ENVIRONMENT}-event-photo-worker}"
-SCHEDULER_PREFIX="${SCHEDULER_PREFIX:-${NOTIFIER_FUNCTION_NAME}}"
+SCHEDULER_PREFIX="${SCHEDULER_PREFIX:-face-locator-${TF_ENVIRONMENT}}"
 
 run() {
   echo
@@ -119,9 +120,8 @@ run terraform -chdir=infra validate
 
 echo
 echo "==> Terraform output sanity checks"
-run terraform -chdir=infra output -raw database_cluster_endpoint
-run terraform -chdir=infra output -raw admin_events_read_lambda_name
-run terraform -chdir=infra output -raw attendee_registration_lambda_name
+run terraform -chdir=infra output -raw database_instance_endpoint
+run terraform -chdir=infra output -raw event_photo_worker_lambda_name
 run terraform -chdir=infra output -raw matched_photo_notifier_lambda_name
 run terraform -chdir=infra output -raw monthly_cost_budget_name || true
 run terraform -chdir=infra output -raw monthly_cost_budget_limit_usd
@@ -142,15 +142,8 @@ else
 fi
 
 run aws lambda get-function --function-name "${NOTIFIER_FUNCTION_NAME}"
+run aws lambda get-function --function-name "${WORKER_FUNCTION_NAME}"
 run aws scheduler list-schedules --name-prefix "${SCHEDULER_PREFIX}"
-
-if [[ "${ADMIN_READ_BACKEND}" == "lambda" ]]; then
-  run aws lambda get-function --function-name "${ADMIN_READ_LAMBDA_NAME}"
-fi
-
-if [[ "${PUBLIC_REGISTRATION_BACKEND}" == "lambda" ]]; then
-  run aws lambda get-function --function-name "${ATTENDEE_REGISTRATION_LAMBDA_NAME}"
-fi
 
 if [[ "${INVOKE_NOTIFIER}" == "true" ]]; then
   run aws lambda invoke --function-name "${NOTIFIER_FUNCTION_NAME}" --payload '{}' /tmp/notifier-response.json

@@ -13,13 +13,13 @@ Accepted
 After selecting Option B, hardening and cost controls remain mandatory:
 
 - optional Cognito MFA for admin access
-- TLS verification in Lambda database clients
+- TLS verification in hosted-runtime and Lambda database clients
 - monthly AWS budget alarm
-- explicit CIDR ingress guardrails for public Aurora access
+- explicit CIDR ingress guardrails for public RDS access
 
 ## Decision
 
-Maintain all phase 6 controls and add Terraform ingress validations that enforce non-empty allowlists and reject `/0` ranges.
+Maintain all phase 6 controls and add Terraform ingress validations that enforce non-empty allowlists and reject `/0` ranges by default.
 
 ## Verification
 

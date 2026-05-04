@@ -34,27 +34,21 @@ Rollback rule:
 
 ## Database baseline
 
-The POC database baseline is Aurora PostgreSQL Serverless v2 with publicly reachable DB endpoints and explicit narrow ingress CIDRs.
+The POC database baseline is public single-instance RDS PostgreSQL with explicitly narrow ingress CIDRs for the current free-tier window.
 
 - Keep `database_allowed_cidr_blocks` explicit and narrow (prefer `/32` runtime/operator egress IPs).
 - Never use `/0` ingress ranges.
-- Tune Aurora capacity with:
-  - `aurora_postgresql_engine_version`
-  - `aurora_serverless_min_capacity`
-  - `aurora_serverless_max_capacity`
+- Treat the committed `infra/terraform.tfvars` CIDR as a placeholder until the real runtime/operator egress IPs are confirmed.
 
 Example `infra/terraform.tfvars` fragment:
 
 ```hcl
 database_allowed_cidr_blocks = ["203.0.113.10/32"]
-aurora_postgresql_engine_version = "16.4"
-aurora_serverless_min_capacity   = 0.5
-aurora_serverless_max_capacity   = 1
 ```
 
 ## Lambda packaging
 
-- Both Lambda workers live under `lambdas/`.
+- All Lambda workers live under `lambdas/`.
 - Packaging installs runtime dependencies locally in each Lambda directory and writes zip artifacts to `build/lambdas/`.
 - Re-run packaging whenever Lambda source changes before applying Terraform.
 
@@ -74,8 +68,9 @@ Operational notes:
 ## Security and cost baseline
 
 - Cognito admin MFA is configured as `OPTIONAL` and should be enabled for operator accounts.
-- Lambda database clients now use standard SSL verification and must not revert to `rejectUnauthorized: false`.
+- Hosted runtime and Lambda PostgreSQL clients now use standard SSL verification and must not revert to `rejectUnauthorized: false`.
 - A monthly AWS budget alarm is expected to exist for the POC account scope.
+- RDS PostgreSQL log export is intentionally disabled for the POC to avoid unnecessary CloudWatch cost.
 
 ## Logs and inspection
 
@@ -84,7 +79,7 @@ Operational notes:
 - Event-photo worker log group: `/aws/lambda/<project>-<env>-event-photo-worker`
 - Matched-photo notifier log group: `/aws/lambda/<project>-<env>-matched-photo-notifier`
 - Inspect bucket objects with `aws s3 ls s3://<bucket>/events/<eventId>/`.
-- If magic-link gallery images return 403, compare the direct S3 presigned URL with the `/_next/image` URL. If direct S3 returns `AccessDenied` for the matched-photo-notifier role, apply Terraform so that role has `s3:GetObject` on `events/matched/*`.
+- If magic-link gallery images return 403, compare the direct S3 presigned URL with the `/_next/image` URL. If direct S3 returns `AccessDenied`, confirm the Amplify runtime role has the direct event-photo read policy attached.
 
 ## Data removal
 
@@ -100,7 +95,7 @@ Use this when a newly applied infrastructure change needs to be reverted quickly
 2. Check out the known-good commit locally and run `./scripts/package-lambdas.sh`.
 3. Run `terraform -chdir=infra validate` and `terraform -chdir=infra plan`.
 4. Apply only after confirming the plan reverts the unintended changes.
-5. Re-run smoke checks for admin event reads, attendee registration, and the matched-photo notifier schedule.
+5. Re-run smoke checks for admin event reads, attendee registration, scheduled photo matching, and the matched-photo notifier schedule.
 
 If state and code diverge unexpectedly, pause and reconcile `infra/imports.tf` targets before applying additional changes.
 

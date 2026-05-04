@@ -1,11 +1,11 @@
 # AWS PostgreSQL Boundary
 
-The POC provisions a Terraform-managed Aurora PostgreSQL Serverless v2 cluster as the database boundary. The runtime contract is fixed now.
+The POC provisions a Terraform-managed public single-instance RDS PostgreSQL database as the boundary for the current free-tier window. The postponed Aurora migration is an intentional ADR-backed deferral, not drift.
 
 ## Credentials source
 
-- Worker Lambdas read database connection details from the Secrets Manager secret output as `database_secret_name`.
-- Terraform writes the managed Aurora writer endpoint into that secret after the cluster is created.
+- Worker Lambdas and the hosted Next.js runtime read database connection details from the Secrets Manager secret output as `database_secret_name`.
+- Terraform writes the managed RDS instance endpoint into that secret after the instance is created.
 - The secret JSON shape is:
 
 ```json
@@ -20,17 +20,17 @@ The POC provisions a Terraform-managed Aurora PostgreSQL Serverless v2 cluster a
 
 ## Network boundary
 
-- The Aurora cluster uses a subnet group built from default VPC subnets.
+- The RDS instance uses a subnet group built from default VPC subnets.
 - Lambda functions are not VPC-attached.
 - Interface VPC endpoints for Secrets Manager, Rekognition, and SES are not provisioned.
-- The cluster security group allows PostgreSQL traffic only from CIDR blocks configured in `database_allowed_cidr_blocks`.
-- Aurora connectivity from non-VPC Lambdas requires explicit public ingress allowance in `database_allowed_cidr_blocks`.
+- The database security group allows PostgreSQL traffic only from CIDR blocks configured in `database_allowed_cidr_blocks`.
+- Both the hosted Next.js runtime and non-VPC Lambdas depend on explicit public ingress allowance in `database_allowed_cidr_blocks`.
 
 ## Hardening guidance
 
 - Keep `database_allowed_cidr_blocks` as narrow as possible (prefer `/32` egress IPs).
 - Do not use `/0` ingress ranges for PostgreSQL.
-- If broad CIDR ingress is unacceptable, move database access behind a service boundary (for example Aurora Data API) before tightening ingress.
+- If broad CIDR ingress is unacceptable, do not widen the app with ad hoc proxies. Wait for the planned post-free-tier private-network migration.
 
 ## Drift-Prevention Contract
 
@@ -38,7 +38,7 @@ The Option B baseline is considered healthy only when all of the following remai
 
 - `infra/lambda.tf` has no Lambda `vpc_config` blocks.
 - `infra/database.tf` has no interface endpoint resources (`aws_vpc_endpoint`).
-- `infra/database.tf` keeps Aurora publicly reachable and ingress constrained by `database_allowed_cidr_blocks`.
+- `infra/database.tf` keeps the RDS instance publicly reachable and ingress constrained by `database_allowed_cidr_blocks`.
 - `infra/variables.tf` enforces non-empty CIDR allowlists and rejects `/0` CIDR ranges.
 
 CI enforcement:

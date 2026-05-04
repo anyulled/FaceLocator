@@ -101,7 +101,7 @@ function classifyDatabaseError(error: unknown): {
       status: 503,
       message: "Database connection failed.",
       troubleshooting:
-        "Check private RDS reachability, security groups, subnet routes, the database secret, and whether the instance is healthy.",
+        "Check public RDS reachability, the CIDR allowlist, security groups, the database secret, and whether the instance is healthy.",
     };
   }
 
@@ -136,7 +136,7 @@ function classifyDatabaseError(error: unknown): {
       status: 503,
       message: "Database connection failed.",
       troubleshooting:
-        "Check private RDS reachability, security groups, subnet routes, the database secret, and whether the instance is healthy.",
+        "Check public RDS reachability, the CIDR allowlist, security groups, the database secret, and whether the instance is healthy.",
     };
   }
 

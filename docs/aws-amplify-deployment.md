@@ -34,23 +34,23 @@ Set these on the Amplify app or production branch:
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
 - `FACE_LOCATOR_EVENT_LOGOS_BUCKET`
-- `ADMIN_READ_BACKEND=lambda`
-- `FACE_LOCATOR_ADMIN_EVENTS_READ_LAMBDA_NAME`
-- `PUBLIC_REGISTRATION_BACKEND=lambda`
-- `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME`
+- `ADMIN_READ_BACKEND=direct`
+- `PUBLIC_REGISTRATION_BACKEND=direct`
+- `MATCH_LINK_BACKEND=direct`
 - `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME` or `MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
+- `FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME` or `EVENT_PHOTO_WORKER_LAMBDA_NAME`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
+- `MATCH_LINK_SIGNING_SECRET`
 
-The hosted runtime delegates magic-link gallery rendering and notification opt-out through the matched-photo notifier Lambda.
-If `MATCH_LINK_BACKEND` is omitted in production, the app still prefers the Lambda path; set `MATCH_LINK_BACKEND=direct` only for local troubleshooting.
+The hosted runtime now serves public registration, admin reads, and gallery/unsubscribe flows directly from the public RDS boundary. Lambda invocation remains only for background worker actions such as manual photo matching and manual/scheduled notifications.
 
 Operational baseline:
 
-- Database is Aurora PostgreSQL Serverless v2.
-- Aurora endpoints are publicly reachable with narrow explicit ingress CIDR allowlists.
+- Database is public single-instance RDS PostgreSQL for the remainder of the free-tier window.
+- RDS ingress must stay on narrow explicit CIDR allowlists.
 - Application Lambdas are non-VPC.
-- Hosted Next.js runtime invokes Lambda backends for DB-backed operations.
-- Amplify runtime should not connect directly to Aurora.
+- Hosted Next.js runtime connects directly to the database through Secrets Manager.
+- Amplify runtime should not depend on Lambda DB-proxy hops for ordinary app traffic.
 
 ### Per-tenant Cognito admin variables (runbook)
 
@@ -148,16 +148,14 @@ Recommended trust policy:
 
 This role needs:
 
-- `lambda:InvokeFunction` on the admin read Lambda
-- `lambda:InvokeFunction` on the attendee registration Lambda
-- `lambda:InvokeFunction` on the matched photo notifier Lambda
 - `secretsmanager:GetSecretValue` on the database secret used by the hosted app
-- S3 permissions required by the Next.js presign boundary for selfie uploads
+- `s3:GetObject` on event photos needed for preview and gallery presigning
+- S3 permissions required by the Next.js presign boundary for uploads
+- `lambda:InvokeFunction` on the event photo worker Lambda for manual photo matching
+- `lambda:InvokeFunction` on the matched photo notifier Lambda
 - any KMS permissions only if the selected secret or bucket policy requires a customer-managed key
 
-Terraform exports the invoke policies as `nextjs_admin_events_read_invoke_policy_arn`, `nextjs_attendee_registration_invoke_policy_arn`, and `nextjs_matched_photo_notifier_invoke_policy_arn`; attach those policies to the Amplify compute role alongside `nextjs_presign_policy_arn`.
-
-The matched-photo-notifier Lambda execution role also needs `s3:GetObject` on `events/matched/*` in the event photos bucket. The gallery page receives presigned URLs from that Lambda, but S3 evaluates the signer role permissions when those URLs are used.
+Terraform exports the policy ARNs as `nextjs_presign_policy_arn`, `nextjs_runtime_data_access_policy_arn`, `nextjs_event_photo_worker_invoke_policy_arn`, and `nextjs_matched_photo_notifier_invoke_policy_arn`; attach those policies to the Amplify compute role.
 
 ## GitHub repository configuration
 

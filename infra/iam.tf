@@ -65,6 +65,28 @@ resource "aws_iam_policy" "nextjs_presign" {
   policy      = data.aws_iam_policy_document.nextjs_presign.json
 }
 
+data "aws_iam_policy_document" "nextjs_runtime_data_access" {
+  statement {
+    sid       = "AllowReadDatabaseSecret"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.database.arn]
+  }
+
+  statement {
+    sid = "AllowReadEventPhotos"
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = ["${aws_s3_bucket.event_photos.arn}/events/*"]
+  }
+}
+
+resource "aws_iam_policy" "nextjs_runtime_data_access" {
+  name        = "${local.name_prefix}-nextjs-runtime-data-access"
+  description = "Runtime access for the hosted Next.js app to read the DB secret and sign event-photo URLs directly."
+  policy      = data.aws_iam_policy_document.nextjs_runtime_data_access.json
+}
+
 data "aws_iam_role" "nextjs_runtime" {
   count = trimspace(coalesce(var.nextjs_runtime_role_name, "")) == "" ? 0 : 1
   name  = trimspace(var.nextjs_runtime_role_name)
@@ -76,44 +98,30 @@ resource "aws_iam_role_policy_attachment" "nextjs_presign" {
   policy_arn = aws_iam_policy.nextjs_presign.arn
 }
 
-data "aws_iam_policy_document" "nextjs_admin_events_read_invoke" {
+resource "aws_iam_role_policy_attachment" "nextjs_runtime_data_access" {
+  count      = length(data.aws_iam_role.nextjs_runtime) > 0 ? 1 : 0
+  role       = data.aws_iam_role.nextjs_runtime[0].name
+  policy_arn = aws_iam_policy.nextjs_runtime_data_access.arn
+}
+
+data "aws_iam_policy_document" "nextjs_event_photo_worker_invoke" {
   statement {
-    sid       = "AllowInvokeAdminEventsReadLambda"
+    sid       = "AllowInvokeEventPhotoWorkerLambda"
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.admin_events_read.arn]
+    resources = [aws_lambda_function.event_photo_worker.arn]
   }
 }
 
-resource "aws_iam_policy" "nextjs_admin_events_read_invoke" {
-  name        = "${local.name_prefix}-nextjs-admin-events-read-invoke"
-  description = "Least-privilege Lambda invoke permission for the Next.js backend admin read flow."
-  policy      = data.aws_iam_policy_document.nextjs_admin_events_read_invoke.json
+resource "aws_iam_policy" "nextjs_event_photo_worker_invoke" {
+  name        = "${local.name_prefix}-nextjs-event-photo-worker-invoke"
+  description = "Least-privilege Lambda invoke permission for manual photo matching from the Next.js admin flow."
+  policy      = data.aws_iam_policy_document.nextjs_event_photo_worker_invoke.json
 }
 
-resource "aws_iam_role_policy_attachment" "nextjs_admin_events_read_invoke" {
+resource "aws_iam_role_policy_attachment" "nextjs_event_photo_worker_invoke" {
   count      = length(data.aws_iam_role.nextjs_runtime) > 0 ? 1 : 0
   role       = data.aws_iam_role.nextjs_runtime[0].name
-  policy_arn = aws_iam_policy.nextjs_admin_events_read_invoke.arn
-}
-
-data "aws_iam_policy_document" "nextjs_attendee_registration_invoke" {
-  statement {
-    sid       = "AllowInvokeAttendeeRegistrationLambda"
-    actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.attendee_registration.arn]
-  }
-}
-
-resource "aws_iam_policy" "nextjs_attendee_registration_invoke" {
-  name        = "${local.name_prefix}-nextjs-attendee-registration-invoke"
-  description = "Least-privilege Lambda invoke permission for the Next.js public registration flow."
-  policy      = data.aws_iam_policy_document.nextjs_attendee_registration_invoke.json
-}
-
-resource "aws_iam_role_policy_attachment" "nextjs_attendee_registration_invoke" {
-  count      = length(data.aws_iam_role.nextjs_runtime) > 0 ? 1 : 0
-  role       = data.aws_iam_role.nextjs_runtime[0].name
-  policy_arn = aws_iam_policy.nextjs_attendee_registration_invoke.arn
+  policy_arn = aws_iam_policy.nextjs_event_photo_worker_invoke.arn
 }
 
 data "aws_iam_policy_document" "nextjs_matched_photo_notifier_invoke" {
@@ -403,6 +411,25 @@ resource "aws_iam_role_policy" "matched_photo_notifier_scheduler" {
   name   = "${local.lambda_names.matched_notifier}-scheduler-policy"
   role   = aws_iam_role.matched_photo_notifier_scheduler.id
   policy = data.aws_iam_policy_document.matched_photo_notifier_scheduler.json
+}
+
+resource "aws_iam_role" "event_photo_worker_scheduler" {
+  name               = "${local.lambda_names.event_photo_worker}-scheduler-role"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume_role.json
+}
+
+data "aws_iam_policy_document" "event_photo_worker_scheduler" {
+  statement {
+    sid       = "AllowInvokeEventPhotoWorkerLambda"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.event_photo_worker.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "event_photo_worker_scheduler" {
+  name   = "${local.lambda_names.event_photo_worker}-scheduler-policy"
+  role   = aws_iam_role.event_photo_worker_scheduler.id
+  policy = data.aws_iam_policy_document.event_photo_worker_scheduler.json
 }
 
 # --- Operator Permissions ---

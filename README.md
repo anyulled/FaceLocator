@@ -18,8 +18,8 @@ This README is meant to help both humans and AI agents understand the codebase q
 - Issues upload instructions through a gateway abstraction
 - Tracks registration status through `UPLOAD_PENDING`, `PROCESSING`, `ENROLLED`, `FAILED`, and `CANCELLED`
 - Exposes admin pages for event and photo management
-- Routes public registration and admin reads through explicit backend modes so the app can run in mock mode or through Lambda backends
-- Routes magic-link gallery and unsubscribe pages through the matched-photo-notifier Lambda backend
+- Keeps public registration, admin reads, and gallery/unsubscribe flows capable of running directly against PostgreSQL when the hosted runtime has the required secrets and IAM
+- Uses Lambda backends only where they still serve a real worker boundary: selfie enrollment, scheduled/manual photo matching, and scheduled/manual notifications
 - Keeps the AWS-backed pieces behind explicit boundaries so the app can still run in mock mode
 
 ## System Landscape
@@ -36,9 +36,6 @@ flowchart LR
   api[Route handlers]
   repo[Attendee repository]
   upload[Upload gateway]
-  attendeeLambda[Attendee registration Lambda]
-  adminReadLambda[Admin read Lambda]
-  matchedNotifierLambda[Matched photo notifier Lambda]
   db[(PostgreSQL-compatible DB)]
   selfies[(S3 selfies bucket)]
   photos[(S3 event photos bucket)]
@@ -57,14 +54,8 @@ flowchart LR
   app --> api
   api --> repo
   api --> upload
-  api --> attendeeLambda
-  api --> adminReadLambda
-  api --> matchedNotifierLambda
   repo --> db
   upload --> selfies
-  attendeeLambda --> db
-  adminReadLambda --> db
-  matchedNotifierLambda --> photos
   lambda1 --> selfies
   lambda1 --> rek
   lambda1 --> db
@@ -73,15 +64,9 @@ flowchart LR
   lambda2 --> db
   adminPage --> cognito
   app --> cloudwatch
-  attendeeLambda --> cloudwatch
-  adminReadLambda --> cloudwatch
-  matchedNotifierLambda --> cloudwatch
   lambda1 --> cloudwatch
   lambda2 --> cloudwatch
   app --> secrets
-  attendeeLambda --> secrets
-  adminReadLambda --> secrets
-  matchedNotifierLambda --> secrets
   lambda1 --> secrets
   lambda2 --> secrets
 ```
@@ -311,12 +296,10 @@ flowchart TB
     s3EventPhotos[(Event photos S3 bucket)]
     s3EventLogos[(Event logos S3 bucket)]
     lambdaSelfie["Selfie enrollment Lambda"]
-    lambdaAttendee["Attendee registration Lambda"]
-    lambdaAdmin["Admin read Lambda"]
     lambdaNotifier["Matched photo notifier Lambda"]
     lambdaPhoto["Event photo worker Lambda"]
     rekognition["Rekognition collection"]
-    rds[(Aurora PostgreSQL Serverless v2)]
+    rds[(Public RDS PostgreSQL)]
     secrets["Secrets Manager"]
     logs["CloudWatch logs"]
     cognito["Cognito"]
@@ -330,27 +313,18 @@ flowchart TB
   apiRoutes --> s3Selfies
   apiRoutes --> s3EventLogos
   apiRoutes --> cognito
-  apiRoutes --> lambdaAttendee
-  apiRoutes --> lambdaAdmin
-  apiRoutes --> lambdaNotifier
   lambdaSelfie --> s3Selfies
   lambdaSelfie --> rekognition
   lambdaSelfie --> rds
-  lambdaAttendee --> rds
-  lambdaAdmin --> rds
   lambdaNotifier --> s3EventPhotos
   lambdaPhoto --> s3EventPhotos
   lambdaPhoto --> rekognition
   lambdaPhoto --> rds
   nextServer --> secrets
-  lambdaAttendee --> secrets
-  lambdaAdmin --> secrets
   lambdaNotifier --> secrets
   lambdaSelfie --> secrets
   lambdaPhoto --> secrets
   nextServer --> logs
-  lambdaAttendee --> logs
-  lambdaAdmin --> logs
   lambdaNotifier --> logs
   lambdaSelfie --> logs
   lambdaPhoto --> logs
@@ -426,16 +400,16 @@ The most important runtime variables are:
 - `FACE_LOCATOR_PUBLIC_BASE_URL`
 - `FACE_LOCATOR_DATABASE_SECRET_NAME`
 - `FACE_LOCATOR_DATABASE_SECRET_ARN`
-- `FACE_LOCATOR_ADMIN_EVENTS_READ_LAMBDA_NAME`
-- `FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME`
+- `MATCH_LINK_SIGNING_SECRET`
+- `FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME`
 - `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
 - `AWS_REGION`
 - `SES_FROM_EMAIL`
 
 If AWS upload variables are omitted, the app remains in mock-backed mode so local development stays simple.
 
-The public magic-link gallery and unsubscribe flows are Lambda-backed in production, so the hosted Next.js runtime does not need direct database access or the match-link signing secret.
-If `MATCH_LINK_BACKEND` is not set explicitly, the hosted production runtime still prefers the Lambda path; use `MATCH_LINK_BACKEND=direct` only for local debugging.
+In the current production shape, the hosted Next.js runtime reads PostgreSQL directly through the database secret and signs gallery/unsubscribe tokens directly with `MATCH_LINK_SIGNING_SECRET`.
+Lambda invocation remains for the event-photo worker and matched-photo notifier because those are background worker seams rather than DB proxy seams.
 
 ## AWS POC Boundaries
 
@@ -457,15 +431,15 @@ Do not add AWS resources unless they map directly to a ticket in `specs/aws_poc_
 
 Current infrastructure baseline (after phases 1-4) keeps:
 
-- Aurora PostgreSQL Serverless v2
+- Public single-instance RDS PostgreSQL with explicit CIDR allowlists
 - Lambda backends without VPC attachment
 - No interface VPC endpoints for Secrets Manager, Rekognition, or SES
 
 Approximate recurring cost drivers for the POC:
 
-- Aurora Serverless v2 ACU usage (depends on `aurora_serverless_min_capacity` and activity)
+- RDS instance hours and storage
 - Lambda invocations and duration
-- Rekognition API calls per enrollment and photo processing event
+- Rekognition API calls per selfie enrollment and scheduled/manual photo matching event
 - S3 storage and request volume
 
 Before introducing new infrastructure, re-check whether the change reduces one of these baseline drivers or only adds complexity.

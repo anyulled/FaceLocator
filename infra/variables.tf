@@ -145,7 +145,7 @@ variable "database_password_override" {
 }
 
 variable "database_allowed_cidr_blocks" {
-  description = "Required explicit IPv4 CIDR allowlist for public PostgreSQL ingress to Aurora. Keep entries narrow and operator/runtime scoped."
+  description = "Required explicit IPv4 CIDR allowlist for public PostgreSQL ingress to the RDS instance. Keep entries narrow and operator/runtime scoped."
   type        = list(string)
   default     = ["203.0.113.10/32"]
 
@@ -164,30 +164,6 @@ variable "database_allowed_cidr_blocks" {
 
 variable "allow_broad_database_ingress" {
   description = "Emergency override to allow /0 PostgreSQL ingress when non-VPC Lambda egress IPs are not fixed."
-  type        = bool
-  default     = false
-}
-
-variable "aurora_postgresql_engine_version" {
-  description = "Aurora PostgreSQL engine version for the cluster."
-  type        = string
-  default     = "16.4"
-}
-
-variable "aurora_serverless_min_capacity" {
-  description = "Minimum Aurora Serverless v2 ACU capacity."
-  type        = number
-  default     = 0.5
-}
-
-variable "aurora_serverless_max_capacity" {
-  description = "Maximum Aurora Serverless v2 ACU capacity."
-  type        = number
-  default     = 1
-}
-
-variable "search_faces_on_event_photo_upload" {
-  description = "Whether the event photo worker should call Rekognition search immediately."
   type        = bool
   default     = false
 }
@@ -247,12 +223,6 @@ variable "cognito_bootstrap_admin_temp_password" {
   sensitive   = true
 }
 
-variable "aws_profile" {
-  description = "AWS profile to use for the POC deployment."
-  type        = string
-  default     = "default"
-}
-
 variable "nextjs_runtime_role_name" {
   description = "Optional IAM role name used by the hosted Next.js runtime. When set, Terraform attaches the required backend policies."
   type        = string
@@ -281,4 +251,10 @@ variable "cost_budget_notification_email" {
   description = "Email address that receives monthly cost budget alarms."
   type        = string
   default     = null
+}
+
+variable "event_photo_match_schedule_expression" {
+  description = "EventBridge Scheduler expression used to trigger scheduled face matching for uploaded event photos."
+  type        = string
+  default     = "rate(1 hour)"
 }

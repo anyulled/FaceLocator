@@ -254,6 +254,7 @@ describe("reprocessAdminEventPhotosViaBackend — lambda mode", () => {
   beforeEach(() => {
     process.env.ADMIN_READ_BACKEND = "lambda";
     sendMock.mockReset();
+    mockedGetDatabasePool.mockReset();
   });
 
   afterEach(() => {
@@ -262,6 +263,9 @@ describe("reprocessAdminEventPhotosViaBackend — lambda mode", () => {
 
   it("delegates to lambda and returns summary", async () => {
     const payload = { eventSlug: "demo", total: 5, queued: 4, failed: 1 };
+    mockedGetDatabasePool.mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
+    } as never);
     sendMock.mockResolvedValue({ Payload: encodePayload(payload) });
 
     const { reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
@@ -293,28 +297,27 @@ describe("reprocessAdminEventPhotosViaBackend — direct mode", () => {
     expect(result).toBeNull();
   });
 
-  it("queues S3 copies and returns summary", async () => {
+  it("invokes the event photo worker and returns summary", async () => {
     const queryMock = vi.fn()
       .mockResolvedValueOnce({ rows: [{ id: "event-1" }] })       // event lookup
-      .mockResolvedValueOnce({ rows: [{ id: "p1", objectKey: "events/other/p1.jpg" }] }); // photos
+      .mockResolvedValueOnce({ rows: [] });
     mockedGetDatabasePool.mockResolvedValue({ query: queryMock } as never);
-    sendMock.mockResolvedValue({});  // S3 CopyObjectCommand succeeds
+    sendMock.mockResolvedValue({ Payload: encodePayload({ eventSlug: "demo", total: 1, queued: 1, failed: 0 }) });
 
     const { reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
     const result = await reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" });
     expect(result).toMatchObject({ eventSlug: "demo", total: 1, queued: 1, failed: 0 });
   });
 
-  it("records failed count when S3 copy throws", async () => {
-    const queryMock = vi.fn()
-      .mockResolvedValueOnce({ rows: [{ id: "event-1" }] })
-      .mockResolvedValueOnce({ rows: [{ id: "p1", objectKey: "events/other/p1.jpg" }] });
+  it("wraps worker invocation failures", async () => {
+    const queryMock = vi.fn().mockResolvedValueOnce({ rows: [{ id: "event-1" }] });
     mockedGetDatabasePool.mockResolvedValue({ query: queryMock } as never);
-    sendMock.mockRejectedValue(new Error("S3 error"));
+    sendMock.mockRejectedValue(new Error("invoke error"));
 
-    const { reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
-    const result = await reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" });
-    expect(result).toMatchObject({ total: 1, queued: 0, failed: 1 });
+    const { AdminReadBackendError, reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
+    await expect(reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" })).rejects.toBeInstanceOf(
+      AdminReadBackendError,
+    );
   });
 });
 

@@ -9,7 +9,8 @@ This document freezes the infrastructure scope for the AWS-backed FaceLocator PO
 - S3 bucket for attendee selfies
 - S3 bucket for event photos
 - Lambda for selfie enrollment processing
-- Lambda for event-photo processing and later matching preparation
+- Lambda for event-photo processing and later scheduled/manual matching
+- EventBridge Scheduler for recurring photo matching and matched-photo notifications
 - Rekognition collection
 - PostgreSQL-compatible persistence boundary
 - Secrets Manager for database credentials
@@ -23,7 +24,6 @@ This document freezes the infrastructure scope for the AWS-backed FaceLocator PO
 - sharding
 - multi-region
 - Step Functions
-- EventBridge
 - SQS
 - WAF
 - CDN

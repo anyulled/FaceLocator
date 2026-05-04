@@ -13,8 +13,10 @@ Do not use the AWS root user for daily development, Terraform applies, Lambda in
 ## Runtime separation
 
 - `nextjs_presign_policy_arn` is the narrow S3 upload policy for the Next.js backend runtime.
+- `nextjs_runtime_data_access_policy_arn` is the direct-runtime data access policy for DB secret reads and event-photo presigning.
+- `nextjs_event_photo_worker_invoke_policy_arn` is the narrow invoke policy for manual admin photo matching.
 - `aws_iam_role.selfie_enrollment_lambda` is limited to selfie object reads, Rekognition indexing, Secrets Manager, and CloudWatch logs.
-- `aws_iam_role.event_photo_worker_lambda` is limited to event-photo reads, optional Rekognition search, Secrets Manager, and CloudWatch logs.
+- `aws_iam_role.event_photo_worker_lambda` is limited to event-photo reads, scheduled/manual Rekognition search, Secrets Manager, and CloudWatch logs.
 
 ## Deployer expectations
 

@@ -13,7 +13,7 @@ Accepted
 Phase 6 introduced three concrete controls:
 
 - optional Cognito MFA for admin authentication
-- TLS verification in Lambda PostgreSQL clients
+- TLS verification in hosted-runtime and Lambda PostgreSQL clients
 - a monthly AWS budget alarm
 
 Those controls were implemented in code and Terraform, but operators still needed direct verification steps and visible outputs to confirm them during deployment and production checks.

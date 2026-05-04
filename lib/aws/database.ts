@@ -79,7 +79,7 @@ export async function getDatabasePool(): Promise<Pool> {
     database: config.dbname,
     user: config.username,
     password: config.password,
-    ssl: { rejectUnauthorized: false },
+    ssl: true,
     max: 10,
     connectionTimeoutMillis: 5000,
     statement_timeout: 7000,
@@ -96,7 +96,7 @@ export async function getDatabasePool(): Promise<Pool> {
         kind: "connectivity",
         status: 503,
         troubleshooting:
-          "Check private RDS reachability, security groups, subnet routes, the database secret, and whether the instance is healthy.",
+          "Check public RDS reachability, the CIDR allowlist, security groups, the database secret, and whether the instance is healthy.",
         error: error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
           : { message: String(error) },

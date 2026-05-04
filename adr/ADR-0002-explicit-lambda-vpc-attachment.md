@@ -6,7 +6,7 @@ Superseded
 
 ## Superseded By
 
-Option B convergence (non-VPC Lambdas + public Aurora ingress), implemented 2026-04-28.
+Option B convergence (non-VPC Lambdas + public RDS ingress), implemented 2026-04-28.
 
 ## Date
 
@@ -14,7 +14,7 @@ Option B convergence (non-VPC Lambdas + public Aurora ingress), implemented 2026
 
 ## Historical Context
 
-This ADR previously documented a private-Aurora model that required Lambda VPC attachment for PostgreSQL connectivity.
+This ADR previously documented a private-database model that required Lambda VPC attachment for PostgreSQL connectivity.
 
 ## Current Decision
 
@@ -24,7 +24,7 @@ Lambda functions must remain non-VPC for the current baseline. Terraform must no
 
 - Eliminates recurring VPC networking overhead.
 - Keeps function startup and operations simpler.
-- Matches the selected public-ingress Aurora model.
+- Matches the selected public-ingress RDS model.
 
 ## Drift Prevention
 

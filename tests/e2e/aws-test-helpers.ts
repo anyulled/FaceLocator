@@ -1,6 +1,5 @@
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { DeleteFacesCommand, RekognitionClient } from "@aws-sdk/client-rekognition";
-import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
 import { getDatabasePool } from "@/lib/aws/database";
 import type { Pool, QueryResult, QueryResultRow } from "pg";
 
@@ -50,14 +49,6 @@ export function createAwsClients() {
   };
 }
 
-function getAttendeeRegistrationLambdaName() {
-  return (
-    process.env.FACE_LOCATOR_ATTENDEE_REGISTRATION_LAMBDA_NAME ||
-    process.env.ATTENDEE_REGISTRATION_LAMBDA_NAME ||
-    "face-locator-poc-attendee-registration"
-  );
-}
-
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -83,27 +74,6 @@ export async function checkLiveE2EPrerequisites(
   options?: { requireDatabase?: false },
 ): Promise<LiveE2EPrerequisiteSuccess | LiveE2EPrerequisiteFailure>;
 export async function checkLiveE2EPrerequisites(options?: { requireDatabase?: boolean }) {
-  const region = getAwsRegion();
-  const lambdaName = getAttendeeRegistrationLambdaName();
-
-  try {
-    await new LambdaClient({ region }).send(
-      new InvokeCommand({
-        FunctionName: lambdaName,
-        InvocationType: "DryRun",
-        Payload: Buffer.from(JSON.stringify({ operation: "healthcheck" })),
-      }),
-    );
-  } catch (error) {
-    return {
-      ok: false as const,
-      reason:
-        `Skipping live E2E: GitHub Actions role cannot invoke ${lambdaName}. `
-        + `Configure lambda:InvokeFunction for attendee registration. `
-        + `Details: ${getErrorMessage(error)}`,
-    };
-  }
-
   if (!options?.requireDatabase) {
     return { ok: true as const };
   }

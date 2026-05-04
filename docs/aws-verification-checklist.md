@@ -28,7 +28,7 @@ Observable outcome:
 
 Observable outcome:
 
-- A log entry includes the object key, event id, photo id, and `outcome: "ready_for_matching"` or `outcome: "matches_found"`.
+- The upload path records the photo as `ready_for_matching`, and a later scheduled/manual worker run records `outcome: "matches_found"` when matching succeeds.
 
 ## Retention and IAM
 
@@ -37,8 +37,9 @@ Observable outcome:
 3. Confirm the selfie worker role does not include event-photo bucket access.
 4. Confirm the event-photo worker role does not include selfie bucket access.
 5. Confirm the Next.js presign policy is scoped to the documented upload prefixes only.
-6. Confirm the GitHub Actions OIDC trust is limited to `anyulled/FaceLocator` pull requests and the `main` branch.
-7. Confirm the Amplify runtime role is trusted by `amplify.amazonaws.com` only.
+6. Confirm the Next.js runtime data-access policy only grants DB-secret reads and event-photo GET access.
+7. Confirm the GitHub Actions OIDC trust is limited to `anyulled/FaceLocator` pull requests and the `main` branch.
+8. Confirm the Amplify runtime role is trusted by `amplify.amazonaws.com` only.
 
 Observable outcome:
 

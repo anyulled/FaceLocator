@@ -1,16 +1,15 @@
 aws_region                               = "eu-west-1"
-aws_profile                              = "face-locator-operator"
 nextjs_runtime_role_name                 = "face-locator-amplify-compute"
 public_base_url                          = "https://main.d1lne42ooc3wfs.amplifyapp.com"
-database_allowed_cidr_blocks             = ["0.0.0.0/0"]
-allow_broad_database_ingress             = true
+database_allowed_cidr_blocks             = ["203.0.113.10/32"]
+allow_broad_database_ingress             = false
 admin_events_read_lambda_timeout_seconds = 120
 enable_cognito_admin_auth                = true
-search_faces_on_event_photo_upload       = true
 ses_from_email                           = "anyulled@gmail.com"
 enable_monthly_cost_budget_alarm         = true
 monthly_cost_budget_limit_usd            = 50
 cost_budget_notification_email           = "anyulled@gmail.com"
+event_photo_match_schedule_expression    = "rate(1 hour)"
 cognito_domain_prefix                    = "face-locator-poc-admin"
 cognito_callback_urls = [
   "http://localhost:3000/admin",

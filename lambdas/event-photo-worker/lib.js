@@ -44,7 +44,6 @@ function getRequiredEnv(env) {
     rekognitionCollectionId: env.REKOGNITION_COLLECTION_ID,
     databaseSecretName: env.DATABASE_SECRET_NAME,
     databaseSecretArn: env.DATABASE_SECRET_ARN || null,
-    searchFacesOnUpload: env.SEARCH_FACES_ON_UPLOAD === "true",
     logLevel: env.LOG_LEVEL || "info",
   };
 }

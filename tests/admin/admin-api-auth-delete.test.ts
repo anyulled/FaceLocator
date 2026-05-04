@@ -9,7 +9,6 @@ import { POST as notifyPhotoMatch } from "@/app/api/admin/events/[eventSlug]/pho
 import { POST as deletePhotosBatch } from "@/app/api/admin/events/[eventSlug]/photos/delete/route";
 import { DELETE as deleteSinglePhoto } from "@/app/api/admin/events/[eventSlug]/photos/[photoId]/route";
 import {
-  createAdminEventPhotoUpload,
   deleteAdminEventPhoto,
   deleteAdminEventPhotosBatch,
 } from "@/lib/admin/events/repository";

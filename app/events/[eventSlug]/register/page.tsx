@@ -1,5 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 
@@ -153,9 +154,11 @@ export default async function EventRegistrationPage({
           >
             {event.eyebrow}
           </p>
-          <img
+          <Image
             src={event.logoUrl ?? "/event-default-logo.svg"}
             alt={`${event.title} event logo`}
+            width={336}
+            height={336}
             style={{
               marginTop: "0.75rem",
               width: "100%",

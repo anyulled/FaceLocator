@@ -10,10 +10,11 @@ cost_budget_notification_email = "noreply@example.com"
 selfie_retention_days = 30
 unmatched_event_photo_retention_days = 2
 matched_event_photo_retention_days = 30
+rekognition_face_retention_days = 30
 temporary_artifact_retention_days = 1
 cloudwatch_log_retention_days = 14
 matched_photo_notifier_schedule_expression = "rate(12 hours)"
-event_photo_match_schedule_expression = "rate(1 hour)"
+event_photo_match_schedule_expression = "rate(6 hours)"
 match_link_ttl_days = 30
 ses_from_email = "noreply@example.com"
 

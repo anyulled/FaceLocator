@@ -1,9 +1,4 @@
 import type { EnrollmentEventSummary } from "@/lib/attendees/contracts";
-import {
-  getFeaturedEventSlugViaBackend,
-  getPublicEventBySlugViaBackend,
-  getPublicRegistrationBackendMode,
-} from "@/lib/attendees/backend";
 import { getDatabasePool } from "@/lib/aws/database";
 import { describeDatabaseError } from "@/lib/aws/database-errors";
 
@@ -90,11 +85,6 @@ export async function getEventBySlug(slug: string): Promise<EnrollmentEventSumma
     return null;
   }
 
-  if (process.env.NODE_ENV !== "test" && getPublicRegistrationBackendMode() === "lambda") {
-    const result = await getPublicEventBySlugViaBackend(normalizedSlug);
-    return result.event;
-  }
-
   if (process.env.NODE_ENV !== "test") {
     try {
       const pool = await getDatabasePool();
@@ -169,20 +159,6 @@ export async function getFeaturedEventSlug(): Promise<string> {
 
     return result.rows[0]?.slug ?? "";
   };
-
-  if (getPublicRegistrationBackendMode() === "lambda") {
-    try {
-      const result = await getFeaturedEventSlugViaBackend();
-      const slug = (result.slug || "").trim();
-      return slug;
-    } catch (err) {
-      console.error(
-        "Failed to fetch featured event slug from lambda backend",
-        { error: err },
-      );
-      return "";
-    }
-  }
 
   try {
     return await resolveFromDatabase();

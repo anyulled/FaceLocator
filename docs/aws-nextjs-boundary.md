@@ -43,6 +43,7 @@ This document fixes the assumptions the Next.js backend must honor when real AWS
 - AWS Amplify assumes a separate runtime role trusted by `amplify.amazonaws.com`.
 - The hosted Next.js runtime must not reuse the Lambda execution roles.
 - Public registration reads/writes, admin reads, and magic-link gallery/unsubscribe flows should connect directly to PostgreSQL through the database secret.
+- Request-time Lambda fallback for those flows has been removed.
 - The hosted Next.js runtime must be allowed to read the database secret and sign event-photo GET URLs directly.
 - Manual photo reprocessing should invoke the event-photo worker Lambda, and manual notification sends should invoke the matched-photo-notifier Lambda.
 

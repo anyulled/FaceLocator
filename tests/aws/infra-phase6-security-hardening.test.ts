@@ -26,14 +26,6 @@ const tfvarsExample = readFileSync(
   fileURLToPath(new URL("../../infra/terraform.tfvars.example", import.meta.url)),
   "utf8",
 );
-const adminReadLambda = readFileSync(
-  fileURLToPath(new URL("../../lambdas/admin-read/index.js", import.meta.url)),
-  "utf8",
-);
-const attendeeRegistrationLambda = readFileSync(
-  fileURLToPath(new URL("../../lambdas/attendee-registration/index.js", import.meta.url)),
-  "utf8",
-);
 const selfieEnrollmentLambda = readFileSync(
   fileURLToPath(new URL("../../lambdas/selfie-enrollment/index.js", import.meta.url)),
   "utf8",
@@ -58,8 +50,6 @@ describe("infra phase 6 security hardening", () => {
 
   it("keeps DB Lambda SSL behavior explicit and Terraform-controlled", () => {
     const lambdaSources = [
-      adminReadLambda,
-      attendeeRegistrationLambda,
       selfieEnrollmentLambda,
       eventPhotoWorkerLambda,
       matchedPhotoNotifierLambda,
@@ -70,7 +60,7 @@ describe("infra phase 6 security hardening", () => {
       expect(source).toContain("FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED");
     }
 
-    expect(lambdaTf.match(/FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED/g)?.length).toBe(5);
+    expect(lambdaTf.match(/FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED/g)?.length).toBe(3);
   });
 
   it("adds monthly AWS budget alarm resource", () => {

@@ -46,7 +46,6 @@ describe("admin backend — direct mode implementation", () => {
     vi.resetAllMocks();
     mockedGetDatabasePool.mockResolvedValue(mockPool as unknown as Pool);
     mockedGetSignedUrl.mockResolvedValue("https://signed.example.com/p1");
-    process.env.ADMIN_READ_BACKEND = "direct";
     process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET = "test-bucket";
   });
 

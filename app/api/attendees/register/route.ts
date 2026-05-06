@@ -1,7 +1,6 @@
 import { createApiError } from "@/lib/attendees/errors";
 import {
   createRegistrationIntentViaBackend,
-  getPublicRegistrationBackendMode,
 } from "@/lib/attendees/backend";
 import {
   errorResponseWithCorrelationId,
@@ -11,7 +10,6 @@ import {
   logRouteInfo,
 } from "@/lib/attendees/logging";
 import { evaluateRegistrationRateLimit } from "@/lib/attendees/rate-limit";
-import { getAttendeeRepository, getUploadGateway } from "@/lib/attendees/runtime";
 import { validateRegistrationIntentRequest } from "@/lib/attendees/schemas";
 import { getEventBySlug } from "@/lib/events/queries";
 
@@ -37,18 +35,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (getPublicRegistrationBackendMode() === "lambda") {
-      const response = await createRegistrationIntentViaBackend(payload);
-
-      logRouteInfo("registration_intent_created", {
-        correlationId,
-        eventSlug: payload.eventSlug,
-        registrationId: response.registrationId,
-      });
-
-      return jsonWithCorrelationId(response, correlationId);
-    }
-
     const event = await getEventBySlug(payload.eventSlug);
 
     if (!event) {
@@ -64,10 +50,7 @@ export async function POST(request: Request) {
       eventSlug: payload.eventSlug,
     });
 
-    const response = await getAttendeeRepository().createRegistrationIntent(
-      payload,
-      getUploadGateway(),
-    );
+    const response = await createRegistrationIntentViaBackend(payload);
 
     logRouteInfo("registration_intent_created", {
       correlationId,

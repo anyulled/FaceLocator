@@ -113,8 +113,6 @@ flowchart LR
     s3Selfies[(Selfies bucket)]
     s3Photos[(Event photos bucket)]
     lambdaEnroll["Selfie enrollment Lambda"]
-    lambdaAttendee["Attendee registration Lambda"]
-    lambdaAdmin["Admin read Lambda"]
     lambdaNotifier["Matched photo notifier Lambda"]
     lambdaPhotos["Event photo worker Lambda"]
     rekognition["Rekognition"]
@@ -133,11 +131,9 @@ flowchart LR
   routes --> eventQueries
   attendeeLib --> db
   attendeeLib --> s3Selfies
-  publicBackend --> lambdaAttendee
-  adminBackend --> lambdaAdmin
-  notificationBackend --> lambdaNotifier
-  lambdaAttendee --> db
-  lambdaAdmin --> db
+  publicBackend --> db
+  adminBackend --> db
+  notificationBackend --> db
   lambdaNotifier --> db
   lambdaNotifier --> s3Photos
   adminLib --> db
@@ -166,10 +162,8 @@ sequenceDiagram
   actor A as Attendee
   participant P as Public page
   participant R as /api/attendees/register
-  participant B as Backend mode
   participant G as Upload gateway
   participant D as Repository
-  participant L as Attendee registration Lambda
   participant U as Selfie bucket
   participant C as /api/attendees/register/complete
   participant S as /api/attendees/register/status/{id}
@@ -177,20 +171,10 @@ sequenceDiagram
   A->>P: Open event registration page
   A->>P: Fill form and choose selfie
   P->>R: POST registration intent
-  R->>B: resolve public registration backend
-  alt lambda mode
-    B->>L: create registration intent
-    L->>D: validate event and create registration
-    D->>G: create upload instructions
-    G-->>D: presigned PUT details
-    D-->>L: registrationId + upload instructions
-    L-->>R: registrationId + upload instructions
-  else mock or direct mode
-    B->>D: validate event and create registration
-    D->>G: create upload instructions
-    G-->>D: presigned PUT details
-    D-->>R: registrationId + upload instructions
-  end
+  R->>D: validate event and create registration
+  D->>G: create upload instructions
+  G-->>D: presigned PUT details
+  D-->>R: registrationId + upload instructions
   R-->>P: upload instructions
   P->>U: PUT selfie file
   P->>C: POST upload completion
@@ -211,7 +195,6 @@ sequenceDiagram
   participant UI as Admin UI
   participant AUTH as Cognito auth
   participant API as Admin route handlers
-  participant L as Admin read Lambda
   participant DB as Database
   participant S3 as Event photos bucket
 
@@ -219,8 +202,7 @@ sequenceDiagram
   UI->>AUTH: Authenticate with hosted UI
   AUTH-->>UI: Tokens / session
   UI->>API: Load events and photos
-  API->>L: Resolve admin read backend
-  L->>DB: Query event and photo records
+  API->>DB: Query event and photo records
   API->>S3: Create signed preview URLs when needed
   API-->>UI: Event listing and photo data
 ```
@@ -233,24 +215,17 @@ sequenceDiagram
   actor A as Attendee
   participant P as Magic-link page
   participant R as /api/notifications/unsubscribe
-  participant B as Notification backend
-  participant L as Matched photo notifier Lambda
   participant DB as Database
   participant S3 as Event photos bucket
 
   A->>P: Open gallery link from email
-  P->>B: Request gallery data with token
-  B->>L: Invoke getGalleryPageData
-  L->>DB: Verify token and load match rows
-  L->>S3: Presign matched photo URLs
-  L-->>B: Attendee name and photo URLs
-  B-->>P: Render gallery
+  P->>DB: Request gallery data with token
+  DB->>S3: Presign matched photo URLs
+  S3-->>P: Photo URLs
   A->>R: Click unsubscribe link
-  R->>B: Request unsubscribe with token
-  B->>L: Invoke unsubscribeFromMatchedPhotos
-  L->>DB: Mark notifications unsubscribed
-  L-->>B: Success
-  B-->>R: 200 text response
+  R->>DB: Request unsubscribe with token
+  DB-->>R: Success
+  R-->>A: 200 text response
 ```
 
 ## Enrollment State Machine
@@ -354,7 +329,7 @@ flowchart TB
 - AWS boundary contract: [`lib/aws/boundary.ts`](/Users/anyulled/IdeaProjects/FaceLocator/lib/aws/boundary.ts)
 - Admin surfaces: [`app/admin/page.tsx`](/Users/anyulled/IdeaProjects/FaceLocator/app/admin/page.tsx), [`app/admin/events/page.tsx`](/Users/anyulled/IdeaProjects/FaceLocator/app/admin/events/page.tsx)
 
-## Runtime Modes
+## Runtime Baseline
 
 The app currently supports two repository modes:
 
@@ -367,6 +342,13 @@ Upload behavior is controlled by the AWS upload gateway configuration:
 - AWS mode is used when the presigned upload environment is present
 
 The boundary variables are listed in [`lib/aws/boundary.ts`](/Users/anyulled/IdeaProjects/FaceLocator/lib/aws/boundary.ts) and the Next.js boundary contract in [`docs/aws-nextjs-boundary.md`](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-nextjs-boundary.md)
+
+Request-time AWS traffic now stays direct:
+
+- Public registration reads and writes go from Next.js to PostgreSQL
+- Admin reads go from Next.js to PostgreSQL
+- Gallery and unsubscribe requests go from Next.js to PostgreSQL
+- Lambda invocation remains only for selfie enrollment, scheduled/manual photo matching, and scheduled/manual notifications
 
 ## Local Development
 
@@ -400,8 +382,6 @@ The most important runtime variables are:
 
 - `FACE_LOCATOR_REPOSITORY_TYPE`
 - `FACE_LOCATOR_AWS_UPLOAD_MODE`
-- `ADMIN_READ_BACKEND`
-- `PUBLIC_REGISTRATION_BACKEND`
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
 - `FACE_LOCATOR_EVENT_LOGOS_BUCKET`
@@ -420,7 +400,7 @@ The most important runtime variables are:
 If AWS upload variables are omitted, the app remains in mock-backed mode so local development stays simple.
 
 In the current production shape, the hosted Next.js runtime reads PostgreSQL directly through the database secret and signs gallery/unsubscribe tokens directly with `MATCH_LINK_SIGNING_SECRET`.
-Lambda invocation remains for the event-photo worker and matched-photo notifier because those are background worker seams rather than DB proxy seams.
+Lambda invocation remains for the event-photo worker and matched-photo notifier because those are background worker seams rather than request-time DB proxy seams.
 
 ## AWS POC Boundaries
 

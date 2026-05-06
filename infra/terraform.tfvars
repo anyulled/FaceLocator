@@ -3,13 +3,12 @@ nextjs_runtime_role_name                 = "face-locator-amplify-compute"
 public_base_url                          = "https://main.d1lne42ooc3wfs.amplifyapp.com"
 database_allowed_cidr_blocks             = ["0.0.0.0/0"]
 allow_broad_database_ingress             = true
-admin_events_read_lambda_timeout_seconds = 120
 enable_cognito_admin_auth                = true
 ses_from_email                           = "anyulled@gmail.com"
 enable_monthly_cost_budget_alarm         = true
 monthly_cost_budget_limit_usd            = 50
 cost_budget_notification_email           = "anyulled@gmail.com"
-event_photo_match_schedule_expression    = "rate(1 hour)"
+event_photo_match_schedule_expression    = "rate(6 hours)"
 cognito_domain_prefix                    = "face-locator-poc-admin"
 cognito_callback_urls = [
   "http://localhost:3000/admin",

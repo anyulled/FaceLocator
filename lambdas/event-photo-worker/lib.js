@@ -44,6 +44,7 @@ function getRequiredEnv(env) {
     rekognitionCollectionId: env.REKOGNITION_COLLECTION_ID,
     databaseSecretName: env.DATABASE_SECRET_NAME,
     databaseSecretArn: env.DATABASE_SECRET_ARN || null,
+    faceRetentionDays: Math.max(1, Number.parseInt(env.FACE_RETENTION_DAYS || "30", 10) || 30),
     logLevel: env.LOG_LEVEL || "info",
   };
 }

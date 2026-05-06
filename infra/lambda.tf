@@ -3,16 +3,6 @@ resource "aws_cloudwatch_log_group" "selfie_enrollment" {
   retention_in_days = var.cloudwatch_log_retention_days
 }
 
-resource "aws_cloudwatch_log_group" "admin_events_read" {
-  name              = local.log_group_names.admin_events_read
-  retention_in_days = var.cloudwatch_log_retention_days
-}
-
-resource "aws_cloudwatch_log_group" "attendee_registration" {
-  name              = local.log_group_names.attendee_registration
-  retention_in_days = var.cloudwatch_log_retention_days
-}
-
 resource "aws_cloudwatch_log_group" "event_photo_worker" {
   name              = local.log_group_names.event_photo_worker
   retention_in_days = var.cloudwatch_log_retention_days
@@ -50,61 +40,6 @@ resource "aws_lambda_function" "selfie_enrollment" {
   ]
 }
 
-resource "aws_lambda_function" "attendee_registration" {
-  function_name = local.lambda_names.attendee_registration
-  role          = aws_iam_role.attendee_registration_lambda.arn
-  runtime       = "nodejs24.x"
-  handler       = "index.handler"
-  filename      = local.lambda_package_paths.attendee_registration
-
-  source_code_hash = try(filebase64sha256(local.lambda_package_paths.attendee_registration), null)
-  timeout          = var.selfie_lambda_timeout_seconds
-  memory_size      = var.selfie_lambda_memory_size
-
-  environment {
-    variables = {
-      LOG_LEVEL                                     = "info"
-      FACE_LOCATOR_SELFIES_BUCKET                   = aws_s3_bucket.selfies.bucket
-      FACE_LOCATOR_PUBLIC_BASE_URL                  = var.public_base_url
-      DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
-      FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
-    }
-  }
-
-  depends_on = [
-    aws_cloudwatch_log_group.attendee_registration,
-  ]
-}
-
-resource "aws_lambda_function" "admin_events_read" {
-  function_name = local.lambda_names.admin_events_read
-  role          = aws_iam_role.admin_events_read_lambda.arn
-  runtime       = "nodejs24.x"
-  handler       = "index.handler"
-  filename      = local.lambda_package_paths.admin_events_read
-
-  source_code_hash               = try(filebase64sha256(local.lambda_package_paths.admin_events_read), null)
-  timeout                        = var.admin_events_read_lambda_timeout_seconds
-  memory_size                    = var.admin_events_read_lambda_memory_size
-  reserved_concurrent_executions = var.admin_events_read_lambda_reserved_concurrency
-
-  environment {
-    variables = {
-      LOG_LEVEL                                     = "info"
-      FACE_LOCATOR_EVENT_PHOTOS_BUCKET              = aws_s3_bucket.event_photos.bucket
-      FACE_LOCATOR_PUBLIC_BASE_URL                  = var.public_base_url
-      DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
-      DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
-      FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
-    }
-  }
-
-  depends_on = [
-    aws_cloudwatch_log_group.admin_events_read,
-  ]
-}
-
 resource "aws_lambda_function" "event_photo_worker" {
   function_name = local.lambda_names.event_photo_worker
   role          = aws_iam_role.event_photo_worker_lambda.arn
@@ -123,6 +58,7 @@ resource "aws_lambda_function" "event_photo_worker" {
       REKOGNITION_COLLECTION_ID                     = aws_rekognition_collection.attendee_faces.collection_id
       DATABASE_SECRET_NAME                          = aws_secretsmanager_secret.database.name
       DATABASE_SECRET_ARN                           = aws_secretsmanager_secret.database.arn
+      FACE_RETENTION_DAYS                           = tostring(var.rekognition_face_retention_days)
       FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED = "0"
     }
   }

@@ -1,7 +1,6 @@
 import { createApiError } from "@/lib/attendees/errors";
 import {
   completeRegistrationViaBackend,
-  getPublicRegistrationBackendMode,
 } from "@/lib/attendees/backend";
 import {
   errorResponseWithCorrelationId,
@@ -10,7 +9,6 @@ import {
   logRouteError,
   logRouteInfo,
 } from "@/lib/attendees/logging";
-import { getAttendeeRepository } from "@/lib/attendees/runtime";
 import { validateRegistrationCompleteRequest } from "@/lib/attendees/schemas";
 
 export async function POST(request: Request) {
@@ -21,12 +19,7 @@ export async function POST(request: Request) {
       throw new Error("INVALID_JSON");
     });
     const payload = validateRegistrationCompleteRequest(requestBody);
-    const response = getPublicRegistrationBackendMode() === "lambda"
-      ? await completeRegistrationViaBackend(payload)
-      : await getAttendeeRepository().completeRegistration(
-        payload.registrationId,
-        payload.uploadCompletedAt,
-      );
+    const response = await completeRegistrationViaBackend(payload);
 
     logRouteInfo("registration_upload_completed", {
       correlationId,

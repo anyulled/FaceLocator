@@ -34,15 +34,12 @@ Set these on the Amplify app or production branch:
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
 - `FACE_LOCATOR_EVENT_LOGOS_BUCKET`
-- `ADMIN_READ_BACKEND=direct`
-- `PUBLIC_REGISTRATION_BACKEND=direct`
-- `MATCH_LINK_BACKEND=direct`
 - `FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME` or `MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME`
 - `FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME` or `EVENT_PHOTO_WORKER_LAMBDA_NAME`
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME`
 - `MATCH_LINK_SIGNING_SECRET`
 
-The hosted runtime now serves public registration, admin reads, and gallery/unsubscribe flows directly from the public RDS boundary. Lambda invocation remains only for background worker actions such as manual photo matching and manual/scheduled notifications.
+The hosted runtime now serves public registration, admin reads, and gallery/unsubscribe flows directly from the public RDS boundary. Request-time Lambda mode has been removed. Lambda invocation remains only for background worker actions such as manual photo matching and manual/scheduled notifications.
 
 Operational baseline:
 

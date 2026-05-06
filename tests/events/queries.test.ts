@@ -6,10 +6,6 @@ import {
 } from "@/lib/events/queries";
 
 const queryMock = vi.fn();
-const { getPublicRegistrationBackendModeMock, getFeaturedEventSlugViaBackendMock } = vi.hoisted(() => ({
-  getPublicRegistrationBackendModeMock: vi.fn(() => "direct"),
-  getFeaturedEventSlugViaBackendMock: vi.fn(),
-}));
 
 vi.mock("@/lib/aws/database", () => ({
   getDatabasePool: async () => ({
@@ -17,18 +13,9 @@ vi.mock("@/lib/aws/database", () => ({
   }),
 }));
 
-vi.mock("@/lib/attendees/backend", () => ({
-  getPublicEventBySlugViaBackend: vi.fn(),
-  getPublicRegistrationBackendMode: getPublicRegistrationBackendModeMock,
-  getFeaturedEventSlugViaBackend: getFeaturedEventSlugViaBackendMock,
-}));
-
 describe("event queries", () => {
   beforeEach(() => {
     queryMock.mockReset();
-    getPublicRegistrationBackendModeMock.mockReset();
-    getFeaturedEventSlugViaBackendMock.mockReset();
-    getPublicRegistrationBackendModeMock.mockReturnValue("direct");
     vi.stubEnv("NODE_ENV", "test");
   });
 
@@ -45,9 +32,7 @@ describe("event queries", () => {
   });
 
   it("returns page-shell data with narrowed client form props", async () => {
-    await expect(
-      getEventRegistrationPageData("speaker-session-2026"),
-    ).resolves.toMatchObject({
+    await expect(getEventRegistrationPageData("speaker-session-2026")).resolves.toMatchObject({
       eyebrow: "Event registration",
       supportCopy: expect.stringContaining("live event record"),
       formattedScheduledAt: "June 16-17, 2026",
@@ -109,9 +94,7 @@ describe("event queries", () => {
       ],
     });
 
-    await expect(
-      getEventRegistrationPageData("cantus-laudis-2026"),
-    ).resolves.toMatchObject({
+    await expect(getEventRegistrationPageData("cantus-laudis-2026")).resolves.toMatchObject({
       slug: "cantus-laudis-2026",
       title: "Cantus Laudis",
       formattedScheduledAt: "Date to be announced",
@@ -123,7 +106,7 @@ describe("event queries", () => {
     vi.stubEnv("AWS_REGION", "us-east-1");
     vi.stubEnv("FACE_LOCATOR_EVENT_LOGOS_BUCKET", "logos");
     queryMock.mockResolvedValueOnce({
-      rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-01T00:00:00Z", endsAt: null, logoObjectKey: "l.png" }]
+      rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-01T00:00:00Z", endsAt: null, logoObjectKey: "l.png" }],
     });
     const result = await getEventBySlug("s");
     expect(result?.logoUrl).toBe("https://logos.s3.amazonaws.com/l.png");
@@ -133,98 +116,58 @@ describe("event queries", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("FACE_LOCATOR_EVENT_LOGOS_BUCKET", "");
     queryMock.mockResolvedValueOnce({
-      rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-01T00:00:00Z", endsAt: null, logoObjectKey: "l.png" }]
+      rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-01T00:00:00Z", endsAt: null, logoObjectKey: "l.png" }],
     });
     const result = await getEventBySlug("s");
     expect(result?.logoUrl).toBeUndefined();
   });
 
-  it("getFeaturedEventSlug returns latest event or empty fallback in direct mode", async () => {
+  it("getFeaturedEventSlug returns latest event or an empty fallback", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const { getFeaturedEventSlug } = await import("@/lib/events/queries");
-    
-    // Success case
+
     queryMock.mockResolvedValueOnce({ rows: [{ slug: "latest" }] });
-    expect(await getFeaturedEventSlug()).toBe("latest");
-    
-    // Empty case
+    await expect(getFeaturedEventSlug()).resolves.toBe("latest");
+
     queryMock.mockResolvedValueOnce({ rows: [] });
-    expect(await getFeaturedEventSlug()).toBe("");
-    
-    // Error case
+    await expect(getFeaturedEventSlug()).resolves.toBe("");
+
     queryMock.mockRejectedValueOnce(new Error("DB fail"));
-    expect(await getFeaturedEventSlug()).toBe("");
-  });
-
-  it("getFeaturedEventSlug uses lambda backend in production lambda mode", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    getPublicRegistrationBackendModeMock.mockReturnValue("lambda");
-    getFeaturedEventSlugViaBackendMock.mockResolvedValueOnce({ slug: "cantus-laudis" });
-
-    const { getFeaturedEventSlug } = await import("@/lib/events/queries");
-    await expect(getFeaturedEventSlug()).resolves.toBe("cantus-laudis");
-    expect(queryMock).not.toHaveBeenCalled();
-  });
-
-  it("getFeaturedEventSlug returns empty when lambda backend fails", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    getPublicRegistrationBackendModeMock.mockReturnValue("lambda");
-    getFeaturedEventSlugViaBackendMock.mockRejectedValueOnce(new Error("lambda down"));
-
-    const { getFeaturedEventSlug } = await import("@/lib/events/queries");
     await expect(getFeaturedEventSlug()).resolves.toBe("");
-    expect(queryMock).not.toHaveBeenCalled();
-  });
-
-  it("getFeaturedEventSlug returns empty when lambda returns empty slug", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    getPublicRegistrationBackendModeMock.mockReturnValue("lambda");
-    getFeaturedEventSlugViaBackendMock.mockResolvedValueOnce({ slug: "" });
-
-    const { getFeaturedEventSlug } = await import("@/lib/events/queries");
-    await expect(getFeaturedEventSlug()).resolves.toBe("");
-    expect(queryMock).not.toHaveBeenCalled();
   });
 
   it("formatEventDate handles various date combinations", async () => {
-    const { getEventRegistrationPageData } = await import("@/lib/events/queries");
     vi.stubEnv("NODE_ENV", "production");
-    
-    // Single day
+
     queryMock.mockResolvedValueOnce({ rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-01T10:00:00Z", endsAt: null }] });
     let res = await getEventRegistrationPageData("s");
     expect(res?.formattedScheduledAt).toBe("January 1, 2026");
-    
-    // Multiple days same month
+
     queryMock.mockResolvedValueOnce({ rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-01T10:00:00Z", endsAt: "2026-01-03T10:00:00Z" }] });
     res = await getEventRegistrationPageData("s");
     expect(res?.formattedScheduledAt).toBe("January 1-3, 2026");
-    
-    // Different months
+
     queryMock.mockResolvedValueOnce({ rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-31T10:00:00Z", endsAt: "2026-02-02T10:00:00Z" }] });
     res = await getEventRegistrationPageData("s");
     expect(res?.formattedScheduledAt).toBe("January 31, 2026 - February 2, 2026");
   });
 
-  it("getEventBySlug handles database error and falls back to demo if slug matches", async () => {
+  it("getEventBySlug falls back to the demo event only for the demo slug", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    queryMock.mockRejectedValueOnce(new Error("DB failure"));
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    
-    // Case 1: slug is demo event
-    const res = await getEventBySlug("speaker-session-2026");
-    expect(res?.slug).toBe("speaker-session-2026");
-    
-    // Case 2: slug is NOT demo event
+
+    queryMock.mockRejectedValueOnce(new Error("DB failure"));
+    const demoResult = await getEventBySlug("speaker-session-2026");
+    expect(demoResult?.slug).toBe("speaker-session-2026");
+
     queryMock.mockRejectedValueOnce(new Error("DB failure"));
     await expect(getEventBySlug("other")).rejects.toThrow("DB failure");
     expect(consoleSpy).toHaveBeenCalled();
   });
 
-  it("formatEventDate handles invalid end date", async () => {
-    const { getEventRegistrationPageData } = await import("@/lib/events/queries");
+  it("formatEventDate handles invalid end dates", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    
+
     queryMock.mockResolvedValueOnce({ rows: [{ slug: "s", title: "T", venue: "V", description: "D", scheduledAt: "2026-01-01T10:00:00Z", endsAt: "invalid-date" }] });
     const res = await getEventRegistrationPageData("s");
     expect(res?.formattedScheduledAt).toBe("January 1, 2026");

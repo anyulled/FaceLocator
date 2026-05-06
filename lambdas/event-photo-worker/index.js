@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 "use strict";
 
-const { SearchFacesByImageCommand, RekognitionClient } = require("@aws-sdk/client-rekognition");
+const {
+  DeleteFacesCommand,
+  SearchFacesByImageCommand,
+  RekognitionClient,
+} = require("@aws-sdk/client-rekognition");
 const { GetSecretValueCommand, SecretsManagerClient } = require("@aws-sdk/client-secrets-manager");
 const { CopyObjectCommand, HeadObjectCommand, S3Client } = require("@aws-sdk/client-s3");
 const { Client } = require("pg");
@@ -14,6 +18,7 @@ const rekognitionClient = new RekognitionClient({ region: env.awsRegion });
 const secretsClient = new SecretsManagerClient({ region: env.awsRegion });
 
 let cachedDatabaseConfig = null;
+const EXPIRED_FACE_BATCH_SIZE = 100;
 
 function getDatabaseSslConfig() {
   return process.env.FACE_LOCATOR_DATABASE_SSL_REJECT_UNAUTHORIZED === "0"
@@ -161,6 +166,94 @@ async function searchFaces(input) {
       similarity: match.Similarity || 0,
     };
   });
+}
+
+async function listExpiredFaceEnrollments(client, limit = EXPIRED_FACE_BATCH_SIZE) {
+  const result = await client.query(
+    `
+      SELECT
+        fe.id,
+        fe.event_id AS "eventId",
+        fe.attendee_id AS "attendeeId",
+        fe.rekognition_face_id AS "faceId"
+      FROM face_enrollments fe
+      WHERE fe.deleted_at IS NULL
+        AND fe.rekognition_face_id IS NOT NULL
+        AND COALESCE(fe.enrolled_at, fe.created_at) < now() - ($1::int * interval '1 day')
+      ORDER BY COALESCE(fe.enrolled_at, fe.created_at) ASC
+      LIMIT $2
+    `,
+    [env.faceRetentionDays, limit],
+  );
+
+  return result.rows;
+}
+
+async function expireFaceEnrollment(client, enrollment) {
+  await rekognitionClient.send(
+    new DeleteFacesCommand({
+      CollectionId: env.rekognitionCollectionId,
+      FaceIds: [enrollment.faceId],
+    }),
+  );
+
+  await client.query(
+    `
+      UPDATE face_enrollments
+      SET status = 'expired',
+          deleted_at = COALESCE(deleted_at, now())
+      WHERE id = $1
+        AND deleted_at IS NULL
+    `,
+    [enrollment.id],
+  );
+}
+
+async function expireExpiredFaces(client) {
+  const enrollments = await listExpiredFaceEnrollments(client);
+  let expired = 0;
+  let failed = 0;
+
+  for (const enrollment of enrollments) {
+    try {
+      await expireFaceEnrollment(client, enrollment);
+      expired += 1;
+    } catch (error) {
+      failed += 1;
+      console.error(
+        JSON.stringify({
+          scope: "event-photo-worker",
+          level: "error",
+          operation: "expireExpiredFaces",
+          eventId: enrollment.eventId,
+          attendeeId: enrollment.attendeeId,
+          faceId: enrollment.faceId,
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message, stack: error.stack }
+              : { message: String(error) },
+        }),
+      );
+    }
+  }
+
+  if (expired > 0 || failed > 0) {
+    console.info(
+      JSON.stringify({
+        scope: "event-photo-worker",
+        operation: "expireExpiredFaces",
+        retentionDays: env.faceRetentionDays,
+        expired,
+        failed,
+      }),
+    );
+  }
+
+  return {
+    scanned: enrollments.length,
+    expired,
+    failed,
+  };
 }
 
 function getObjectKeyExtension(objectKey) {
@@ -334,11 +427,14 @@ async function processPhotos(input) {
       }
     }
 
+    const expiredFaces = await expireExpiredFaces(client);
+
     return {
       eventSlug: input.eventSlug || null,
       total: rows.length,
       queued,
       failed,
+      expiredFaces,
     };
   });
 }

@@ -49,7 +49,7 @@ allow_broad_database_ingress = true
 
 ## Lambda packaging
 
-- All Lambda workers live under `lambdas/`.
+- Only the background worker Lambdas live under `lambdas/`.
 - Packaging installs runtime dependencies locally in each Lambda directory and writes zip artifacts to `build/lambdas/`.
 - Re-run packaging whenever Lambda source changes before applying Terraform.
 
@@ -76,11 +76,15 @@ Operational notes:
 ## Logs and inspection
 
 - Selfie worker log group: `/aws/lambda/<project>-<env>-selfie-enrollment`
-- Attendee registration log group: `/aws/lambda/<project>-<env>-attendee-registration`
 - Event-photo worker log group: `/aws/lambda/<project>-<env>-event-photo-worker`
 - Matched-photo notifier log group: `/aws/lambda/<project>-<env>-matched-photo-notifier`
 - Inspect bucket objects with `aws s3 ls s3://<bucket>/events/<eventId>/`.
 - If magic-link gallery images return 403, compare the direct S3 presigned URL with the `/_next/image` URL. If direct S3 returns `AccessDenied`, confirm the Amplify runtime role has the direct event-photo read policy attached.
+
+Worker schedule baseline:
+
+- Event-photo matching runs every 6 hours.
+- The same scheduled worker pass expires Rekognition faces older than 30 days.
 
 ## Data removal
 

@@ -43,4 +43,15 @@ describe("event photo worker helpers", () => {
       }),
     ).toThrow(/EVENT_PHOTOS_BUCKET_NAME/);
   });
+
+  it("defaults face retention to 30 days", () => {
+    const env = getRequiredEnv({
+      AWS_REGION: "eu-west-1",
+      EVENT_PHOTOS_BUCKET_NAME: "photos",
+      REKOGNITION_COLLECTION_ID: "faces",
+      DATABASE_SECRET_NAME: "db-secret",
+    });
+
+    expect(env.faceRetentionDays).toBe(30);
+  });
 });

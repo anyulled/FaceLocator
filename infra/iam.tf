@@ -193,100 +193,6 @@ resource "aws_iam_role_policy" "selfie_enrollment_lambda" {
   policy = data.aws_iam_policy_document.selfie_enrollment_lambda.json
 }
 
-resource "aws_iam_role" "attendee_registration_lambda" {
-  name               = "${local.lambda_names.attendee_registration}-role"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
-}
-
-data "aws_iam_policy_document" "attendee_registration_lambda" {
-  statement {
-    sid       = "AllowCreateLogGroup"
-    actions   = ["logs:CreateLogGroup"]
-    resources = ["*"]
-  }
-
-  statement {
-    sid = "AllowWriteAttendeeRegistrationLogs"
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-    ]
-    resources = ["${aws_cloudwatch_log_group.attendee_registration.arn}:*"]
-  }
-
-  statement {
-    sid       = "AllowReadDatabaseSecret"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.database.arn]
-  }
-
-  statement {
-    sid = "AllowPresignSelfieUploads"
-    actions = [
-      "s3:AbortMultipartUpload",
-      "s3:PutObject",
-      "s3:PutObjectTagging",
-    ]
-    resources = ["${aws_s3_bucket.selfies.arn}/events/*/attendees/*/*"]
-  }
-}
-
-resource "aws_iam_role_policy" "attendee_registration_lambda" {
-  name   = "${local.lambda_names.attendee_registration}-policy"
-  role   = aws_iam_role.attendee_registration_lambda.id
-  policy = data.aws_iam_policy_document.attendee_registration_lambda.json
-}
-
-resource "aws_iam_role" "admin_events_read_lambda" {
-  name               = "${local.lambda_names.admin_events_read}-role"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
-}
-
-data "aws_iam_policy_document" "admin_events_read_lambda" {
-  statement {
-    sid       = "AllowCreateLogGroup"
-    actions   = ["logs:CreateLogGroup"]
-    resources = ["*"]
-  }
-
-  statement {
-    sid = "AllowWriteAdminEventsReadLogs"
-    actions = [
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-    ]
-    resources = ["${aws_cloudwatch_log_group.admin_events_read.arn}:*"]
-  }
-
-  statement {
-    sid       = "AllowReadDatabaseSecret"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.database.arn]
-  }
-
-  statement {
-    sid = "AllowReadEventPhotoObjects"
-    actions = [
-      "s3:GetObject",
-    ]
-    resources = ["${aws_s3_bucket.event_photos.arn}/*"]
-  }
-
-  statement {
-    sid = "AllowQueueEventPhotoObjects"
-    actions = [
-      "s3:PutObject",
-    ]
-    resources = ["${aws_s3_bucket.event_photos.arn}/events/pending/*"]
-  }
-}
-
-resource "aws_iam_role_policy" "admin_events_read_lambda" {
-  name   = "${local.lambda_names.admin_events_read}-policy"
-  role   = aws_iam_role.admin_events_read_lambda.id
-  policy = data.aws_iam_policy_document.admin_events_read_lambda.json
-}
-
 resource "aws_iam_role" "event_photo_worker_lambda" {
   name               = "${local.lambda_names.event_photo_worker}-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
@@ -327,6 +233,12 @@ data "aws_iam_policy_document" "event_photo_worker_lambda" {
   statement {
     sid       = "AllowFaceSearch"
     actions   = ["rekognition:SearchFacesByImage"]
+    resources = [aws_rekognition_collection.attendee_faces.arn]
+  }
+
+  statement {
+    sid       = "AllowFaceExpiry"
+    actions   = ["rekognition:DeleteFaces"]
     resources = [aws_rekognition_collection.attendee_faces.arn]
   }
 }

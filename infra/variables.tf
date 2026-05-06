@@ -40,6 +40,12 @@ variable "matched_event_photo_retention_days" {
   default     = 30
 }
 
+variable "rekognition_face_retention_days" {
+  description = "Retention period for enrolled Rekognition faces before they are expired from the collection."
+  type        = number
+  default     = 30
+}
+
 variable "cloudwatch_log_retention_days" {
   description = "CloudWatch log retention for worker Lambdas."
   type        = number
@@ -56,24 +62,6 @@ variable "selfie_lambda_timeout_seconds" {
   description = "Timeout in seconds for the selfie enrollment Lambda."
   type        = number
   default     = 30
-}
-
-variable "admin_events_read_lambda_memory_size" {
-  description = "Memory size in MB for the admin events read Lambda."
-  type        = number
-  default     = 256
-}
-
-variable "admin_events_read_lambda_timeout_seconds" {
-  description = "Timeout in seconds for the admin events read Lambda."
-  type        = number
-  default     = 20
-}
-
-variable "admin_events_read_lambda_reserved_concurrency" {
-  description = "Reserved concurrency for the admin events read Lambda."
-  type        = number
-  default     = null
 }
 
 variable "event_photo_lambda_memory_size" {
@@ -256,5 +244,5 @@ variable "cost_budget_notification_email" {
 variable "event_photo_match_schedule_expression" {
   description = "EventBridge Scheduler expression used to trigger scheduled face matching for uploaded event photos."
   type        = string
-  default     = "rate(1 hour)"
+  default     = "rate(6 hours)"
 }

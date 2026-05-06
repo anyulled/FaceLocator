@@ -1,5 +1,4 @@
 import {
-  getPublicRegistrationBackendMode,
   getRegistrationStatusViaBackend,
 } from "@/lib/attendees/backend";
 import {
@@ -9,7 +8,6 @@ import {
   logRouteError,
   logRouteInfo,
 } from "@/lib/attendees/logging";
-import { getAttendeeRepository } from "@/lib/attendees/runtime";
 
 type RegistrationStatusRouteContext = {
   params: Promise<{
@@ -25,9 +23,7 @@ export async function GET(
 
   try {
     const { registrationId } = await context.params;
-    const response = getPublicRegistrationBackendMode() === "lambda"
-      ? await getRegistrationStatusViaBackend(registrationId)
-      : await getAttendeeRepository().getRegistrationStatus(registrationId);
+    const response = await getRegistrationStatusViaBackend(registrationId);
     logRouteInfo("registration_status_read", {
       correlationId,
       registrationId,

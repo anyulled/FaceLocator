@@ -5,12 +5,15 @@
 - Selfies expire after `selfie_retention_days`, which defaults to `30`.
 - Raw event-photo uploads under `events/pending/` expire after `unmatched_event_photo_retention_days`, which defaults to `2`.
 - Temporary derived artifacts expire after `temporary_artifact_retention_days`, which defaults to `1`.
+- Matched event photos expire after `matched_event_photo_retention_days`, which defaults to `30`.
+- Rekognition face enrollments expire after `rekognition_face_retention_days`, which defaults to `30`.
 
 ## S3 lifecycle behavior
 
 - Terraform applies lifecycle rules to both buckets.
 - The 2-day unmatched event-photo rule is implemented against the pending upload prefix.
 - If application logic decides a photo must be retained longer, it must copy or move the object out of the pending prefix before the lifecycle deadline.
+- The scheduled event-photo worker also expires Rekognition faces that have aged past the configured retention window.
 
 ## Delete workflow
 

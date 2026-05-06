@@ -16,10 +16,14 @@ import type {
   CreateEventInput,
   AdminPhotoPresignResponse,
 } from "@/lib/admin/events/contracts";
-import { listAdminEvents } from "@/lib/admin/events/repository";
+import {
+  createAdminEvent,
+  createAdminEventPhotoUpload,
+  listAdminEventSelfies,
+  listAdminEvents,
+} from "@/lib/admin/events/repository";
 import { getDatabasePool } from "@/lib/aws/database";
 
-type AdminReadBackendMode = "direct" | "lambda";
 export type AdminEventPhotoReprocessSummary = {
   eventSlug: string;
   total: number;
@@ -29,12 +33,11 @@ export type AdminEventPhotoReprocessSummary = {
 
 type AdminReadBackendErrorDetails = {
   operation: string;
-  backend: AdminReadBackendMode;
+  backend: "direct" | "lambda";
   lambdaName: string;
   response?: unknown;
 };
 
-const DEFAULT_ADMIN_READ_LAMBDA_NAME = "face-locator-poc-admin-events-read";
 const DEFAULT_EVENT_PHOTO_WORKER_LAMBDA_NAME = "face-locator-poc-event-photo-worker";
 const DEFAULT_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME = "face-locator-poc-matched-photo-notifier";
 const PHOTO_PREVIEW_TTL_SECONDS = 60 * 10;
@@ -42,12 +45,6 @@ const PHOTO_PREVIEW_RESPONSE_CONTENT_TYPE = "image/jpeg";
 
 let lambdaClient: LambdaClient | null = null;
 let s3Client: S3Client | null = null;
-const EMPTY_FACE_MATCH_SUMMARY: AdminEventPhotosPage["faceMatchSummary"] = {
-  totalMatchedFaces: 0,
-  totalRegisteredSelfies: 0,
-  totalAssociatedUsers: 0,
-  matchedFaces: [],
-};
 
 export class AdminReadBackendError extends Error {
   public readonly statusCode: number;
@@ -75,21 +72,6 @@ function readEnv(...keys: string[]) {
   }
 
   return "";
-}
-
-export function getAdminReadBackendMode(): AdminReadBackendMode {
-  const mode = readEnv("ADMIN_READ_BACKEND", "FACE_LOCATOR_ADMIN_READ_BACKEND");
-  return mode === "lambda" ? "lambda" : "direct";
-}
-
-export function getAdminEventsReadLambdaName() {
-  return (
-    readEnv(
-      "FACE_LOCATOR_ADMIN_EVENTS_READ_LAMBDA_NAME",
-      "ADMIN_EVENTS_READ_LAMBDA_NAME",
-      "ADMIN_READ_LAMBDA_NAME",
-    ) || DEFAULT_ADMIN_READ_LAMBDA_NAME
-  );
 }
 
 export function getMatchedPhotoNotifierLambdaName() {
@@ -154,75 +136,6 @@ async function buildPreviewUrl(objectKey: string) {
   }
 }
 
-async function invokeAdminReadLambda<T>(operation: string, input: unknown): Promise<T> {
-  const lambdaName = getAdminEventsReadLambdaName();
-
-  try {
-    const response = await getLambdaClient().send(
-      new InvokeCommand({
-        FunctionName: lambdaName,
-        InvocationType: "RequestResponse",
-        Payload: Buffer.from(
-          JSON.stringify({
-            operation,
-            input,
-          }),
-        ),
-      }),
-    );
-
-    const payloadText = response.Payload ? Buffer.from(response.Payload).toString("utf8") : "";
-    const payload = payloadText ? JSON.parse(payloadText) : null;
-
-    if (!payload) {
-      throw new AdminReadBackendError(
-        "Admin read backend returned an empty response. Check the Lambda logs and invocation contract.",
-        502,
-        {
-          operation,
-          backend: "lambda",
-          lambdaName,
-        },
-      );
-    }
-
-    if (typeof payload === "object" && payload !== null && "statusCode" in payload) {
-      const statusCode = Number((payload as { statusCode?: unknown }).statusCode) || 500;
-      const errorMessage =
-        typeof (payload as { errorMessage?: unknown }).errorMessage === "string"
-          ? (payload as { errorMessage: string }).errorMessage
-          : "Admin read backend failed.";
-
-      throw new AdminReadBackendError(errorMessage, statusCode, {
-        operation,
-        backend: "lambda",
-        lambdaName,
-        response: payload,
-      });
-    }
-
-    return payload as T;
-  } catch (error) {
-    if (error instanceof AdminReadBackendError) {
-      throw error;
-    }
-
-    throw new AdminReadBackendError(
-      "Admin read backend invocation failed. Check the Lambda name, IAM invoke permission, VPC configuration, and CloudWatch logs.",
-      503,
-      {
-        operation,
-        backend: "lambda",
-        lambdaName,
-        response:
-          error instanceof Error
-            ? { name: error.name, message: error.message, stack: error.stack }
-            : { message: String(error) },
-      },
-    );
-  }
-}
-
 export async function listAdminEventsViaBackend(input: {
   page: number;
   pageSize: number;
@@ -230,19 +143,10 @@ export async function listAdminEventsViaBackend(input: {
   events: AdminEventSummary[];
   totalCount: number;
 }> {
-  if (getAdminReadBackendMode() === "lambda") {
-    return invokeAdminReadLambda("listAdminEvents", input);
-  }
-
   return listAdminEvents(input);
 }
 
 export async function createAdminEventViaBackend(input: CreateEventInput): Promise<AdminEventSummary> {
-  if (getAdminReadBackendMode() === "lambda") {
-    return invokeAdminReadLambda("createAdminEvent", input);
-  }
-
-  const { createAdminEvent } = await import("@/lib/admin/events/repository");
   return createAdminEvent(input);
 }
 
@@ -251,11 +155,6 @@ export async function createAdminEventPhotoUploadViaBackend(input: {
   contentType: string;
   uploadedBy: string;
 }): Promise<AdminPhotoPresignResponse | null> {
-  if (getAdminReadBackendMode() === "lambda") {
-    return invokeAdminReadLambda("createAdminEventPhotoUpload", input);
-  }
-
-  const { createAdminEventPhotoUpload } = await import("@/lib/admin/events/repository");
   return createAdminEventPhotoUpload(input);
 }
 
@@ -264,11 +163,6 @@ export async function getAdminEventSelfiesPageViaBackend(input: {
   page: number;
   pageSize: number;
 }): Promise<AdminEventSelfiesPage> {
-  if (getAdminReadBackendMode() === "lambda") {
-    return invokeAdminReadLambda<AdminEventSelfiesPage>("getAdminEventSelfiesPage", input);
-  }
-
-  const { listAdminEventSelfies } = await import("@/lib/admin/events/repository");
   return listAdminEventSelfies(input);
 }
 
@@ -285,78 +179,9 @@ export async function getAdminEventPhotosPageViaBackend(input: {
     description: string;
     startsAt: string;
     endsAt: string;
-    logoObjectKey?: string;
+      logoObjectKey?: string;
   } | null;
 }> {
-  if (getAdminReadBackendMode() === "lambda") {
-    const payload = await invokeAdminReadLambda<
-      AdminEventPhotosPage & {
-        event: {
-          id: string;
-          slug: string;
-          title: string;
-          venue: string;
-          description: string;
-          startsAt: string;
-          endsAt: string;
-          logoObjectKey?: string;
-        } | null;
-      }
-    >("getAdminEventPhotosPage", input);
-
-    const summaryCandidate =
-      payload && typeof payload === "object" && "faceMatchSummary" in payload
-        ? (payload as { faceMatchSummary?: unknown }).faceMatchSummary
-        : undefined;
-    const summaryRecord =
-      summaryCandidate && typeof summaryCandidate === "object"
-        ? (summaryCandidate as Record<string, unknown>)
-        : null;
-    const matchedFacesRaw = summaryRecord?.matchedFaces;
-    const matchedFaces = Array.isArray(matchedFacesRaw)
-      ? matchedFacesRaw.filter((row) => row && typeof row === "object").map((row) => {
-        const candidate = row as Record<string, unknown>;
-        const matchedPhotoCountRaw = Number(candidate.matchedPhotoCount ?? 0);
-        return {
-          attendeeId: String(candidate.attendeeId ?? ""),
-          attendeeName: String(candidate.attendeeName ?? "Attendee"),
-          attendeeEmail: String(candidate.attendeeEmail ?? ""),
-          faceEnrollmentId: String(candidate.faceEnrollmentId ?? ""),
-          faceId: String(candidate.faceId ?? ""),
-          matchedPhotoCount: Number.isFinite(matchedPhotoCountRaw) ? matchedPhotoCountRaw : 0,
-          lastMatchedAt: String(candidate.lastMatchedAt ?? new Date().toISOString()),
-        } satisfies AdminEventFaceMatch;
-      })
-      : [];
-
-    const totalMatchedFacesRaw = summaryRecord?.totalMatchedFaces;
-    const totalMatchedFaces =
-      typeof totalMatchedFacesRaw === "number" && Number.isFinite(totalMatchedFacesRaw)
-        ? totalMatchedFacesRaw
-        : matchedFaces.length;
-    const totalRegisteredSelfiesRaw = summaryRecord?.totalRegisteredSelfies;
-    const totalRegisteredSelfies =
-      typeof totalRegisteredSelfiesRaw === "number" && Number.isFinite(totalRegisteredSelfiesRaw)
-        ? totalRegisteredSelfiesRaw
-        : 0;
-    const totalAssociatedUsersRaw = summaryRecord?.totalAssociatedUsers;
-    const totalAssociatedUsers =
-      typeof totalAssociatedUsersRaw === "number" && Number.isFinite(totalAssociatedUsersRaw)
-        ? totalAssociatedUsersRaw
-        : 0;
-
-    return {
-      ...payload,
-      faceMatchSummary: {
-        ...EMPTY_FACE_MATCH_SUMMARY,
-        totalMatchedFaces,
-        totalRegisteredSelfies,
-        totalAssociatedUsers,
-        matchedFaces,
-      },
-    };
-  }
-
   const pool = await getDatabasePool();
   const eventResult = await pool.query<{
     id: string;

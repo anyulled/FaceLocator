@@ -23,21 +23,6 @@ output "selfie_enrollment_lambda_name" {
   value       = aws_lambda_function.selfie_enrollment.function_name
 }
 
-output "admin_events_read_lambda_name" {
-  description = "Admin events read Lambda function name."
-  value       = aws_lambda_function.admin_events_read.function_name
-}
-
-output "attendee_registration_lambda_name" {
-  description = "Public attendee registration Lambda function name."
-  value       = aws_lambda_function.attendee_registration.function_name
-}
-
-output "admin_events_read_lambda_arn" {
-  description = "Admin events read Lambda function ARN."
-  value       = aws_lambda_function.admin_events_read.arn
-}
-
 output "event_photo_worker_lambda_name" {
   description = "Event photo worker Lambda function name."
   value       = aws_lambda_function.event_photo_worker.function_name

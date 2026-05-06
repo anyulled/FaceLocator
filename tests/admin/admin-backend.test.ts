@@ -70,6 +70,31 @@ describe("AdminReadBackendError", () => {
   });
 });
 
+describe("admin worker env resolution", () => {
+  it("falls back to the default worker lambda name", async () => {
+    delete process.env.FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME;
+    delete process.env.EVENT_PHOTO_WORKER_LAMBDA_NAME;
+
+    const { getEventPhotoWorkerLambdaName } = await import("@/lib/admin/events/backend");
+    expect(getEventPhotoWorkerLambdaName()).toBe("face-locator-poc-event-photo-worker");
+  });
+
+  it("reads the primary worker lambda env var", async () => {
+    process.env.FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME = "worker-primary";
+
+    const { getEventPhotoWorkerLambdaName } = await import("@/lib/admin/events/backend");
+    expect(getEventPhotoWorkerLambdaName()).toBe("worker-primary");
+  });
+
+  it("reads the fallback notifier env var", async () => {
+    delete process.env.FACE_LOCATOR_MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME;
+    process.env.MATCHED_PHOTO_NOTIFIER_LAMBDA_NAME = "notifier-fallback";
+
+    const { getMatchedPhotoNotifierLambdaName } = await import("@/lib/admin/events/backend");
+    expect(getMatchedPhotoNotifierLambdaName()).toBe("notifier-fallback");
+  });
+});
+
 describe("admin backend direct reads", () => {
   beforeEach(() => {
     mockedListAdminEvents.mockReset();
@@ -119,6 +144,36 @@ describe("reprocessAdminEventPhotosViaBackend", () => {
     });
   });
 
+  it("throws on an empty worker payload", async () => {
+    mockedGetDatabasePool.mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
+    } as never);
+    sendMock.mockResolvedValue({ Payload: null });
+
+    const { AdminReadBackendError, reprocessAdminEventPhotosViaBackend } = await import(
+      "@/lib/admin/events/backend"
+    );
+    await expect(reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" })).rejects.toBeInstanceOf(
+      AdminReadBackendError,
+    );
+  });
+
+  it("throws when the worker responds with a statusCode payload", async () => {
+    mockedGetDatabasePool.mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
+    } as never);
+    sendMock.mockResolvedValue({
+      Payload: encodePayload({ statusCode: 429, errorMessage: "Worker throttled" }),
+    });
+
+    const { reprocessAdminEventPhotosViaBackend } = await import("@/lib/admin/events/backend");
+    await expect(reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" })).rejects.toMatchObject({
+      name: "AdminReadBackendError",
+      statusCode: 429,
+      message: "Worker throttled",
+    });
+  });
+
   it("wraps worker invocation failures", async () => {
     mockedGetDatabasePool.mockResolvedValue({
       query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
@@ -131,6 +186,21 @@ describe("reprocessAdminEventPhotosViaBackend", () => {
     await expect(reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" })).rejects.toBeInstanceOf(
       AdminReadBackendError,
     );
+  });
+
+  it("wraps non-Error worker failures", async () => {
+    mockedGetDatabasePool.mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [{ id: "event-1" }] }),
+    } as never);
+    sendMock.mockRejectedValue("invoke failure");
+
+    const { AdminReadBackendError, reprocessAdminEventPhotosViaBackend } = await import(
+      "@/lib/admin/events/backend"
+    );
+    const error = await reprocessAdminEventPhotosViaBackend({ eventSlug: "demo" }).catch((value) => value);
+
+    expect(error).toBeInstanceOf(AdminReadBackendError);
+    expect((error as InstanceType<typeof AdminReadBackendError>).statusCode).toBe(503);
   });
 });
 
@@ -158,6 +228,36 @@ describe("sendMatchedPhotoNotificationViaBackend", () => {
     });
   });
 
+  it("throws on an empty notifier payload", async () => {
+    sendMock.mockResolvedValue({ Payload: null });
+
+    const { AdminReadBackendError, sendMatchedPhotoNotificationViaBackend } = await import(
+      "@/lib/admin/events/backend"
+    );
+    await expect(
+      sendMatchedPhotoNotificationViaBackend({
+        eventSlug: "demo",
+        attendeeId: "a1",
+      }),
+    ).rejects.toBeInstanceOf(AdminReadBackendError);
+  });
+
+  it("throws when the notifier responds with a statusCode payload", async () => {
+    sendMock.mockResolvedValue({
+      Payload: encodePayload({ statusCode: 500, errorMessage: "Lambda crashed" }),
+    });
+
+    const { AdminReadBackendError, sendMatchedPhotoNotificationViaBackend } = await import(
+      "@/lib/admin/events/backend"
+    );
+    await expect(
+      sendMatchedPhotoNotificationViaBackend({
+        eventSlug: "demo",
+        attendeeId: "a1",
+      }),
+    ).rejects.toBeInstanceOf(AdminReadBackendError);
+  });
+
   it("wraps notification invocation failures", async () => {
     sendMock.mockRejectedValue(new Error("connection refused"));
 
@@ -170,5 +270,20 @@ describe("sendMatchedPhotoNotificationViaBackend", () => {
         attendeeId: "a1",
       }),
     ).rejects.toBeInstanceOf(AdminReadBackendError);
+  });
+
+  it("wraps non-Error notifier failures", async () => {
+    sendMock.mockRejectedValue("connection refused");
+
+    const { AdminReadBackendError, sendMatchedPhotoNotificationViaBackend } = await import(
+      "@/lib/admin/events/backend"
+    );
+    const error = await sendMatchedPhotoNotificationViaBackend({
+      eventSlug: "demo",
+      attendeeId: "a1",
+    }).catch((value) => value);
+
+    expect(error).toBeInstanceOf(AdminReadBackendError);
+    expect((error as InstanceType<typeof AdminReadBackendError>).statusCode).toBe(503);
   });
 });

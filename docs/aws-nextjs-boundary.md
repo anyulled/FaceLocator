@@ -31,7 +31,7 @@ This document fixes the assumptions the Next.js backend must honor when real AWS
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
 - `FACE_LOCATOR_SELFIE_KEY_PREFIX`
 - `FACE_LOCATOR_EVENT_PHOTO_PENDING_PREFIX`
-- `FACE_LOCATOR_AWS_UPLOAD_MODE`
+- `FACE_LOCATOR_AWS_UPLOAD_MODE` only when the runtime must force the local mock upload path
 - `DATABASE_SECRET_NAME` or `FACE_LOCATOR_DATABASE_SECRET_NAME` when the app runs against the PostgreSQL repository
 - `MATCH_LINK_SIGNING_SECRET` when the hosted runtime serves gallery and unsubscribe links directly
 - `FACE_LOCATOR_EVENT_PHOTO_WORKER_LAMBDA_NAME` when the admin UI can trigger manual photo matching

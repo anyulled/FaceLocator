@@ -59,7 +59,6 @@ describe("mock upload gateway", () => {
   });
 
   it("encodes the required object metadata into the presigned upload contract", async () => {
-    process.env.FACE_LOCATOR_AWS_UPLOAD_MODE = "aws";
     process.env.FACE_LOCATOR_SELFIES_BUCKET = "selfies-bucket";
     process.env.AWS_REGION = "us-east-1";
     getSignedUrlMock.mockResolvedValue(
@@ -91,5 +90,21 @@ describe("mock upload gateway", () => {
     expect(instructions.url).toContain("x-amz-meta-registration-id=reg_123");
 
     expect(getSignedUrlMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an explicit mock override for local scaffolding", async () => {
+    process.env.FACE_LOCATOR_AWS_UPLOAD_MODE = "mock";
+    process.env.FACE_LOCATOR_SELFIES_BUCKET = "selfies-bucket";
+
+    const instructions = await createUploadGatewayFromEnv().createUploadInstructions({
+      registrationId: "reg_456",
+      attendeeId: "att_456",
+      eventSlug: "speaker-session-2026",
+      fileName: "My Selfie.JPG",
+      contentType: "image/jpeg",
+    });
+
+    expect(instructions.url).toBe("mock://upload/reg_456");
+    expect(getSignedUrlMock).not.toHaveBeenCalled();
   });
 });

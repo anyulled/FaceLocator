@@ -148,11 +148,16 @@ test.describe("Event Photo Processing E2E", () => {
       { photoId: `event-photo-1-${suffix}`, fileName: `event-photo-1-${suffix}.jpg`, path: "public/1000065600.jpg" },
       { photoId: `event-photo-2-${suffix}`, fileName: `event-photo-2-${suffix}.jpg`, path: "public/1000065602.jpg" },
     ];
+    const allowedPhotoKeysById = new Map<string, string[]>();
 
     for (const photo of photosToUpload) {
       const key = `events/pending/${E2E_EVENT_ID}/photos/${photo.fileName}`;
       eventPhotoIds.push(photo.photoId);
       eventPhotoKeys.push(key);
+      allowedPhotoKeysById.set(photo.photoId, [
+        key,
+        `events/matched/${E2E_EVENT_ID}/photos/${photo.photoId}.jpg`,
+      ]);
       
       console.log(`Uploading event photo: ${key}`);
       await s3.send(new PutObjectCommand({
@@ -166,6 +171,28 @@ test.describe("Event Photo Processing E2E", () => {
           "uploaded-by": "playwright-e2e",
         }
       }));
+    }
+
+    const uploadedPhotoRes = await pollForQueryRow<{
+      id: string;
+      object_key: string;
+      status: string;
+    }>(
+      pool,
+      `SELECT id, object_key, status
+       FROM event_photos
+       WHERE event_id = $1 AND id = ANY($2::text[])`,
+      [E2E_EVENT_ID, eventPhotoIds],
+      {
+        rowDescription: "Timed out waiting for uploaded event photo rows",
+        accept: (result) => result.rows.length === eventPhotoIds.length,
+      },
+    );
+
+    expect(uploadedPhotoRes.rows.length).toBe(eventPhotoIds.length);
+    for (const row of uploadedPhotoRes.rows) {
+      expect(eventPhotoKeys).toContain(row.object_key);
+      expect(row.status).toBe("ready_for_matching");
     }
 
     // --- STEP 3: TRIGGER MATCHING AND VERIFY RECOGNITION ---
@@ -196,14 +223,16 @@ test.describe("Event Photo Processing E2E", () => {
        WHERE event_id = $1 AND id = ANY($2::text[])`,
       [E2E_EVENT_ID, eventPhotoIds],
       {
-        rowDescription: "Timed out waiting for event photo rows",
-        accept: (result) => result.rows.length === eventPhotoIds.length,
+        rowDescription: "Timed out waiting for matched event photo rows",
+        accept: (result) =>
+          result.rows.length === eventPhotoIds.length
+          && result.rows.some((row) => row.id === photosToUpload[0].photoId && row.status === "matches_found"),
       },
     );
 
     expect(eventPhotoRes.rows.length).toBe(eventPhotoIds.length);
     for (const row of eventPhotoRes.rows) {
-      expect(eventPhotoKeys).toContain(row.object_key);
+      expect(allowedPhotoKeysById.get(row.id)).toContain(row.object_key);
     }
 
     const matchedPhoto = eventPhotoRes.rows.find((row) => row.id === photosToUpload[0].photoId);
@@ -230,7 +259,7 @@ test.describe("Event Photo Processing E2E", () => {
     expect(matchRes.rows.some((row) => row.event_photo_id === photosToUpload[0].photoId)).toBe(true);
     for (const row of matchRes.rows) {
       expect(Number(row.similarity)).toBeGreaterThanOrEqual(90);
-      expect(eventPhotoKeys).toContain(row.object_key);
+      expect(allowedPhotoKeysById.get(row.event_photo_id)).toContain(row.object_key);
     }
   });
 });

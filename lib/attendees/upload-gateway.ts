@@ -36,11 +36,12 @@ export const mockUploadGateway: UploadGateway = {
 };
 
 export function createUploadGatewayFromEnv(): UploadGateway {
-  if (process.env.FACE_LOCATOR_AWS_UPLOAD_MODE !== "aws") {
+  const uploadMode = (process.env.FACE_LOCATOR_AWS_UPLOAD_MODE || "").trim().toLowerCase();
+  if (uploadMode === "mock") {
     return mockUploadGateway;
   }
 
-  const bucketName = process.env.FACE_LOCATOR_SELFIES_BUCKET;
+  const bucketName = process.env.FACE_LOCATOR_SELFIES_BUCKET?.trim();
   if (!bucketName) {
     return mockUploadGateway;
   }

@@ -3,10 +3,12 @@ import { postgresAttendeeRepository } from "@/lib/attendees/postgres-repository"
 import { createUploadGatewayFromEnv } from "@/lib/attendees/upload-gateway";
 
 export function getAttendeeRepository() {
-  if (process.env.FACE_LOCATOR_REPOSITORY_TYPE === "postgres") {
-    return postgresAttendeeRepository;
+  const repositoryType = (process.env.FACE_LOCATOR_REPOSITORY_TYPE || "").trim().toLowerCase();
+  if (repositoryType === "memory" || repositoryType === "in-memory") {
+    return inMemoryAttendeeRepository;
   }
-  return inMemoryAttendeeRepository;
+
+  return postgresAttendeeRepository;
 }
 
 export function getUploadGateway() {

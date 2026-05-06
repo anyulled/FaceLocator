@@ -333,13 +333,14 @@ flowchart TB
 
 The app currently supports two repository modes:
 
-- `FACE_LOCATOR_REPOSITORY_TYPE=postgres` uses the PostgreSQL-backed repository
-- Any other value uses the in-memory repository
+- `FACE_LOCATOR_REPOSITORY_TYPE=postgres` is the default and uses the PostgreSQL-backed repository
+- `FACE_LOCATOR_REPOSITORY_TYPE=in-memory` is the explicit local scaffolding override
 
 Upload behavior is controlled by the AWS upload gateway configuration:
 
 - Mock mode is used when AWS upload environment variables are absent
-- AWS mode is used when the presigned upload environment is present
+- AWS mode is the default when the selfie bucket environment is present
+- `FACE_LOCATOR_AWS_UPLOAD_MODE=mock` is the explicit local scaffolding override
 
 The boundary variables are listed in [`lib/aws/boundary.ts`](/Users/anyulled/IdeaProjects/FaceLocator/lib/aws/boundary.ts) and the Next.js boundary contract in [`docs/aws-nextjs-boundary.md`](/Users/anyulled/IdeaProjects/FaceLocator/docs/aws-nextjs-boundary.md)
 

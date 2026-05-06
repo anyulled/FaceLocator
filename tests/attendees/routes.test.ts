@@ -12,6 +12,8 @@ declare global {
 describe("attendee route handlers", () => {
   beforeEach(() => {
     globalThis.__faceLocatorEnrollmentStore__ = undefined;
+    process.env.FACE_LOCATOR_REPOSITORY_TYPE = "in-memory";
+    process.env.FACE_LOCATOR_AWS_UPLOAD_MODE = "mock";
   });
 
   it("creates, completes, and resolves registration status with stable JSON shapes", async () => {

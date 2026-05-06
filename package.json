@@ -18,7 +18,7 @@
     "test:web": "pnpm test",
     "test:desktop": "pnpm --filter macos-uploader test",
     "test:e2e": "playwright test",
-    "test:e2e:live": "E2E_REQUIRE_LIVE=1 playwright test tests/e2e/web-live-happy-path.spec.ts",
+    "test:e2e:live": "E2E_REQUIRE_LIVE=1 playwright test tests/e2e/browser.spec.ts tests/e2e/event-processing.spec.ts",
     "terraform:verify": "terraform -chdir=infra validate",
     "typecheck:web": "tsc --noEmit",
     "typecheck:desktop": "pnpm --filter macos-uploader typecheck",

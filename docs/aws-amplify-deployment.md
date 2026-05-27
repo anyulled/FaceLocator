@@ -39,6 +39,7 @@ Set these on the Amplify app or production branch:
 - `MATCH_LINK_SIGNING_SECRET`
 
 `FACE_LOCATOR_AWS_UPLOAD_MODE` is optional; leave it unset for the normal S3 presign path and use `mock` only for local scaffolding.
+`FACE_LOCATOR_EVENT_LOGOS_BUCKET` should stay separate from `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`; the admin event-create path no longer falls back to the photos bucket for logo writes.
 
 The hosted runtime now serves public registration, admin reads, and gallery/unsubscribe flows directly from the public RDS boundary. Request-time Lambda mode has been removed. Lambda invocation remains only for background worker actions such as manual photo matching and manual/scheduled notifications.
 

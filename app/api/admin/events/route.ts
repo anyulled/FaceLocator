@@ -29,12 +29,11 @@ function getEventLogosBucketName() {
   const bucket = (
     process.env.FACE_LOCATOR_EVENT_LOGOS_BUCKET
     || process.env.EVENT_LOGOS_BUCKET
-    || process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET
     || ""
   ).trim();
   if (!bucket) {
     throw new Error(
-      "FACE_LOCATOR_EVENT_LOGOS_BUCKET is required (fallbacks: EVENT_LOGOS_BUCKET, FACE_LOCATOR_EVENT_PHOTOS_BUCKET)",
+      "FACE_LOCATOR_EVENT_LOGOS_BUCKET is required (fallback: EVENT_LOGOS_BUCKET)",
     );
   }
 

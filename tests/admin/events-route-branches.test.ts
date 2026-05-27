@@ -217,9 +217,8 @@ describe("events route POST — branches", () => {
     expect(body.error).toBe("S3 Upload Failed");
   });
 
-  it("uses FACE_LOCATOR_EVENT_PHOTOS_BUCKET fallback when logos bucket is missing", async () => {
+  it("returns 400 when logos bucket is missing", async () => {
     delete process.env.FACE_LOCATOR_EVENT_LOGOS_BUCKET;
-    process.env.FACE_LOCATOR_EVENT_PHOTOS_BUCKET = "photos-fallback-bucket";
 
     vi.mocked(parseCreateEventRequest).mockResolvedValue({
       payload: {
@@ -241,7 +240,10 @@ describe("events route POST — branches", () => {
       headers: { "Content-Type": "multipart/form-data" },
     }));
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: "FACE_LOCATOR_EVENT_LOGOS_BUCKET is required (fallback: EVENT_LOGOS_BUCKET)",
+    });
   });
 
   it("cleans up logo on backend failure", async () => {

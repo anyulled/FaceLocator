@@ -53,7 +53,6 @@ data "aws_iam_policy_document" "nextjs_presign" {
     ]
     resources = [
       "${aws_s3_bucket.event_logos.arn}/events/*/logos/*",
-      "${aws_s3_bucket.event_photos.arn}/events/*/logos/*",
     ]
   }
 

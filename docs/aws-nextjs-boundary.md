@@ -29,6 +29,7 @@ This document fixes the assumptions the Next.js backend must honor when real AWS
 - `AWS_REGION`
 - `FACE_LOCATOR_SELFIES_BUCKET`
 - `FACE_LOCATOR_EVENT_PHOTOS_BUCKET`
+- `FACE_LOCATOR_EVENT_LOGOS_BUCKET` for admin event-logo uploads and public event-logo URLs
 - `FACE_LOCATOR_SELFIE_KEY_PREFIX`
 - `FACE_LOCATOR_EVENT_PHOTO_PENDING_PREFIX`
 - `FACE_LOCATOR_AWS_UPLOAD_MODE` only when the runtime must force the local mock upload path

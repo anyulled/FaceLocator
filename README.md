@@ -402,6 +402,7 @@ If AWS upload variables are omitted, the app remains in mock-backed mode so loca
 
 In the current production shape, the hosted Next.js runtime reads PostgreSQL directly through the database secret and signs gallery/unsubscribe tokens directly with `MATCH_LINK_SIGNING_SECRET`.
 Lambda invocation remains for the event-photo worker and matched-photo notifier because those are background worker seams rather than request-time DB proxy seams.
+Admin event-logo uploads stay scoped to `FACE_LOCATOR_EVENT_LOGOS_BUCKET`; the app no longer falls back to the event-photos bucket for logo writes.
 
 ## AWS POC Boundaries
 

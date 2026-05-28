@@ -49,7 +49,7 @@ variable "rekognition_face_retention_days" {
 variable "cloudwatch_log_retention_days" {
   description = "CloudWatch log retention for worker Lambdas."
   type        = number
-  default     = 14
+  default     = 7
 }
 
 variable "selfie_lambda_memory_size" {

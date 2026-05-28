@@ -21,7 +21,6 @@ Amplify reads [amplify.yml](/Users/anyulled/IdeaProjects/FaceLocator/amplify.yml
 The build cache keeps:
 
 - pnpm store files
-- `node_modules`
 - `.next/cache`
 
 ## Required Amplify environment variables
@@ -153,7 +152,7 @@ This role needs:
 - `lambda:InvokeFunction` on the matched photo notifier Lambda
 - any KMS permissions only if the selected secret or bucket policy requires a customer-managed key
 
-Terraform exports the policy ARNs as `nextjs_presign_policy_arn`, `nextjs_runtime_data_access_policy_arn`, `nextjs_event_photo_worker_invoke_policy_arn`, and `nextjs_matched_photo_notifier_invoke_policy_arn`; attach those policies to the Amplify compute role.
+If `nextjs_runtime_role_name` is set in Terraform, the repo already attaches the required runtime policies to that Amplify compute role during apply. Treat the exported policy ARNs as verification outputs or a manual fallback only when you intentionally manage role attachments outside Terraform.
 
 ## GitHub repository configuration
 

@@ -8,6 +8,7 @@ ses_from_email                           = "anyulled@gmail.com"
 enable_monthly_cost_budget_alarm         = true
 monthly_cost_budget_limit_usd            = 50
 cost_budget_notification_email           = "anyulled@gmail.com"
+cloudwatch_log_retention_days            = 7
 event_photo_match_schedule_expression    = "rate(6 hours)"
 cognito_domain_prefix                    = "face-locator-poc-admin"
 cognito_callback_urls = [

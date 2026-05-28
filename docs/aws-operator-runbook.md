@@ -71,6 +71,7 @@ Operational notes:
 - Cognito admin MFA is configured as `OPTIONAL` and should be enabled for operator accounts.
 - Hosted runtime and Lambda PostgreSQL clients now use standard SSL verification and must not revert to `rejectUnauthorized: false`.
 - A monthly AWS budget alarm is expected to exist for the POC account scope.
+- Lambda worker CloudWatch logs are intentionally retained for 7 days to preserve a short troubleshooting window without keeping excess POC log storage.
 - RDS PostgreSQL log export is intentionally disabled for the POC to avoid unnecessary CloudWatch cost.
 
 ## Logs and inspection

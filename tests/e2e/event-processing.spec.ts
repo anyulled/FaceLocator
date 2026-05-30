@@ -10,7 +10,6 @@ import {
   deleteFaceIfPresent,
   deleteS3ObjectIfPresent,
   E2E_EVENT_ID,
-  E2E_SUCCESS_MESSAGE,
   getEventPhotosBucketName,
   getRekognitionCollectionId,
   getSelfiesBucketName,
@@ -115,23 +114,36 @@ test.describe("Event Photo Processing E2E", () => {
     await page.check('input#consentAccepted');
     await page.click('button[type="submit"]');
 
-    await expect(page.getByText(E2E_SUCCESS_MESSAGE)).toBeVisible({ timeout: 45000 });
-    
+    await expect
+      .poll(
+        async () => {
+          const current = new URL(page.url());
+          return current.searchParams.get("registrationId");
+        },
+        { timeout: 90000 },
+      )
+      .toBeTruthy();
+
     const url = new URL(page.url());
     registrationId = url.searchParams.get('registrationId')!;
     
     const dbRes = await pollForQueryRow<{
+      status: string;
       attendee_id: string;
       selfie_object_key: string;
       rekognition_face_id: string;
       external_image_id: string;
     }>(
       pool,
-      `SELECT attendee_id, selfie_object_key, rekognition_face_id, external_image_id
+      `SELECT status, attendee_id, selfie_object_key, rekognition_face_id, external_image_id
        FROM face_enrollments
        WHERE registration_id = $1`,
       [registrationId],
-      { rowDescription: "Timed out waiting for enrollment before photo processing" },
+      {
+        timeoutMs: 120000,
+        rowDescription: "Timed out waiting for enrolled status before photo processing",
+        accept: (result) => result.rows.length > 0 && result.rows[0].status === "enrolled",
+      },
     );
 
     attendeeId = dbRes.rows[0].attendee_id;

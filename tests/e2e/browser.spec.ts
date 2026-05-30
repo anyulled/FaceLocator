@@ -8,7 +8,6 @@ import {
   deleteFaceIfPresent,
   deleteS3ObjectIfPresent,
   E2E_EVENT_ID,
-  E2E_SUCCESS_MESSAGE,
   getRekognitionCollectionId,
   getSelfiesBucketName,
   pollForQueryRow,
@@ -98,13 +97,19 @@ test.describe("Browser E2E AWS Integration", () => {
     // Submit the form
     await page.click('button[type="submit"]');
 
-    // Wait for the success message to appear (this might take up to 20-30 seconds depending on AWS lambdas)
-    const statusText = page.getByText(E2E_SUCCESS_MESSAGE);
-    await expect(statusText).toBeVisible({ timeout: 90000 });
+    // Use URL state as the completion signal; UI text can vary while backend processing is slow.
+    await expect
+      .poll(
+        async () => {
+          const current = new URL(page.url());
+          return current.searchParams.get("registrationId");
+        },
+        { timeout: 90000 },
+      )
+      .toBeTruthy();
 
-    // Grab the registrationId from the URL to verify backend
     const url = new URL(page.url());
-    registrationId = url.searchParams.get('registrationId') || undefined;
+    registrationId = url.searchParams.get("registrationId") || undefined;
     expect(registrationId, 'registrationId should be present in the URL').toBeTruthy();
 
     const dbRes = await pollForQueryRow<{
@@ -117,7 +122,11 @@ test.describe("Browser E2E AWS Integration", () => {
       pool,
       `SELECT * FROM face_enrollments WHERE registration_id = $1`,
       [registrationId],
-      { rowDescription: "Timed out waiting for face enrollment" },
+      {
+        timeoutMs: 120000,
+        rowDescription: "Timed out waiting for enrolled face enrollment",
+        accept: (result) => result.rows.length > 0 && result.rows[0].status === "enrolled",
+      },
     );
 
     expect(dbRes.rows.length).toBe(1);

@@ -33,7 +33,7 @@ export default defineConfig({
 
   webServer: shouldStartLocalServer
     ? {
-        command: 'pnpm exec next dev --hostname 127.0.0.1 --port 3000',
+        command: 'pnpm exec next start --hostname 127.0.0.1 --port 3000',
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         ignoreHTTPSErrors: true,

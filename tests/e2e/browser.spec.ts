@@ -79,6 +79,7 @@ test.describe("Browser E2E AWS Integration", () => {
       test.fail(true, "Database pool should be available for live browser assertions.");
       return;
     }
+    test.setTimeout(90000);
 
     // Navigate to the registration page
     await page.goto(`/events/${E2E_EVENT_ID}/register`);
@@ -99,7 +100,7 @@ test.describe("Browser E2E AWS Integration", () => {
 
     // Wait for the success message to appear (this might take up to 20-30 seconds depending on AWS lambdas)
     const statusText = page.getByText(E2E_SUCCESS_MESSAGE);
-    await expect(statusText).toBeVisible({ timeout: 45000 });
+    await expect(statusText).toBeVisible({ timeout: 90000 });
 
     // Grab the registrationId from the URL to verify backend
     const url = new URL(page.url());

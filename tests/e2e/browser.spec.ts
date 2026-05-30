@@ -13,7 +13,7 @@ import {
   pollForQueryRow,
 } from "./aws-test-helpers";
 
-test.describe("Browser E2E AWS Integration", () => {
+test.describe("@live Browser E2E AWS Integration", () => {
   const { s3, rekognition } = createAwsClients();
   let pool: Pool | null = null;
   let skipReason = "";

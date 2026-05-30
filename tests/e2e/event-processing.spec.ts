@@ -16,7 +16,7 @@ import {
   pollForQueryRow,
 } from "./aws-test-helpers";
 
-test.describe("Event Photo Processing E2E", () => {
+test.describe("@live Event Photo Processing E2E", () => {
   const { s3, rekognition } = createAwsClients();
   let pool: Pool | null = null;
   let skipReason = "";

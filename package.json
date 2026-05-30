@@ -17,7 +17,7 @@
     "test:integration": "pnpm test:e2e",
     "test:web": "pnpm test",
     "test:desktop": "pnpm --filter macos-uploader test",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --grep-invert @live",
     "test:e2e:live": "playwright test tests/e2e/browser.spec.ts tests/e2e/event-processing.spec.ts",
     "terraform:verify": "terraform -chdir=infra validate",
     "typecheck:web": "tsc --noEmit",

@@ -85,6 +85,7 @@ Worker schedule baseline:
 
 - Event-photo matching runs every 6 hours.
 - The same scheduled worker pass expires Rekognition faces older than 30 days.
+- Both recurring worker schedules share one EventBridge Scheduler invoke role to keep the IAM surface small.
 
 ## Data removal
 

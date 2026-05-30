@@ -146,7 +146,7 @@ resource "aws_scheduler_schedule" "matched_photo_notifier" {
 
   target {
     arn      = aws_lambda_function.matched_photo_notifier.arn
-    role_arn = aws_iam_role.matched_photo_notifier_scheduler.arn
+    role_arn = aws_iam_role.worker_scheduler.arn
   }
 }
 
@@ -161,7 +161,7 @@ resource "aws_scheduler_schedule" "event_photo_matcher" {
 
   target {
     arn      = aws_lambda_function.event_photo_worker.arn
-    role_arn = aws_iam_role.event_photo_worker_scheduler.arn
+    role_arn = aws_iam_role.worker_scheduler.arn
     input = jsonencode({
       operation = "processReadyPhotos"
     })

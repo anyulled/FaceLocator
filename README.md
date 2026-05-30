@@ -426,6 +426,7 @@ Current infrastructure baseline (after phases 1-4) keeps:
 
 - Public single-instance RDS PostgreSQL with explicit CIDR allowlists. The current non-VPC Lambda POC uses `allow_broad_database_ingress=true` until fixed runtime egress or private networking is added.
 - Lambda backends without VPC attachment
+- Seven-day CloudWatch retention for the background worker Lambda log groups
 - No interface VPC endpoints for Secrets Manager, Rekognition, or SES
 
 Approximate recurring cost drivers for the POC:

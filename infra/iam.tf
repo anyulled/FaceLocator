@@ -305,42 +305,26 @@ resource "aws_iam_role_policy" "matched_photo_notifier_lambda" {
   policy = data.aws_iam_policy_document.matched_photo_notifier_lambda.json
 }
 
-resource "aws_iam_role" "matched_photo_notifier_scheduler" {
-  name               = "${local.lambda_names.matched_notifier}-scheduler-role"
+resource "aws_iam_role" "worker_scheduler" {
+  name               = "${local.name_prefix}-worker-scheduler-role"
   assume_role_policy = data.aws_iam_policy_document.scheduler_assume_role.json
 }
 
-data "aws_iam_policy_document" "matched_photo_notifier_scheduler" {
+data "aws_iam_policy_document" "worker_scheduler" {
   statement {
-    sid       = "AllowInvokeNotifierLambda"
+    sid       = "AllowInvokeWorkerLambdas"
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.matched_photo_notifier.arn]
+    resources = [
+      aws_lambda_function.event_photo_worker.arn,
+      aws_lambda_function.matched_photo_notifier.arn,
+    ]
   }
 }
 
-resource "aws_iam_role_policy" "matched_photo_notifier_scheduler" {
-  name   = "${local.lambda_names.matched_notifier}-scheduler-policy"
-  role   = aws_iam_role.matched_photo_notifier_scheduler.id
-  policy = data.aws_iam_policy_document.matched_photo_notifier_scheduler.json
-}
-
-resource "aws_iam_role" "event_photo_worker_scheduler" {
-  name               = "${local.lambda_names.event_photo_worker}-scheduler-role"
-  assume_role_policy = data.aws_iam_policy_document.scheduler_assume_role.json
-}
-
-data "aws_iam_policy_document" "event_photo_worker_scheduler" {
-  statement {
-    sid       = "AllowInvokeEventPhotoWorkerLambda"
-    actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.event_photo_worker.arn]
-  }
-}
-
-resource "aws_iam_role_policy" "event_photo_worker_scheduler" {
-  name   = "${local.lambda_names.event_photo_worker}-scheduler-policy"
-  role   = aws_iam_role.event_photo_worker_scheduler.id
-  policy = data.aws_iam_policy_document.event_photo_worker_scheduler.json
+resource "aws_iam_role_policy" "worker_scheduler" {
+  name   = "${local.name_prefix}-worker-scheduler-policy"
+  role   = aws_iam_role.worker_scheduler.id
+  policy = data.aws_iam_policy_document.worker_scheduler.json
 }
 
 # --- Operator Permissions ---

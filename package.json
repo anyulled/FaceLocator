@@ -18,18 +18,19 @@
     "test:web": "pnpm test",
     "test:desktop": "pnpm --filter macos-uploader test",
     "test:e2e": "playwright test",
-    "test:e2e:live": "E2E_REQUIRE_LIVE=1 playwright test tests/e2e/browser.spec.ts tests/e2e/event-processing.spec.ts",
+    "test:e2e:live": "playwright test tests/e2e/browser.spec.ts tests/e2e/event-processing.spec.ts",
     "terraform:verify": "terraform -chdir=infra validate",
     "typecheck:web": "tsc --noEmit",
     "typecheck:desktop": "pnpm --filter macos-uploader typecheck",
     "verify:precommit": "pnpm test:unit && pnpm lint:web && pnpm lint:markdown && pnpm terraform:verify",
     "verify:prepush": "pnpm run verify:prepush:web",
-    "verify:prepush:web": "pnpm typecheck:web && pnpm lint:web && pnpm test:coverage && pnpm build && pnpm test:e2e:live",
+    "verify:prepush:web": "pnpm typecheck:web && pnpm lint:web && pnpm test:coverage && pnpm build && pnpm test:e2e",
     "desktop:dev": "pnpm --filter macos-uploader dev",
     "desktop:build": "pnpm --filter macos-uploader build",
     "desktop:tauri": "pnpm --filter macos-uploader tauri build",
     "arch:generate": "structurizr-site-generatr --workspace architecture.structurizr --output docs/architecture-site",
-    "arch:serve": "cd docs/architecture-site && npx http-server -p 8080"
+    "arch:serve": "cd docs/architecture-site && npx http-server -p 8080",
+    "test:e2e:live:strict": "E2E_REQUIRE_LIVE=1 playwright test tests/e2e/browser.spec.ts tests/e2e/event-processing.spec.ts"
   },
   "dependencies": {
     "@aws-sdk/client-lambda": "^3.1032.0",

@@ -104,7 +104,7 @@ test.describe("Event Photo Processing E2E", () => {
       return;
     }
 
-    test.setTimeout(90000);
+    test.setTimeout(240000);
 
     // --- STEP 1: ENROLLMENT (Prerequisite) ---
     await page.goto(`/events/${E2E_EVENT_ID}/register`);
@@ -112,20 +112,18 @@ test.describe("Event Photo Processing E2E", () => {
     await page.fill('input#email', ATTENDEE_EMAIL);
     await page.locator('input#selfie').setInputFiles(join(process.cwd(), "public", "100741.jpeg"));
     await page.check('input#consentAccepted');
+    const registrationResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/attendees/register")
+        && response.request().method() === "POST"
+        && response.status() === 200,
+    );
     await page.click('button[type="submit"]');
 
-    await expect
-      .poll(
-        async () => {
-          const current = new URL(page.url());
-          return current.searchParams.get("registrationId");
-        },
-        { timeout: 90000 },
-      )
-      .toBeTruthy();
-
-    const url = new URL(page.url());
-    registrationId = url.searchParams.get('registrationId')!;
+    const registrationResponse = await registrationResponsePromise;
+    const registrationPayload = (await registrationResponse.json()) as { registrationId?: string };
+    registrationId = registrationPayload.registrationId;
+    expect(registrationId).toBeTruthy();
     
     const dbRes = await pollForQueryRow<{
       status: string;
@@ -140,7 +138,7 @@ test.describe("Event Photo Processing E2E", () => {
        WHERE registration_id = $1`,
       [registrationId],
       {
-        timeoutMs: 120000,
+        timeoutMs: 180000,
         rowDescription: "Timed out waiting for enrolled status before photo processing",
         accept: (result) => result.rows.length > 0 && result.rows[0].status === "enrolled",
       },

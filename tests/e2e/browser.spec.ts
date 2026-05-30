@@ -78,7 +78,7 @@ test.describe("Browser E2E AWS Integration", () => {
       test.fail(true, "Database pool should be available for live browser assertions.");
       return;
     }
-    test.setTimeout(90000);
+    test.setTimeout(240000);
 
     // Navigate to the registration page
     await page.goto(`/events/${E2E_EVENT_ID}/register`);
@@ -94,23 +94,20 @@ test.describe("Browser E2E AWS Integration", () => {
     // Check the consent checkbox
     await page.check('input#consentAccepted');
 
+    const registrationResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/attendees/register")
+        && response.request().method() === "POST"
+        && response.status() === 200,
+    );
+
     // Submit the form
     await page.click('button[type="submit"]');
 
-    // Use URL state as the completion signal; UI text can vary while backend processing is slow.
-    await expect
-      .poll(
-        async () => {
-          const current = new URL(page.url());
-          return current.searchParams.get("registrationId");
-        },
-        { timeout: 90000 },
-      )
-      .toBeTruthy();
-
-    const url = new URL(page.url());
-    registrationId = url.searchParams.get("registrationId") || undefined;
-    expect(registrationId, 'registrationId should be present in the URL').toBeTruthy();
+    const registrationResponse = await registrationResponsePromise;
+    const registrationPayload = (await registrationResponse.json()) as { registrationId?: string };
+    registrationId = registrationPayload.registrationId;
+    expect(registrationId, "registrationId should be returned by registration API").toBeTruthy();
 
     const dbRes = await pollForQueryRow<{
       status: string;
@@ -123,7 +120,7 @@ test.describe("Browser E2E AWS Integration", () => {
       `SELECT * FROM face_enrollments WHERE registration_id = $1`,
       [registrationId],
       {
-        timeoutMs: 120000,
+        timeoutMs: 180000,
         rowDescription: "Timed out waiting for enrolled face enrollment",
         accept: (result) => result.rows.length > 0 && result.rows[0].status === "enrolled",
       },

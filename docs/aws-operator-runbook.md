@@ -72,6 +72,7 @@ Operational notes:
 - Hosted runtime and Lambda PostgreSQL clients now use standard SSL verification and must not revert to `rejectUnauthorized: false`.
 - A monthly AWS budget alarm is expected to exist for the POC account scope.
 - RDS PostgreSQL log export is intentionally disabled for the POC to avoid unnecessary CloudWatch cost.
+- Worker Lambda log groups should stay on the 7-day retention baseline unless a debugging incident justifies a temporary increase.
 
 ## Logs and inspection
 

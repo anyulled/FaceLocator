@@ -21,6 +21,7 @@ Do not use the AWS root user for daily development, Terraform applies, Lambda in
 ## Deployer expectations
 
 - Export `AWS_PROFILE=<named-operator-profile>` before running Terraform scripts.
+- Operator discovery access is owned by that profile or role outside this Terraform stack; the app repo does not attach IAM policies to human users.
 - Use `scripts/tf-init.sh` and `scripts/tf-apply.sh` rather than root credentials or ad hoc console clicks.
 
 ## GitHub Actions OIDC trust
